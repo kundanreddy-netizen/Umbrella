@@ -1,2 +1,2 @@
 # Umbrella
-Umbrella HOA Community App
+Umbrella Social app
