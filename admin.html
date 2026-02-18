@@ -618,6 +618,40 @@
                     <div class="section-header">
                         <h2 class="section-title">All Support Tickets</h2>
                     </div>
+                    
+                    <!-- Filters -->
+                    <div style="display: flex; gap: 15px; margin-bottom: 20px; flex-wrap: wrap;">
+                        <input type="text" id="ticketSearch" placeholder="🔍 Search by title, resident, or unit..." 
+                               style="flex: 1; min-width: 250px; padding: 10px 15px; border: 2px solid #e0e0e0; border-radius: 8px; font-size: 14px;"
+                               oninput="filterTickets()">
+                        <select id="ticketStatusFilter" onchange="filterTickets()" 
+                                style="padding: 10px 15px; border: 2px solid #e0e0e0; border-radius: 8px; font-size: 14px;">
+                            <option value="">All Status</option>
+                            <option value="open">Open</option>
+                            <option value="assigned">Assigned</option>
+                            <option value="in-progress">In Progress</option>
+                            <option value="resolved">Resolved</option>
+                            <option value="closed">Closed</option>
+                        </select>
+                        <select id="ticketPriorityFilter" onchange="filterTickets()" 
+                                style="padding: 10px 15px; border: 2px solid #e0e0e0; border-radius: 8px; font-size: 14px;">
+                            <option value="">All Priority</option>
+                            <option value="urgent">Urgent</option>
+                            <option value="high">High</option>
+                            <option value="medium">Medium</option>
+                            <option value="low">Low</option>
+                        </select>
+                        <select id="ticketCategoryFilter" onchange="filterTickets()" 
+                                style="padding: 10px 15px; border: 2px solid #e0e0e0; border-radius: 8px; font-size: 14px;">
+                            <option value="">All Categories</option>
+                            <option value="plumbing">Plumbing</option>
+                            <option value="electrical">Electrical</option>
+                            <option value="cleaning">Cleaning</option>
+                            <option value="security">Security</option>
+                            <option value="other">Other</option>
+                        </select>
+                    </div>
+                    
                     <div id="ticketsList">
                         <div class="empty-state">
                             <div class="empty-icon">🔧</div>
@@ -858,6 +892,8 @@
             }
         }
 
+        let allTickets = [];
+
         // Load All Tickets
         async function loadAllTickets() {
             const container = document.getElementById('ticketsList');
@@ -874,44 +910,91 @@
                     return;
                 }
 
-                // Sort tickets by date
-                const tickets = [];
-                snapshot.forEach(doc => tickets.push({ id: doc.id, ...doc.data() }));
-                tickets.sort((a, b) => {
+                // Store all tickets for filtering
+                allTickets = [];
+                snapshot.forEach(doc => allTickets.push({ id: doc.id, ...doc.data() }));
+                
+                // Sort by date
+                allTickets.sort((a, b) => {
                     const dateA = a.createdAt ? a.createdAt.toMillis() : 0;
                     const dateB = b.createdAt ? b.createdAt.toMillis() : 0;
                     return dateB - dateA;
                 });
 
-                let html = '<table class="table"><thead><tr><th>Ticket</th><th>Resident</th><th>Category</th><th>Priority</th><th>Status</th><th>Actions</th></tr></thead><tbody>';
-                
-                tickets.forEach(data => {
-                    const date = data.createdAt ? data.createdAt.toDate().toLocaleDateString() : 'Recent';
-                    
-                    html += `
-                        <tr>
-                            <td>
-                                <strong>${data.title || 'Untitled'}</strong><br>
-                                <small style="color:#999">${date}</small>
-                            </td>
-                            <td>${data.residentName || 'Unknown'}<br><small style="color:#999">Unit ${data.unitNumber || 'N/A'}</small></td>
-                            <td><span class="badge badge-${data.category}">${data.category || 'general'}</span></td>
-                            <td><span class="badge badge-${data.priority}">${data.priority || 'medium'}</span></td>
-                            <td><span class="badge badge-${data.status}">${data.status || 'open'}</span></td>
-                            <td>
-                                <button class="btn btn-primary btn-small" onclick="viewTicket('${data.id}')">View</button>
-                                ${data.status !== 'resolved' ? `<button class="btn btn-success btn-small" onclick="resolveTicket('${data.id}')">Resolve</button>` : ''}
-                            </td>
-                        </tr>
-                    `;
-                });
-                
-                html += '</tbody></table>';
-                container.innerHTML = html;
+                displayTickets(allTickets);
             } catch (error) {
                 console.error('Error loading tickets:', error);
                 container.innerHTML = `<div class="alert alert-error">Error loading tickets: ${error.message}</div>`;
             }
+        }
+
+        function displayTickets(tickets) {
+            const container = document.getElementById('ticketsList');
+            
+            if (tickets.length === 0) {
+                container.innerHTML = `
+                    <div class="empty-state">
+                        <div class="empty-icon">🔍</div>
+                        <div class="empty-text">No tickets match your filters</div>
+                    </div>
+                `;
+                return;
+            }
+
+            let html = '<table class="table"><thead><tr><th>Ticket</th><th>Resident</th><th>Category</th><th>Priority</th><th>Status</th><th>Actions</th></tr></thead><tbody>';
+            
+            tickets.forEach(data => {
+                const date = data.createdAt ? data.createdAt.toDate().toLocaleDateString() : 'Recent';
+                
+                html += `
+                    <tr>
+                        <td>
+                            <strong>${data.title || 'Untitled'}</strong><br>
+                            <small style="color:#999">${date}</small>
+                        </td>
+                        <td>${data.residentName || 'Unknown'}<br><small style="color:#999">Unit ${data.unitNumber || 'N/A'}</small></td>
+                        <td><span class="badge badge-${data.category}">${data.category || 'general'}</span></td>
+                        <td><span class="badge badge-${data.priority}">${data.priority || 'medium'}</span></td>
+                        <td><span class="badge badge-${data.status}">${data.status || 'open'}</span></td>
+                        <td>
+                            <button class="btn btn-primary btn-small" onclick="viewTicket('${data.id}')">View</button>
+                            ${data.status !== 'resolved' ? `<button class="btn btn-success btn-small" onclick="resolveTicket('${data.id}')">Resolve</button>` : ''}
+                        </td>
+                    </tr>
+                `;
+            });
+            
+            html += '</tbody></table>';
+            container.innerHTML = html;
+        }
+
+        function filterTickets() {
+            const searchTerm = document.getElementById('ticketSearch').value.toLowerCase();
+            const statusFilter = document.getElementById('ticketStatusFilter').value;
+            const priorityFilter = document.getElementById('ticketPriorityFilter').value;
+            const categoryFilter = document.getElementById('ticketCategoryFilter').value;
+
+            let filtered = allTickets.filter(ticket => {
+                // Search filter
+                const matchesSearch = !searchTerm || 
+                    (ticket.title || '').toLowerCase().includes(searchTerm) ||
+                    (ticket.residentName || '').toLowerCase().includes(searchTerm) ||
+                    (ticket.unitNumber || '').toLowerCase().includes(searchTerm) ||
+                    (ticket.description || '').toLowerCase().includes(searchTerm);
+
+                // Status filter
+                const matchesStatus = !statusFilter || ticket.status === statusFilter;
+
+                // Priority filter
+                const matchesPriority = !priorityFilter || ticket.priority === priorityFilter;
+
+                // Category filter
+                const matchesCategory = !categoryFilter || ticket.category === categoryFilter;
+
+                return matchesSearch && matchesStatus && matchesPriority && matchesCategory;
+            });
+
+            displayTickets(filtered);
         }
 
         // Create Announcement

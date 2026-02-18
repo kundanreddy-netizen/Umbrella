@@ -1,0 +1,1384 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="default">
+    <meta name="apple-mobile-web-app-title" content="Umbrella">
+    <title>Umbrella</title>
+    
+    <!-- Firebase SDK -->
+    <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-auth-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-storage-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-analytics-compat.js"></script>
+    
+    <!-- QR Code Library -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+    
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+        }
+
+        /* Loading Screen */
+        .loading-screen {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            z-index: 9999;
+        }
+
+        .loading-screen .logo {
+            width: 100px;
+            height: 100px;
+            margin-bottom: 30px;
+            animation: pulse 2s infinite;
+        }
+
+        .spinner {
+            border: 4px solid rgba(255,255,255,0.3);
+            border-top: 4px solid white;
+            border-radius: 50%;
+            width: 50px;
+            height: 50px;
+            animation: spin 1s linear infinite;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        @keyframes pulse {
+            0%, 100% { opacity: 1; transform: scale(1); }
+            50% { opacity: 0.8; transform: scale(0.95); }
+        }
+
+        /* Auth Screen */
+        .auth-screen {
+            display: none;
+            max-width: 400px;
+            margin: 40px auto;
+            padding: 20px;
+        }
+
+        .auth-container {
+            background: white;
+            border-radius: 20px;
+            padding: 40px 30px;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+        }
+
+        .logo-auth {
+            width: 80px;
+            height: 80px;
+            margin: 0 auto 20px;
+            display: block;
+        }
+
+        .auth-title {
+            text-align: center;
+            color: #667eea;
+            font-size: 28px;
+            font-weight: 700;
+            margin-bottom: 10px;
+        }
+
+        .auth-subtitle {
+            text-align: center;
+            color: #666;
+            margin-bottom: 30px;
+            font-size: 14px;
+        }
+
+        .input-group {
+            margin-bottom: 20px;
+        }
+
+        .input-group label {
+            display: block;
+            margin-bottom: 8px;
+            font-weight: 600;
+            color: #333;
+            font-size: 14px;
+        }
+
+        .input-group input {
+            width: 100%;
+            padding: 12px;
+            border: 2px solid #e0e0e0;
+            border-radius: 8px;
+            font-size: 16px;
+            transition: border-color 0.3s;
+        }
+
+        .input-group input:focus {
+            outline: none;
+            border-color: #667eea;
+        }
+
+        .btn {
+            width: 100%;
+            padding: 14px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            border-radius: 8px;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: transform 0.2s;
+            margin-bottom: 10px;
+        }
+
+        .btn:hover {
+            transform: translateY(-2px);
+        }
+
+        .btn:active {
+            transform: scale(0.98);
+        }
+
+        .btn:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+        }
+
+        .btn-secondary {
+            background: #f0f0f0;
+            color: #667eea;
+        }
+
+        .toggle-auth {
+            text-align: center;
+            margin-top: 20px;
+            color: #666;
+            font-size: 14px;
+        }
+
+        .toggle-auth a {
+            color: #667eea;
+            text-decoration: none;
+            font-weight: 600;
+        }
+
+        .error-message {
+            background: #fee;
+            color: #c00;
+            padding: 12px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            font-size: 14px;
+            display: none;
+        }
+
+        .error-message.show {
+            display: block;
+        }
+
+        /* Main App */
+        .main-app {
+            display: none;
+            padding-bottom: 80px;
+        }
+
+        .header {
+            background: white;
+            padding: 15px 20px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            position: sticky;
+            top: 0;
+            z-index: 100;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .header-left {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .logo-small {
+            width: 40px;
+            height: 40px;
+        }
+
+        .app-title {
+            font-size: 20px;
+            font-weight: 700;
+            color: #667eea;
+        }
+
+        .user-menu {
+            position: relative;
+        }
+
+        .user-avatar {
+            width: 36px;
+            height: 36px;
+            border-radius: 50%;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: 600;
+            cursor: pointer;
+        }
+
+        .dropdown-menu {
+            display: none;
+            position: absolute;
+            right: 0;
+            top: 45px;
+            background: white;
+            border-radius: 8px;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.15);
+            min-width: 180px;
+            z-index: 1000;
+        }
+
+        .dropdown-menu.show {
+            display: block;
+        }
+
+        .dropdown-item {
+            padding: 12px 16px;
+            cursor: pointer;
+            border-bottom: 1px solid #f0f0f0;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .dropdown-item:last-child {
+            border-bottom: none;
+        }
+
+        .dropdown-item:hover {
+            background: #f8f9fa;
+        }
+
+        /* Navigation Tabs */
+        .tab-nav {
+            display: flex;
+            background: white;
+            padding: 5px;
+            margin: 15px;
+            border-radius: 12px;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+            overflow-x: auto;
+            -webkit-overflow-scrolling: touch;
+        }
+
+        .tab-btn {
+            flex: 1;
+            min-width: 100px;
+            padding: 10px 8px;
+            background: transparent;
+            border: none;
+            border-radius: 8px;
+            font-size: 13px;
+            font-weight: 600;
+            cursor: pointer;
+            color: #666;
+            transition: all 0.3s;
+            white-space: nowrap;
+        }
+
+        .tab-btn.active {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+        }
+
+        /* Content Area */
+        .content-area {
+            padding: 0 15px 20px;
+        }
+
+        .tab-content {
+            display: none;
+        }
+
+        .tab-content.active {
+            display: block;
+        }
+
+        /* Cards */
+        .card {
+            background: white;
+            border-radius: 12px;
+            padding: 20px;
+            margin-bottom: 15px;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+        }
+
+        .card-title {
+            font-size: 18px;
+            font-weight: 600;
+            color: #333;
+            margin-bottom: 10px;
+        }
+
+        .card-subtitle {
+            font-size: 12px;
+            color: #999;
+            margin-bottom: 10px;
+        }
+
+        .card-content {
+            font-size: 15px;
+            color: #555;
+            line-height: 1.6;
+        }
+
+        /* Empty State */
+        .empty-state {
+            text-align: center;
+            padding: 60px 20px;
+            color: white;
+        }
+
+        .empty-icon {
+            font-size: 64px;
+            margin-bottom: 15px;
+            opacity: 0.5;
+        }
+
+        .empty-text {
+            font-size: 18px;
+            margin-bottom: 10px;
+        }
+
+        .empty-subtext {
+            font-size: 14px;
+            opacity: 0.8;
+        }
+
+        /* Floating Action Button */
+        .fab {
+            position: fixed;
+            bottom: 20px;
+            right: 20px;
+            width: 56px;
+            height: 56px;
+            border-radius: 50%;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            border: none;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.3);
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-size: 24px;
+            transition: transform 0.2s;
+            z-index: 99;
+        }
+
+        .fab:active {
+            transform: scale(0.9);
+        }
+
+        /* Modal */
+        .modal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0,0,0,0.5);
+            z-index: 1000;
+            overflow-y: auto;
+        }
+
+        .modal.show {
+            display: block;
+        }
+
+        .modal-content {
+            background: white;
+            border-radius: 20px 20px 0 0;
+            margin: 50px auto 0;
+            max-width: 500px;
+            min-height: calc(100vh - 50px);
+            padding: 30px 20px;
+        }
+
+        .modal-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 25px;
+        }
+
+        .modal-title {
+            font-size: 22px;
+            font-weight: 700;
+            color: #333;
+        }
+
+        .modal-close {
+            font-size: 28px;
+            color: #999;
+            cursor: pointer;
+            background: none;
+            border: none;
+            padding: 0;
+            width: 30px;
+            height: 30px;
+        }
+
+        /* Badge */
+        .badge {
+            display: inline-block;
+            padding: 4px 12px;
+            border-radius: 12px;
+            font-size: 11px;
+            font-weight: 600;
+            margin-top: 8px;
+        }
+
+        .badge-alert { background: #fee; color: #c00; }
+        .badge-event { background: #e3f2fd; color: #1976d2; }
+        .badge-maintenance { background: #fff3e0; color: #f57c00; }
+        .badge-social { background: #f3e5f5; color: #7b1fa2; }
+        .badge-emergency { background: #ffebee; color: #c62828; }
+
+        .badge-open { background: #fff3cd; color: #856404; }
+        .badge-assigned { background: #cce5ff; color: #004085; }
+        .badge-in-progress { background: #d1ecf1; color: #0c5460; }
+        .badge-resolved { background: #d4edda; color: #155724; }
+        .badge-closed { background: #e2e3e5; color: #383d41; }
+
+        /* Utility Classes */
+        .text-center { text-align: center; }
+        .mt-20 { margin-top: 20px; }
+        .mb-20 { margin-bottom: 20px; }
+        .hidden { display: none !important; }
+    </style>
+</head>
+<body>
+    <!-- Loading Screen -->
+    <div class="loading-screen" id="loadingScreen">
+        <svg class="logo" viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg">
+            <path d="M50 20 C30 20, 15 30, 15 45 L15 50 C15 50, 20 60, 50 60 C80 60, 85 50, 85 50 L85 45 C85 30, 70 20, 50 20 Z" fill="white"/>
+            <rect x="48" y="55" width="4" height="35" fill="white" rx="2"/>
+            <path d="M48 85 C48 85, 42 95, 35 95" stroke="white" stroke-width="3" fill="none" stroke-linecap="round"/>
+        </svg>
+        <div class="spinner"></div>
+    </div>
+
+    <!-- Auth Screen -->
+    <div class="auth-screen" id="authScreen">
+        <div class="auth-container">
+            <svg class="logo-auth" viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg">
+                <path d="M50 20 C30 20, 15 30, 15 45 L15 50 C15 50, 20 60, 50 60 C80 60, 85 50, 85 50 L85 45 C85 30, 70 20, 50 20 Z" fill="#667eea"/>
+                <rect x="48" y="55" width="4" height="35" fill="#764ba2" rx="2"/>
+                <path d="M48 85 C48 85, 42 95, 35 95" stroke="#764ba2" stroke-width="3" fill="none" stroke-linecap="round"/>
+            </svg>
+            
+            <h1 class="auth-title">☂️ Umbrella</h1>
+            <p class="auth-subtitle">Your HOA Community App</p>
+
+            <div class="error-message" id="authError"></div>
+
+            <!-- Login Form -->
+            <div id="loginForm">
+                <div class="input-group">
+                    <label>Email</label>
+                    <input type="email" id="loginEmail" placeholder="your@email.com" autocomplete="email">
+                </div>
+
+                <div class="input-group">
+                    <label>Password</label>
+                    <input type="password" id="loginPassword" placeholder="Enter your password" autocomplete="current-password">
+                </div>
+
+                <button class="btn" onclick="login()">Sign In</button>
+
+                <div class="toggle-auth">
+                    Don't have an account? <a href="#" onclick="showSignup(); return false;">Sign Up</a>
+                </div>
+            </div>
+
+            <!-- Signup Form -->
+            <div id="signupForm" class="hidden">
+                <div class="input-group">
+                    <label>Full Name</label>
+                    <input type="text" id="signupName" placeholder="John Doe">
+                </div>
+
+                <div class="input-group">
+                    <label>Email</label>
+                    <input type="email" id="signupEmail" placeholder="your@email.com" autocomplete="email">
+                </div>
+
+                <div class="input-group">
+                    <label>Unit Number</label>
+                    <input type="text" id="signupUnit" placeholder="101">
+                </div>
+
+                <div class="input-group">
+                    <label>Phone</label>
+                    <input type="tel" id="signupPhone" placeholder="555-1234">
+                </div>
+
+                <div class="input-group">
+                    <label>Password</label>
+                    <input type="password" id="signupPassword" placeholder="Choose a password" autocomplete="new-password">
+                </div>
+
+                <button class="btn" onclick="signup()">Create Account</button>
+
+                <div class="toggle-auth">
+                    Already have an account? <a href="#" onclick="showLogin(); return false;">Sign In</a>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Main App -->
+    <div class="main-app" id="mainApp">
+        <!-- Header -->
+        <div class="header">
+            <div class="header-left">
+                <svg class="logo-small" viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg">
+                    <path d="M50 20 C30 20, 15 30, 15 45 L15 50 C15 50, 20 60, 50 60 C80 60, 85 50, 85 50 L85 45 C85 30, 70 20, 50 20 Z" fill="#667eea"/>
+                    <rect x="48" y="55" width="4" height="35" fill="#764ba2" rx="2"/>
+                    <path d="M48 85 C48 85, 42 95, 35 95" stroke="#764ba2" stroke-width="3" fill="none" stroke-linecap="round"/>
+                </svg>
+                <div class="app-title">Umbrella</div>
+            </div>
+            <div class="user-menu">
+                <div class="user-avatar" onclick="toggleUserMenu()" id="userAvatar">A</div>
+                <div class="dropdown-menu" id="dropdownMenu">
+                    <div class="dropdown-item" onclick="viewProfile()">
+                        👤 My Profile
+                    </div>
+                    <div class="dropdown-item" onclick="logout()">
+                        🚪 Sign Out
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Tab Navigation -->
+        <div class="tab-nav">
+            <button class="tab-btn active" onclick="switchTab('announcements')">📢 News</button>
+            <button class="tab-btn" onclick="switchTab('directory')">👥 Directory</button>
+            <button class="tab-btn" onclick="switchTab('visitors')">🚗 Visitors</button>
+            <button class="tab-btn" onclick="switchTab('tickets')">🔧 Helpdesk</button>
+        </div>
+
+        <!-- Content Area -->
+        <div class="content-area">
+            <!-- Announcements Tab -->
+            <div id="announcementsContent" class="tab-content active">
+                <div class="empty-state">
+                    <div class="empty-icon">📢</div>
+                    <div class="empty-text">No announcements yet</div>
+                    <div class="empty-subtext">Check back later for updates</div>
+                </div>
+            </div>
+
+            <!-- Directory Tab -->
+            <div id="directoryContent" class="tab-content">
+                <div class="empty-state">
+                    <div class="empty-icon">👥</div>
+                    <div class="empty-text">Loading residents...</div>
+                </div>
+            </div>
+
+            <!-- Visitors Tab -->
+            <div id="visitorsContent" class="tab-content">
+                <div class="empty-state">
+                    <div class="empty-icon">🚗</div>
+                    <div class="empty-text">No visitor passes yet</div>
+                    <div class="empty-subtext">Tap + to create a visitor pass</div>
+                </div>
+            </div>
+
+            <!-- Tickets Tab -->
+            <div id="ticketsContent" class="tab-content">
+                <div class="empty-state">
+                    <div class="empty-icon">🔧</div>
+                    <div class="empty-text">No tickets yet</div>
+                    <div class="empty-subtext">Tap + to submit a request</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Floating Action Button -->
+        <button class="fab hidden" id="fab" onclick="openCreateModal()">+</button>
+    </div>
+
+    <!-- Modal for Creating Content -->
+    <div class="modal" id="createModal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2 class="modal-title" id="modalTitle">Create</h2>
+                <button class="modal-close" onclick="closeModal()">&times;</button>
+            </div>
+            <div id="modalBody">
+                <!-- Dynamic content will be loaded here -->
+            </div>
+        </div>
+    </div>
+
+    <!-- QR Code Modal for Visitor Pass -->
+    <div class="modal" id="qrModal">
+        <div class="modal-content" style="text-align: center;">
+            <div class="modal-header">
+                <h2 class="modal-title">Visitor Pass</h2>
+                <button class="modal-close" onclick="closeQRModal()">&times;</button>
+            </div>
+            <div id="qrModalBody" style="padding: 20px;">
+                <!-- QR code will be displayed here -->
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // ========================================
+        // FIREBASE CONFIGURATION
+        // ========================================
+        const firebaseConfig = {
+            apiKey: "AIzaSyDY_2X7mk9eCM24sVj0glrJhG7n2PSAff8",
+            authDomain: "umbrella-6b57a.firebaseapp.com",
+            projectId: "umbrella-6b57a",
+            storageBucket: "umbrella-6b57a.firebasestorage.app",
+            messagingSenderId: "636033970250",
+            appId: "1:636033970250:web:a49918b1f0d6e46cdcb6b3",
+            measurementId: "G-Y7VH8K070Z"
+        };
+
+        // Initialize Firebase
+        firebase.initializeApp(firebaseConfig);
+        const auth = firebase.auth();
+        const db = firebase.firestore();
+        const storage = firebase.storage();
+        const analytics = firebase.analytics();
+
+        // Current user
+        let currentUser = null;
+        let currentTab = 'announcements';
+
+        // ========================================
+        // AUTHENTICATION
+        // ========================================
+        
+        // Check auth state
+        auth.onAuthStateChanged(async (user) => {
+            console.log('Auth state changed:', user?.email);
+            
+            if (user) {
+                currentUser = user;
+                
+                // Get user data from Firestore
+                const userDoc = await db.collection('users').doc(user.uid).get();
+                if (userDoc.exists) {
+                    const userData = userDoc.data();
+                    currentUser.displayName = userData.name;
+                    currentUser.role = userData.role;
+                    currentUser.unitNumber = userData.unitNumber;
+                    
+                    // Update UI
+                    document.getElementById('userAvatar').textContent = userData.name.charAt(0).toUpperCase();
+                    
+                    showMainApp();
+                    loadAllData();
+                } else {
+                    // User exists in auth but not in Firestore - need to create profile
+                    showAuth();
+                }
+            } else {
+                showAuth();
+            }
+        });
+
+        function showLogin() {
+            document.getElementById('loginForm').classList.remove('hidden');
+            document.getElementById('signupForm').classList.add('hidden');
+            clearAuthError();
+        }
+
+        function showSignup() {
+            document.getElementById('loginForm').classList.add('hidden');
+            document.getElementById('signupForm').classList.remove('hidden');
+            clearAuthError();
+        }
+
+        async function login() {
+            const email = document.getElementById('loginEmail').value.trim();
+            const password = document.getElementById('loginPassword').value;
+
+            if (!email || !password) {
+                showAuthError('Please fill in all fields');
+                return;
+            }
+
+            try {
+                await auth.signInWithEmailAndPassword(email, password);
+                // Auth state change will handle the rest
+            } catch (error) {
+                console.error('Login error:', error);
+                showAuthError(error.message);
+            }
+        }
+
+        async function signup() {
+            const name = document.getElementById('signupName').value.trim();
+            const email = document.getElementById('signupEmail').value.trim();
+            const unit = document.getElementById('signupUnit').value.trim();
+            const phone = document.getElementById('signupPhone').value.trim();
+            const password = document.getElementById('signupPassword').value;
+
+            if (!name || !email || !unit || !phone || !password) {
+                showAuthError('Please fill in all fields');
+                return;
+            }
+
+            if (password.length < 6) {
+                showAuthError('Password must be at least 6 characters');
+                return;
+            }
+
+            try {
+                // Create user in Firebase Auth
+                const userCredential = await auth.createUserWithEmailAndPassword(email, password);
+                const user = userCredential.user;
+
+                // Create user document in Firestore
+                await db.collection('users').doc(user.uid).set({
+                    email: email,
+                    name: name,
+                    unitNumber: unit,
+                    phone: phone,
+                    role: 'resident',
+                    isApproved: false, // Admin needs to approve
+                    createdAt: firebase.firestore.FieldValue.serverTimestamp()
+                });
+
+                // Also create resident document
+                await db.collection('residents').add({
+                    userId: user.uid,
+                    name: name,
+                    email: email,
+                    phone: phone,
+                    unitNumber: unit,
+                    moveInDate: firebase.firestore.FieldValue.serverTimestamp(),
+                    familyMembers: [],
+                    vehicles: [],
+                    pets: [],
+                    emergencyContacts: [],
+                    privacySettings: {
+                        showPhone: true,
+                        showEmail: true,
+                        showInDirectory: true
+                    }
+                });
+
+                // Auth state change will handle the rest
+            } catch (error) {
+                console.error('Signup error:', error);
+                showAuthError(error.message);
+            }
+        }
+
+        async function logout() {
+            try {
+                await auth.signOut();
+                // Auth state change will handle showing login screen
+            } catch (error) {
+                console.error('Logout error:', error);
+                alert('Error signing out. Please try again.');
+            }
+        }
+
+        function showAuthError(message) {
+            const errorDiv = document.getElementById('authError');
+            errorDiv.textContent = message;
+            errorDiv.classList.add('show');
+        }
+
+        function clearAuthError() {
+            const errorDiv = document.getElementById('authError');
+            errorDiv.textContent = '';
+            errorDiv.classList.remove('show');
+        }
+
+        // ========================================
+        // UI STATE MANAGEMENT
+        // ========================================
+
+        function showAuth() {
+            document.getElementById('loadingScreen').style.display = 'none';
+            document.getElementById('authScreen').style.display = 'block';
+            document.getElementById('mainApp').style.display = 'none';
+        }
+
+        function showMainApp() {
+            document.getElementById('loadingScreen').style.display = 'none';
+            document.getElementById('authScreen').style.display = 'none';
+            document.getElementById('mainApp').style.display = 'block';
+        }
+
+        function toggleUserMenu() {
+            document.getElementById('dropdownMenu').classList.toggle('show');
+        }
+
+        // Close dropdown when clicking outside
+        document.addEventListener('click', (e) => {
+            if (!e.target.closest('.user-menu')) {
+                document.getElementById('dropdownMenu').classList.remove('show');
+            }
+        });
+
+        function switchTab(tabName) {
+            // Update buttons
+            document.querySelectorAll('.tab-btn').forEach(btn => {
+                btn.classList.remove('active');
+            });
+            event.target.classList.add('active');
+
+            // Update content
+            document.querySelectorAll('.tab-content').forEach(content => {
+                content.classList.remove('active');
+            });
+            document.getElementById(tabName + 'Content').classList.add('active');
+
+            currentTab = tabName;
+
+            // Show/hide FAB based on tab
+            const fab = document.getElementById('fab');
+            if (tabName === 'visitors' || tabName === 'tickets') {
+                fab.classList.remove('hidden');
+            } else {
+                fab.classList.add('hidden');
+            }
+        }
+
+        // ========================================
+        // LOAD DATA
+        // ========================================
+
+        function loadAllData() {
+            loadAnnouncements();
+            loadDirectory();
+            loadVisitors();
+            loadTickets();
+        }
+
+        async function loadAnnouncements() {
+            const container = document.getElementById('announcementsContent');
+            
+            try {
+                const snapshot = await db.collection('announcements')
+                    .orderBy('createdAt', 'desc')
+                    .limit(20)
+                    .get();
+
+                if (snapshot.empty) {
+                    container.innerHTML = `
+                        <div class="empty-state">
+                            <div class="empty-icon">📢</div>
+                            <div class="empty-text">No announcements yet</div>
+                            <div class="empty-subtext">Check back later for updates</div>
+                        </div>
+                    `;
+                    return;
+                }
+
+                let html = '';
+                snapshot.forEach(doc => {
+                    const data = doc.data();
+                    const date = data.createdAt ? data.createdAt.toDate().toLocaleDateString() : 'Recent';
+                    
+                    html += `
+                        <div class="card">
+                            <div class="card-title">${data.title || 'Announcement'}</div>
+                            <div class="card-subtitle">${date} • ${data.author || 'Admin'}</div>
+                            <div class="card-content">${data.message || ''}</div>
+                            ${data.category ? `<span class="badge badge-${data.category}">${data.category}</span>` : ''}
+                        </div>
+                    `;
+                });
+
+                container.innerHTML = html;
+            } catch (error) {
+                console.error('Error loading announcements:', error);
+                container.innerHTML = `
+                    <div class="empty-state">
+                        <div class="empty-icon">❌</div>
+                        <div class="empty-text">Error loading announcements</div>
+                        <div class="empty-subtext">${error.message}</div>
+                    </div>
+                `;
+            }
+        }
+
+        async function loadDirectory() {
+            const container = document.getElementById('directoryContent');
+            
+            try {
+                // Simple query - no composite index needed
+                const snapshot = await db.collection('residents').get();
+
+                if (snapshot.empty) {
+                    container.innerHTML = `
+                        <div class="empty-state">
+                            <div class="empty-icon">👥</div>
+                            <div class="empty-text">No residents in directory</div>
+                        </div>
+                    `;
+                    return;
+                }
+
+                let html = '';
+                // Sort by unit number in JS instead of Firestore
+                const residents = [];
+                snapshot.forEach(doc => residents.push({ id: doc.id, ...doc.data() }));
+                residents
+                    .filter(r => !r.privacySettings || r.privacySettings.showInDirectory !== false)
+                    .sort((a, b) => (a.unitNumber || '').localeCompare(b.unitNumber || ''))
+                    .forEach(data => {
+                        let details = '';
+                        if (!data.privacySettings || data.privacySettings.showPhone !== false) {
+                            if (data.phone) details += `<div><strong>Phone:</strong> ${data.phone}</div>`;
+                        }
+                        if (!data.privacySettings || data.privacySettings.showEmail !== false) {
+                            if (data.email) details += `<div><strong>Email:</strong> ${data.email}</div>`;
+                        }
+
+                        html += `
+                            <div class="card">
+                                <div class="card-title">${data.name || 'Resident'}</div>
+                                <div class="card-subtitle">Unit ${data.unitNumber || 'N/A'}</div>
+                                <div class="card-content">${details}</div>
+                            </div>
+                        `;
+                    });
+
+                container.innerHTML = html || `<div class="empty-state"><div class="empty-icon">👥</div><div class="empty-text">No residents found</div></div>`;
+            } catch (error) {
+                console.error('Error loading directory:', error);
+                container.innerHTML = `
+                    <div class="empty-state">
+                        <div class="empty-icon">❌</div>
+                        <div class="empty-text">Error loading directory</div>
+                        <div class="empty-subtext">${error.message}</div>
+                    </div>
+                `;
+            }
+        }
+
+        async function loadVisitors() {
+            const container = document.getElementById('visitorsContent');
+            
+            try {
+                // Simple query - filter only, no orderBy to avoid index requirement
+                const snapshot = await db.collection('visitors')
+                    .where('residentId', '==', currentUser.uid)
+                    .get();
+
+                if (snapshot.empty) {
+                    container.innerHTML = `
+                        <div class="empty-state">
+                            <div class="empty-icon">🚗</div>
+                            <div class="empty-text">No visitor passes yet</div>
+                            <div class="empty-subtext">Tap + to create a visitor pass</div>
+                        </div>
+                    `;
+                    return;
+                }
+
+                // Sort in JS to avoid composite index
+                const visitors = [];
+                snapshot.forEach(doc => visitors.push({ id: doc.id, ...doc.data() }));
+                visitors.sort((a, b) => {
+                    const dateA = a.createdAt ? a.createdAt.toMillis() : 0;
+                    const dateB = b.createdAt ? b.createdAt.toMillis() : 0;
+                    return dateB - dateA;
+                });
+
+                let html = '';
+                visitors.forEach(data => {
+                    const date = data.visitDate ? data.visitDate.toDate().toLocaleDateString() : 'TBD';
+                    
+                    html += `
+                        <div class="card" onclick="viewVisitorQR('${data.id}', '${data.visitorName || 'Visitor'}', '${data.qrCode || ''}', '${date}')">
+                            <div class="card-title">${data.visitorName || 'Visitor'}</div>
+                            <div class="card-subtitle">Visit: ${date}</div>
+                            <div class="card-content">
+                                ${data.visitorPhone ? `<div><strong>Phone:</strong> ${data.visitorPhone}</div>` : ''}
+                                ${data.vehicleNumber ? `<div><strong>Vehicle:</strong> ${data.vehicleNumber}</div>` : ''}
+                                ${data.purpose ? `<div><strong>Purpose:</strong> ${data.purpose}</div>` : ''}
+                                ${data.qrCode ? `<div style="margin-top:10px;"><strong>Pass Code:</strong> <code style="background:#f0f0f0;padding:4px 8px;border-radius:4px;font-size:13px;">${data.qrCode}</code></div>` : ''}
+                            </div>
+                            <span class="badge badge-${data.status || 'pending'}">${data.status || 'pending'}</span>
+                            ${data.qrCode ? '<div style="margin-top:10px;color:#667eea;font-size:12px;font-weight:600;">📱 Tap to view QR code</div>' : ''}
+                        </div>
+                    `;
+                });
+
+                container.innerHTML = html;
+            } catch (error) {
+                console.error('Error loading visitors:', error);
+                container.innerHTML = `
+                    <div class="empty-state">
+                        <div class="empty-icon">❌</div>
+                        <div class="empty-text">Error loading visitors</div>
+                        <div class="empty-subtext">${error.message}</div>
+                    </div>
+                `;
+            }
+        }
+
+        async function loadTickets() {
+            const container = document.getElementById('ticketsContent');
+            
+            try {
+                // Simple query - filter only, no orderBy to avoid index requirement
+                const snapshot = await db.collection('tickets')
+                    .where('residentId', '==', currentUser.uid)
+                    .get();
+
+                if (snapshot.empty) {
+                    container.innerHTML = `
+                        <div class="empty-state">
+                            <div class="empty-icon">🔧</div>
+                            <div class="empty-text">No tickets yet</div>
+                            <div class="empty-subtext">Tap + to submit a request</div>
+                        </div>
+                    `;
+                    return;
+                }
+
+                // Sort in JS to avoid composite index
+                const tickets = [];
+                snapshot.forEach(doc => tickets.push({ id: doc.id, ...doc.data() }));
+                tickets.sort((a, b) => {
+                    const dateA = a.createdAt ? a.createdAt.toMillis() : 0;
+                    const dateB = b.createdAt ? b.createdAt.toMillis() : 0;
+                    return dateB - dateA;
+                });
+
+                let html = '';
+                tickets.forEach(data => {
+                    const date = data.createdAt ? data.createdAt.toDate().toLocaleDateString() : 'Recent';
+                    
+                    html += `
+                        <div class="card">
+                            <div class="card-title">${data.title || 'Support Ticket'}</div>
+                            <div class="card-subtitle">${date} • ${data.category || 'General'}</div>
+                            <div class="card-content">${data.description || ''}</div>
+                            <span class="badge badge-${data.status || 'open'}">${data.status || 'open'}</span>
+                        </div>
+                    `;
+                });
+
+                container.innerHTML = html;
+            } catch (error) {
+                console.error('Error loading tickets:', error);
+                container.innerHTML = `
+                    <div class="empty-state">
+                        <div class="empty-icon">❌</div>
+                        <div class="empty-text">Error loading tickets</div>
+                        <div class="empty-subtext">${error.message}</div>
+                    </div>
+                `;
+            }
+        }
+
+        // ========================================
+        // MODAL & CREATE ACTIONS
+        // ========================================
+
+        function openCreateModal() {
+            const modal = document.getElementById('createModal');
+            const modalTitle = document.getElementById('modalTitle');
+            const modalBody = document.getElementById('modalBody');
+
+            if (currentTab === 'visitors') {
+                modalTitle.textContent = 'Create Visitor Pass';
+                modalBody.innerHTML = `
+                    <div class="input-group">
+                        <label>Visitor Name</label>
+                        <input type="text" id="visitorName" placeholder="John Smith">
+                    </div>
+                    <div class="input-group">
+                        <label>Phone Number</label>
+                        <input type="tel" id="visitorPhone" placeholder="555-1234">
+                    </div>
+                    <div class="input-group">
+                        <label>Vehicle Number</label>
+                        <input type="text" id="visitorVehicle" placeholder="ABC-1234">
+                    </div>
+                    <div class="input-group">
+                        <label>Visit Date</label>
+                        <input type="date" id="visitDate">
+                    </div>
+                    <div class="input-group">
+                        <label>Purpose</label>
+                        <input type="text" id="visitPurpose" placeholder="Delivery, Guest, etc.">
+                    </div>
+                    <button class="btn" onclick="createVisitor()">Create Visitor Pass</button>
+                `;
+            } else if (currentTab === 'tickets') {
+                modalTitle.textContent = 'Submit Helpdesk Ticket';
+                modalBody.innerHTML = `
+                    <div class="input-group">
+                        <label>Title</label>
+                        <input type="text" id="ticketTitle" placeholder="Brief description">
+                    </div>
+                    <div class="input-group">
+                        <label>Category</label>
+                        <select id="ticketCategory" style="width:100%;padding:12px;border:2px solid #e0e0e0;border-radius:8px;">
+                            <option value="plumbing">Plumbing</option>
+                            <option value="electrical">Electrical</option>
+                            <option value="cleaning">Cleaning</option>
+                            <option value="security">Security</option>
+                            <option value="other">Other</option>
+                        </select>
+                    </div>
+                    <div class="input-group">
+                        <label>Priority</label>
+                        <select id="ticketPriority" style="width:100%;padding:12px;border:2px solid #e0e0e0;border-radius:8px;">
+                            <option value="low">Low</option>
+                            <option value="medium">Medium</option>
+                            <option value="high">High</option>
+                            <option value="urgent">Urgent</option>
+                        </select>
+                    </div>
+                    <div class="input-group">
+                        <label>Description</label>
+                        <textarea id="ticketDescription" placeholder="Describe the issue in detail" style="width:100%;padding:12px;border:2px solid #e0e0e0;border-radius:8px;min-height:100px;font-family:inherit;"></textarea>
+                    </div>
+                    <div class="input-group">
+                        <label>Location</label>
+                        <input type="text" id="ticketLocation" placeholder="Unit 101, Lobby, etc.">
+                    </div>
+                    <button class="btn" onclick="createTicket()">Submit Ticket</button>
+                `;
+            }
+
+            modal.classList.add('show');
+        }
+
+        function closeModal() {
+            document.getElementById('createModal').classList.remove('show');
+        }
+
+        async function createVisitor() {
+            const name = document.getElementById('visitorName').value.trim();
+            const phone = document.getElementById('visitorPhone').value.trim();
+            const vehicle = document.getElementById('visitorVehicle').value.trim();
+            const date = document.getElementById('visitDate').value;
+            const purpose = document.getElementById('visitPurpose').value.trim();
+
+            if (!name || !phone || !date) {
+                alert('Please fill in required fields (Name, Phone, Date)');
+                return;
+            }
+
+            try {
+                await db.collection('visitors').add({
+                    residentId: currentUser.uid,
+                    residentName: currentUser.displayName,
+                    residentUnit: currentUser.unitNumber,
+                    visitorName: name,
+                    visitorPhone: phone,
+                    vehicleNumber: vehicle,
+                    visitDate: firebase.firestore.Timestamp.fromDate(new Date(date)),
+                    purpose: purpose,
+                    status: 'pending',
+                    qrCode: generateQRCode(),
+                    createdAt: firebase.firestore.FieldValue.serverTimestamp()
+                });
+
+                closeModal();
+                loadVisitors();
+                alert('Visitor pass created successfully!');
+            } catch (error) {
+                console.error('Error creating visitor:', error);
+                alert('Error creating visitor pass: ' + error.message);
+            }
+        }
+
+        async function createTicket() {
+            const title = document.getElementById('ticketTitle').value.trim();
+            const category = document.getElementById('ticketCategory').value;
+            const priority = document.getElementById('ticketPriority').value;
+            const description = document.getElementById('ticketDescription').value.trim();
+            const location = document.getElementById('ticketLocation').value.trim();
+
+            if (!title || !description) {
+                alert('Please fill in required fields (Title, Description)');
+                return;
+            }
+
+            try {
+                await db.collection('tickets').add({
+                    residentId: currentUser.uid,
+                    residentName: currentUser.displayName,
+                    unitNumber: currentUser.unitNumber,
+                    title: title,
+                    category: category,
+                    priority: priority,
+                    description: description,
+                    location: location,
+                    status: 'open',
+                    photos: [],
+                    comments: [],
+                    createdAt: firebase.firestore.FieldValue.serverTimestamp()
+                });
+
+                closeModal();
+                loadTickets();
+                alert('Ticket submitted successfully!');
+            } catch (error) {
+                console.error('Error creating ticket:', error);
+                alert('Error submitting ticket: ' + error.message);
+            }
+        }
+
+        function generateQRCode() {
+            return 'UMBRELLA-' + Date.now().toString(36).toUpperCase() + '-' + Math.random().toString(36).substr(2, 4).toUpperCase();
+        }
+
+        function viewProfile() {
+            alert('Profile page coming soon!');
+        }
+
+        function viewVisitorQR(visitorId, visitorName, qrCode, visitDate) {
+            if (!qrCode) {
+                alert('QR code not available for this visitor pass');
+                return;
+            }
+
+            const modalBody = document.getElementById('qrModalBody');
+            modalBody.innerHTML = `
+                <div style="margin-bottom: 20px;">
+                    <h3 style="color: #667eea; margin-bottom: 10px;">${visitorName}</h3>
+                    <p style="color: #666; margin-bottom: 20px;">Visit Date: ${visitDate}</p>
+                </div>
+                <div id="qrcode-container" style="display: inline-block; padding: 20px; background: white; border-radius: 12px; box-shadow: 0 4px 15px rgba(0,0,0,0.1);"></div>
+                <div style="margin-top: 20px; padding: 15px; background: #f8f9fa; border-radius: 8px;">
+                    <div style="font-size: 12px; color: #666; margin-bottom: 8px;">Pass Code:</div>
+                    <div style="font-family: monospace; font-size: 16px; font-weight: 700; color: #333; letter-spacing: 1px;">${qrCode}</div>
+                </div>
+                <div style="margin-top: 20px;">
+                    <button class="btn btn-primary" style="width: 100%; margin-bottom: 10px;" onclick="shareVisitorPass('${visitorName}', '${qrCode}', '${visitDate}')">
+                        📤 Share Pass
+                    </button>
+                    <button class="btn btn-secondary" style="width: 100%;" onclick="downloadQRCode('${visitorName}')">
+                        💾 Download QR Code
+                    </button>
+                </div>
+                <div style="margin-top: 20px; font-size: 13px; color: #999; line-height: 1.6;">
+                    Share this QR code with your visitor. Security can scan it at the gate for quick entry.
+                </div>
+            `;
+
+            // Generate QR code
+            document.getElementById('qrModal').classList.add('show');
+            
+            // Wait for modal to be visible, then generate QR
+            setTimeout(() => {
+                const qrContainer = document.getElementById('qrcode-container');
+                qrContainer.innerHTML = ''; // Clear previous QR code
+                new QRCode(qrContainer, {
+                    text: qrCode,
+                    width: 200,
+                    height: 200,
+                    colorDark: "#667eea",
+                    colorLight: "#ffffff",
+                    correctLevel: QRCode.CorrectLevel.H
+                });
+            }, 100);
+        }
+
+        function closeQRModal() {
+            document.getElementById('qrModal').classList.remove('show');
+        }
+
+        async function shareVisitorPass(visitorName, qrCode, visitDate) {
+            const shareText = `Umbrella Visitor Pass\n\nVisitor: ${visitorName}\nDate: ${visitDate}\nPass Code: ${qrCode}\n\nShow this at security gate for entry.`;
+            
+            if (navigator.share) {
+                try {
+                    await navigator.share({
+                        title: 'Umbrella Visitor Pass',
+                        text: shareText
+                    });
+                } catch (error) {
+                    if (error.name !== 'AbortError') {
+                        copyToClipboard(shareText);
+                    }
+                }
+            } else {
+                copyToClipboard(shareText);
+            }
+        }
+
+        function copyToClipboard(text) {
+            if (navigator.clipboard) {
+                navigator.clipboard.writeText(text).then(() => {
+                    alert('✅ Pass details copied to clipboard!');
+                });
+            } else {
+                // Fallback for older browsers
+                const textArea = document.createElement('textarea');
+                textArea.value = text;
+                document.body.appendChild(textArea);
+                textArea.select();
+                document.execCommand('copy');
+                document.body.removeChild(textArea);
+                alert('✅ Pass details copied to clipboard!');
+            }
+        }
+
+        function downloadQRCode(visitorName) {
+            const canvas = document.querySelector('#qrcode-container canvas');
+            if (canvas) {
+                const link = document.createElement('a');
+                link.download = `umbrella-visitor-${visitorName.replace(/\s+/g, '-')}.png`;
+                link.href = canvas.toDataURL();
+                link.click();
+                alert('✅ QR code downloaded!');
+            } else {
+                alert('❌ Error downloading QR code. Please try again.');
+            }
+        }
+
+        // Close modal when clicking outside
+        document.getElementById('createModal').addEventListener('click', (e) => {
+            if (e.target.id === 'createModal') {
+                closeModal();
+            }
+        });
+    </script>
+</body>
+</html>
