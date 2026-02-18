@@ -599,11 +599,34 @@
 
             <!-- Residents Tab -->
             <div id="residentsTab" class="tab-content">
+                <!-- Pending Approvals Section -->
                 <div class="section">
                     <div class="section-header">
                         <h2 class="section-title">Pending Resident Approvals</h2>
                     </div>
                     <div id="residentsList">
+                        <div class="empty-state">
+                            <div class="empty-icon">👥</div>
+                            <div class="empty-text">Loading residents...</div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- All Residents Section -->
+                <div class="section" style="margin-top: 25px;">
+                    <div class="section-header">
+                        <h2 class="section-title">All Residents</h2>
+                        <button class="btn btn-primary" onclick="exportResidents()">📊 Export to Excel</button>
+                    </div>
+                    
+                    <!-- Search Bar -->
+                    <div style="margin-bottom: 20px;">
+                        <input type="text" id="residentSearch" placeholder="🔍 Search by name, unit, email, or phone..." 
+                               style="width: 100%; padding: 12px 15px; border: 2px solid #e0e0e0; border-radius: 8px; font-size: 14px;"
+                               oninput="filterResidents()">
+                    </div>
+                    
+                    <div id="allResidentsList">
                         <div class="empty-state">
                             <div class="empty-icon">👥</div>
                             <div class="empty-text">Loading residents...</div>
@@ -754,6 +777,7 @@
             loadStats();
             loadAnnouncements();
             loadPendingResidents();
+            loadAllResidents();
             loadAllTickets();
         });
 
@@ -892,7 +916,217 @@
             }
         }
 
+        // Load All Residents
+        async function loadAllResidents() {
+            const container = document.getElementById('allResidentsList');
+            try {
+                const snapshot = await db.collection('residents').get();
+
+                if (snapshot.empty) {
+                    container.innerHTML = `
+                        <div class="empty-state">
+                            <div class="empty-icon">👥</div>
+                            <div class="empty-text">No residents yet</div>
+                        </div>
+                    `;
+                    return;
+                }
+
+                // Store all residents for filtering and export
+                allResidentsData = [];
+                snapshot.forEach(doc => allResidentsData.push({ id: doc.id, ...doc.data() }));
+                
+                // Sort by unit number
+                allResidentsData.sort((a, b) => {
+                    const unitA = a.unitNumber || '';
+                    const unitB = b.unitNumber || '';
+                    return unitA.localeCompare(unitB);
+                });
+
+                displayAllResidents(allResidentsData);
+            } catch (error) {
+                console.error('Error loading all residents:', error);
+                container.innerHTML = `<div class="alert alert-error">Error loading residents: ${error.message}</div>`;
+            }
+        }
+
+        function displayAllResidents(residents) {
+            const container = document.getElementById('allResidentsList');
+            
+            if (residents.length === 0) {
+                container.innerHTML = `
+                    <div class="empty-state">
+                        <div class="empty-icon">🔍</div>
+                        <div class="empty-text">No residents match your search</div>
+                    </div>
+                `;
+                return;
+            }
+
+            let html = '<table class="table"><thead><tr><th>Unit</th><th>Name</th><th>Contact</th><th>Move-In</th><th>Actions</th></tr></thead><tbody>';
+            
+            residents.forEach(data => {
+                const moveInDate = data.moveInDate ? data.moveInDate.toDate().toLocaleDateString() : 'N/A';
+                const vehicleCount = data.vehicles ? data.vehicles.length : 0;
+                const petCount = data.pets ? data.pets.length : 0;
+                
+                html += `
+                    <tr>
+                        <td><strong>Unit ${data.unitNumber || 'N/A'}</strong></td>
+                        <td>
+                            <strong>${data.name || 'Unknown'}</strong><br>
+                            ${data.familyMembers && data.familyMembers.length > 0 ? 
+                                `<small style="color:#999">+${data.familyMembers.length} family member(s)</small>` : ''}
+                        </td>
+                        <td>
+                            ${data.phone ? `📱 ${data.phone}<br>` : ''}
+                            ${data.email ? `📧 ${data.email}` : ''}
+                        </td>
+                        <td>
+                            ${moveInDate}<br>
+                            ${vehicleCount > 0 ? `<small style="color:#999">🚗 ${vehicleCount} vehicle(s)</small><br>` : ''}
+                            ${petCount > 0 ? `<small style="color:#999">🐕 ${petCount} pet(s)</small>` : ''}
+                        </td>
+                        <td>
+                            <button class="btn btn-primary btn-small" onclick="viewResidentDetails('${data.id}')">View</button>
+                            <button class="btn btn-danger btn-small" onclick="deleteResident('${data.id}')">Delete</button>
+                        </td>
+                    </tr>
+                `;
+            });
+            
+            html += '</tbody></table>';
+            container.innerHTML = html;
+        }
+
+        function filterResidents() {
+            const searchTerm = document.getElementById('residentSearch').value.toLowerCase();
+
+            const filtered = allResidentsData.filter(resident => {
+                return (resident.name || '').toLowerCase().includes(searchTerm) ||
+                       (resident.unitNumber || '').toLowerCase().includes(searchTerm) ||
+                       (resident.email || '').toLowerCase().includes(searchTerm) ||
+                       (resident.phone || '').toLowerCase().includes(searchTerm);
+            });
+
+            displayAllResidents(filtered);
+        }
+
+        function viewResidentDetails(residentId) {
+            const resident = allResidentsData.find(r => r.id === residentId);
+            if (!resident) {
+                alert('Resident not found');
+                return;
+            }
+
+            let detailsHtml = `
+                <div style="line-height: 1.8;">
+                    <h3 style="margin-bottom: 15px; color: #667eea;">${resident.name || 'Unknown'}</h3>
+                    
+                    <div style="margin-bottom: 20px;">
+                        <strong>Unit:</strong> ${resident.unitNumber || 'N/A'}<br>
+                        <strong>Phone:</strong> ${resident.phone || 'N/A'}<br>
+                        <strong>Email:</strong> ${resident.email || 'N/A'}<br>
+                        <strong>Move-In Date:</strong> ${resident.moveInDate ? resident.moveInDate.toDate().toLocaleDateString() : 'N/A'}
+                    </div>
+            `;
+
+            if (resident.familyMembers && resident.familyMembers.length > 0) {
+                detailsHtml += `
+                    <div style="margin-bottom: 20px;">
+                        <strong>Family Members:</strong>
+                        <ul style="margin-top: 8px;">
+                            ${resident.familyMembers.map(fm => `<li>${fm.name || 'N/A'} (${fm.relation || 'N/A'})</li>`).join('')}
+                        </ul>
+                    </div>
+                `;
+            }
+
+            if (resident.vehicles && resident.vehicles.length > 0) {
+                detailsHtml += `
+                    <div style="margin-bottom: 20px;">
+                        <strong>Vehicles:</strong>
+                        <ul style="margin-top: 8px;">
+                            ${resident.vehicles.map(v => `<li>${v.make || ''} ${v.model || ''} - ${v.licensePlate || 'N/A'}</li>`).join('')}
+                        </ul>
+                    </div>
+                `;
+            }
+
+            if (resident.pets && resident.pets.length > 0) {
+                detailsHtml += `
+                    <div style="margin-bottom: 20px;">
+                        <strong>Pets:</strong>
+                        <ul style="margin-top: 8px;">
+                            ${resident.pets.map(p => `<li>${p.name || 'N/A'} (${p.type || 'N/A'})</li>`).join('')}
+                        </ul>
+                    </div>
+                `;
+            }
+
+            if (resident.emergencyContacts && resident.emergencyContacts.length > 0) {
+                detailsHtml += `
+                    <div style="margin-bottom: 20px;">
+                        <strong>Emergency Contacts:</strong>
+                        <ul style="margin-top: 8px;">
+                            ${resident.emergencyContacts.map(ec => `<li>${ec.name || 'N/A'} (${ec.relation || 'N/A'}) - ${ec.phone || 'N/A'}</li>`).join('')}
+                        </ul>
+                    </div>
+                `;
+            }
+
+            detailsHtml += '</div>';
+
+            document.getElementById('ticketDetails').innerHTML = detailsHtml;
+            document.getElementById('viewTicketModal').classList.add('show');
+        }
+
+        async function deleteResident(residentId) {
+            if (!confirm('Are you sure you want to delete this resident? This action cannot be undone.')) return;
+
+            try {
+                await db.collection('residents').doc(residentId).delete();
+                loadAllResidents();
+                loadStats();
+                alert('Resident deleted successfully');
+            } catch (error) {
+                console.error('Error deleting resident:', error);
+                alert('Error deleting resident: ' + error.message);
+            }
+        }
+
+        function exportResidents() {
+            if (allResidentsData.length === 0) {
+                alert('No residents to export');
+                return;
+            }
+
+            // Create CSV content
+            let csv = 'Unit,Name,Phone,Email,Move-In Date,Vehicles,Pets,Family Members\n';
+            
+            allResidentsData.forEach(resident => {
+                const moveInDate = resident.moveInDate ? resident.moveInDate.toDate().toLocaleDateString() : 'N/A';
+                const vehicles = resident.vehicles ? resident.vehicles.length : 0;
+                const pets = resident.pets ? resident.pets.length : 0;
+                const family = resident.familyMembers ? resident.familyMembers.length : 0;
+                
+                csv += `"${resident.unitNumber || 'N/A'}","${resident.name || 'Unknown'}","${resident.phone || 'N/A'}","${resident.email || 'N/A'}","${moveInDate}","${vehicles}","${pets}","${family}"\n`;
+            });
+
+            // Download CSV
+            const blob = new Blob([csv], { type: 'text/csv' });
+            const url = window.URL.createObjectURL(blob);
+            const link = document.createElement('a');
+            link.href = url;
+            link.download = `umbrella-residents-${new Date().toISOString().split('T')[0]}.csv`;
+            link.click();
+            window.URL.revokeObjectURL(url);
+            
+            alert('✅ Residents list exported successfully!');
+        }
+
         let allTickets = [];
+        let allResidentsData = [];
 
         // Load All Tickets
         async function loadAllTickets() {
