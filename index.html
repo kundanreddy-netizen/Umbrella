@@ -229,8 +229,33 @@
             color: #667eea;
         }
 
-        .user-menu {
-            position: relative;
+        .header-right {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .refresh-btn {
+            width: 36px;
+            height: 36px;
+            border-radius: 50%;
+            background: #f0f0f0;
+            border: none;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 18px;
+            transition: all 0.3s;
+        }
+
+        .refresh-btn:active {
+            transform: rotate(180deg);
+            background: #667eea;
+        }
+
+        .refresh-btn.spinning {
+            animation: spin 1s linear;
         }
 
         .user-avatar {
@@ -281,34 +306,41 @@
 
         /* Navigation Tabs */
         .tab-nav {
-            display: flex;
-            background: white;
-            padding: 5px;
-            margin: 15px;
-            border-radius: 12px;
-            box-shadow: 0 4px 15px rgba(0,0,0,0.1);
-            overflow-x: auto;
-            -webkit-overflow-scrolling: touch;
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 10px;
+            padding: 15px;
+            margin: 0;
         }
 
         .tab-btn {
-            flex: 1;
-            min-width: 100px;
-            padding: 10px 8px;
-            background: transparent;
-            border: none;
-            border-radius: 8px;
-            font-size: 13px;
+            padding: 20px 12px;
+            background: white;
+            border: 2px solid #e0e0e0;
+            border-radius: 12px;
+            font-size: 15px;
             font-weight: 600;
             cursor: pointer;
             color: #666;
             transition: all 0.3s;
             white-space: nowrap;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 8px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+        }
+
+        .tab-btn .tab-icon {
+            font-size: 28px;
         }
 
         .tab-btn.active {
             background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
             color: white;
+            border-color: #667eea;
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(102, 126, 234, 0.3);
         }
 
         /* Content Area */
@@ -571,14 +603,17 @@
                 </svg>
                 <div class="app-title">Umbrella</div>
             </div>
-            <div class="user-menu">
-                <div class="user-avatar" onclick="toggleUserMenu()" id="userAvatar">A</div>
-                <div class="dropdown-menu" id="dropdownMenu">
-                    <div class="dropdown-item" onclick="viewProfile()">
-                        👤 My Profile
-                    </div>
-                    <div class="dropdown-item" onclick="logout()">
-                        🚪 Sign Out
+            <div class="header-right">
+                <button class="refresh-btn" onclick="refreshAllData()" title="Refresh">🔄</button>
+                <div class="user-menu">
+                    <div class="user-avatar" onclick="toggleUserMenu()" id="userAvatar">A</div>
+                    <div class="dropdown-menu" id="dropdownMenu">
+                        <div class="dropdown-item" onclick="viewProfile()">
+                            👤 My Profile
+                        </div>
+                        <div class="dropdown-item" onclick="logout()">
+                            🚪 Sign Out
+                        </div>
                     </div>
                 </div>
             </div>
@@ -586,10 +621,26 @@
 
         <!-- Tab Navigation -->
         <div class="tab-nav">
-            <button class="tab-btn active" onclick="switchTab('announcements')">📢 News</button>
-            <button class="tab-btn" onclick="switchTab('directory')">👥 Directory</button>
-            <button class="tab-btn" onclick="switchTab('visitors')">🚗 Visitors</button>
-            <button class="tab-btn" onclick="switchTab('tickets')">🔧 Helpdesk</button>
+            <button class="tab-btn active" onclick="switchTab('announcements')">
+                <span class="tab-icon">📢</span>
+                <span>News</span>
+            </button>
+            <button class="tab-btn" onclick="switchTab('directory')">
+                <span class="tab-icon">👥</span>
+                <span>Directory</span>
+            </button>
+            <button class="tab-btn" onclick="switchTab('visitors')">
+                <span class="tab-icon">🚗</span>
+                <span>Visitors</span>
+            </button>
+            <button class="tab-btn" onclick="switchTab('tickets')">
+                <span class="tab-icon">🔧</span>
+                <span>Helpdesk</span>
+            </button>
+            <button class="tab-btn" onclick="switchTab('marketplace')">
+                <span class="tab-icon">🏪</span>
+                <span>Marketplace</span>
+            </button>
         </div>
 
         <!-- Content Area -->
@@ -626,6 +677,15 @@
                     <div class="empty-icon">🔧</div>
                     <div class="empty-text">No tickets yet</div>
                     <div class="empty-subtext">Tap + to submit a request</div>
+                </div>
+            </div>
+
+            <!-- Marketplace Tab -->
+            <div id="marketplaceContent" class="tab-content">
+                <div class="empty-state">
+                    <div class="empty-icon">🏪</div>
+                    <div class="empty-text">No items for sale yet</div>
+                    <div class="empty-subtext">Tap + to post something</div>
                 </div>
             </div>
         </div>
@@ -861,7 +921,7 @@
             document.querySelectorAll('.tab-btn').forEach(btn => {
                 btn.classList.remove('active');
             });
-            event.target.classList.add('active');
+            event.target.closest('.tab-btn').classList.add('active');
 
             // Update content
             document.querySelectorAll('.tab-content').forEach(content => {
@@ -873,7 +933,7 @@
 
             // Show/hide FAB based on tab
             const fab = document.getElementById('fab');
-            if (tabName === 'visitors' || tabName === 'tickets') {
+            if (tabName === 'visitors' || tabName === 'tickets' || tabName === 'marketplace') {
                 fab.classList.remove('hidden');
             } else {
                 fab.classList.add('hidden');
@@ -889,6 +949,18 @@
             loadDirectory();
             loadVisitors();
             loadTickets();
+            loadMarketplace();
+        }
+
+        function refreshAllData() {
+            const btn = document.querySelector('.refresh-btn');
+            btn.classList.add('spinning');
+            
+            loadAllData();
+            
+            setTimeout(() => {
+                btn.classList.remove('spinning');
+            }, 1000);
         }
 
         async function loadAnnouncements() {
@@ -943,7 +1015,7 @@
             const container = document.getElementById('directoryContent');
             
             try {
-                // Simple query - no composite index needed
+                // Simple query - get all residents
                 const snapshot = await db.collection('residents').get();
 
                 if (snapshot.empty) {
@@ -956,32 +1028,55 @@
                     return;
                 }
 
-                let html = '';
                 // Sort by unit number in JS instead of Firestore
                 const residents = [];
                 snapshot.forEach(doc => residents.push({ id: doc.id, ...doc.data() }));
-                residents
-                    .filter(r => !r.privacySettings || r.privacySettings.showInDirectory !== false)
-                    .sort((a, b) => (a.unitNumber || '').localeCompare(b.unitNumber || ''))
-                    .forEach(data => {
-                        let details = '';
-                        if (!data.privacySettings || data.privacySettings.showPhone !== false) {
-                            if (data.phone) details += `<div><strong>Phone:</strong> ${data.phone}</div>`;
-                        }
-                        if (!data.privacySettings || data.privacySettings.showEmail !== false) {
-                            if (data.email) details += `<div><strong>Email:</strong> ${data.email}</div>`;
-                        }
+                
+                // Filter residents who want to be shown (default to true if not set)
+                const visibleResidents = residents.filter(r => {
+                    if (!r.privacySettings) return true; // Show by default if no settings
+                    if (r.privacySettings.showInDirectory === undefined) return true; // Show by default
+                    return r.privacySettings.showInDirectory === true;
+                });
 
-                        html += `
-                            <div class="card">
-                                <div class="card-title">${data.name || 'Resident'}</div>
-                                <div class="card-subtitle">Unit ${data.unitNumber || 'N/A'}</div>
-                                <div class="card-content">${details}</div>
-                            </div>
-                        `;
-                    });
+                // Sort by unit number
+                visibleResidents.sort((a, b) => (a.unitNumber || '').localeCompare(b.unitNumber || ''));
 
-                container.innerHTML = html || `<div class="empty-state"><div class="empty-icon">👥</div><div class="empty-text">No residents found</div></div>`;
+                if (visibleResidents.length === 0) {
+                    container.innerHTML = `
+                        <div class="empty-state">
+                            <div class="empty-icon">👥</div>
+                            <div class="empty-text">No residents found</div>
+                        </div>
+                    `;
+                    return;
+                }
+
+                let html = '';
+                visibleResidents.forEach(data => {
+                    let details = '';
+                    
+                    // Show phone if privacy allows (default to true)
+                    const showPhone = !data.privacySettings || data.privacySettings.showPhone !== false;
+                    const showEmail = !data.privacySettings || data.privacySettings.showEmail !== false;
+                    
+                    if (showPhone && data.phone) {
+                        details += `<div><strong>Phone:</strong> ${data.phone}</div>`;
+                    }
+                    if (showEmail && data.email) {
+                        details += `<div><strong>Email:</strong> ${data.email}</div>`;
+                    }
+
+                    html += `
+                        <div class="card">
+                            <div class="card-title">${data.name || 'Resident'}</div>
+                            <div class="card-subtitle">Unit ${data.unitNumber || 'N/A'}</div>
+                            <div class="card-content">${details || '<div style="color: #999;">Contact info hidden by resident</div>'}</div>
+                        </div>
+                    `;
+                });
+
+                container.innerHTML = html;
             } catch (error) {
                 console.error('Error loading directory:', error);
                 container.innerHTML = `
@@ -1112,6 +1207,71 @@
             }
         }
 
+        async function loadMarketplace() {
+            const container = document.getElementById('marketplaceContent');
+            
+            try {
+                const snapshot = await db.collection('marketplace')
+                    .where('status', '==', 'active')
+                    .get();
+
+                if (snapshot.empty) {
+                    container.innerHTML = `
+                        <div class="empty-state">
+                            <div class="empty-icon">🏪</div>
+                            <div class="empty-text">No items for sale yet</div>
+                            <div class="empty-subtext">Tap + to post something</div>
+                        </div>
+                    `;
+                    return;
+                }
+
+                // Sort by date
+                const items = [];
+                snapshot.forEach(doc => items.push({ id: doc.id, ...doc.data() }));
+                items.sort((a, b) => {
+                    const dateA = a.createdAt ? a.createdAt.toMillis() : 0;
+                    const dateB = b.createdAt ? b.createdAt.toMillis() : 0;
+                    return dateB - dateA;
+                });
+
+                let html = '';
+                items.forEach(data => {
+                    const date = data.createdAt ? data.createdAt.toDate().toLocaleDateString() : 'Recent';
+                    const isOwner = data.sellerId === currentUser.uid;
+                    
+                    html += `
+                        <div class="card">
+                            <div class="card-title">${data.title || 'Item for Sale'}</div>
+                            <div class="card-subtitle">
+                                <strong style="color: #667eea; font-size: 18px;">$${data.price || '0'}</strong> • 
+                                Posted ${date} by ${data.sellerName || 'Unknown'}
+                            </div>
+                            <div class="card-content">
+                                ${data.description || 'No description'}
+                                ${data.category ? `<br><span class="badge" style="background: #e3f2fd; color: #1976d2; margin-top: 8px;">${data.category}</span>` : ''}
+                            </div>
+                            <div style="margin-top: 12px; display: flex; gap: 8px;">
+                                ${!isOwner ? `<button class="btn btn-primary btn-small" style="flex: 1;" onclick="contactSeller('${data.id}', '${data.sellerName}', '${data.sellerPhone || data.sellerEmail}')">📞 Contact Seller</button>` : ''}
+                                ${isOwner ? `<button class="btn btn-danger btn-small" style="flex: 1;" onclick="deleteMarketplaceItem('${data.id}')">🗑️ Delete</button>` : ''}
+                            </div>
+                        </div>
+                    `;
+                });
+
+                container.innerHTML = html;
+            } catch (error) {
+                console.error('Error loading marketplace:', error);
+                container.innerHTML = `
+                    <div class="empty-state">
+                        <div class="empty-icon">❌</div>
+                        <div class="empty-text">Error loading marketplace</div>
+                        <div class="empty-subtext">${error.message}</div>
+                    </div>
+                `;
+            }
+        }
+
         // ========================================
         // MODAL & CREATE ACTIONS
         // ========================================
@@ -1181,6 +1341,40 @@
                         <input type="text" id="ticketLocation" placeholder="Unit 101, Lobby, etc.">
                     </div>
                     <button class="btn" onclick="createTicket()">Submit Ticket</button>
+                `;
+            } else if (currentTab === 'marketplace') {
+                modalTitle.textContent = 'Post Item for Sale';
+                modalBody.innerHTML = `
+                    <div class="input-group">
+                        <label>Item Title</label>
+                        <input type="text" id="itemTitle" placeholder="e.g., Sofa, Bicycle, Table">
+                    </div>
+                    <div class="input-group">
+                        <label>Price ($)</label>
+                        <input type="number" id="itemPrice" placeholder="0" min="0" step="0.01">
+                    </div>
+                    <div class="input-group">
+                        <label>Category</label>
+                        <select id="itemCategory" style="width:100%;padding:12px;border:2px solid #e0e0e0;border-radius:8px;">
+                            <option value="furniture">Furniture</option>
+                            <option value="electronics">Electronics</option>
+                            <option value="appliances">Appliances</option>
+                            <option value="books">Books</option>
+                            <option value="sports">Sports & Fitness</option>
+                            <option value="toys">Toys & Games</option>
+                            <option value="clothing">Clothing</option>
+                            <option value="other">Other</option>
+                        </select>
+                    </div>
+                    <div class="input-group">
+                        <label>Description</label>
+                        <textarea id="itemDescription" placeholder="Describe the item's condition, features, etc." style="width:100%;padding:12px;border:2px solid #e0e0e0;border-radius:8px;min-height:100px;font-family:inherit;"></textarea>
+                    </div>
+                    <div class="input-group">
+                        <label>Your Contact (Phone or Email)</label>
+                        <input type="text" id="sellerContact" placeholder="555-1234 or email@example.com" value="${currentUser.email || ''}">
+                    </div>
+                    <button class="btn" onclick="createMarketplaceItem()">Post Item</button>
                 `;
             }
 
@@ -1264,6 +1458,70 @@
             } catch (error) {
                 console.error('Error creating ticket:', error);
                 alert('Error submitting ticket: ' + error.message);
+            }
+        }
+
+        async function createMarketplaceItem() {
+            const title = document.getElementById('itemTitle').value.trim();
+            const price = document.getElementById('itemPrice').value;
+            const category = document.getElementById('itemCategory').value;
+            const description = document.getElementById('itemDescription').value.trim();
+            const contact = document.getElementById('sellerContact').value.trim();
+
+            if (!title || !price || !description) {
+                alert('Please fill in required fields (Title, Price, Description)');
+                return;
+            }
+
+            try {
+                await db.collection('marketplace').add({
+                    sellerId: currentUser.uid,
+                    sellerName: currentUser.displayName,
+                    sellerEmail: currentUser.email,
+                    sellerPhone: contact,
+                    unitNumber: currentUser.unitNumber,
+                    title: title,
+                    price: parseFloat(price),
+                    category: category,
+                    description: description,
+                    status: 'active',
+                    createdAt: firebase.firestore.FieldValue.serverTimestamp()
+                });
+
+                closeModal();
+                loadMarketplace();
+                alert('✅ Item posted successfully!');
+            } catch (error) {
+                console.error('Error creating marketplace item:', error);
+                alert('Error posting item: ' + error.message);
+            }
+        }
+
+        function contactSeller(itemId, sellerName, sellerContact) {
+            const message = `Hi! I'm interested in your item on Umbrella Marketplace.\n\nContact: ${sellerContact}`;
+            
+            if (navigator.share) {
+                navigator.share({
+                    title: 'Contact Seller',
+                    text: message
+                }).catch(err => {
+                    copyToClipboard(message);
+                });
+            } else {
+                copyToClipboard(message);
+            }
+        }
+
+        async function deleteMarketplaceItem(itemId) {
+            if (!confirm('Are you sure you want to delete this item?')) return;
+
+            try {
+                await db.collection('marketplace').doc(itemId).delete();
+                loadMarketplace();
+                alert('✅ Item deleted successfully!');
+            } catch (error) {
+                console.error('Error deleting item:', error);
+                alert('Error deleting item: ' + error.message);
             }
         }
 
