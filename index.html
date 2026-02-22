@@ -1,0 +1,3607 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="default">
+    <meta name="apple-mobile-web-app-title" content="Umbrella">
+    <title>Umbrella</title>
+    
+    <!-- Firebase SDK -->
+    <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-auth-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-storage-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-analytics-compat.js"></script>
+    
+    <!-- QR Code Library -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+    
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+        }
+
+        /* Loading Screen */
+        .loading-screen {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            z-index: 9999;
+        }
+
+        .loading-screen .logo {
+            width: 100px;
+            height: 100px;
+            margin-bottom: 30px;
+            animation: pulse 2s infinite;
+        }
+
+        .spinner {
+            border: 4px solid rgba(255,255,255,0.3);
+            border-top: 4px solid white;
+            border-radius: 50%;
+            width: 50px;
+            height: 50px;
+            animation: spin 1s linear infinite;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        @keyframes pulse {
+            0%, 100% { opacity: 1; transform: scale(1); }
+            50% { opacity: 0.8; transform: scale(0.95); }
+        }
+
+        /* Auth Screen */
+        .auth-screen {
+            display: none;
+            max-width: 400px;
+            margin: 40px auto;
+            padding: 20px;
+        }
+
+        .auth-container {
+            background: white;
+            border-radius: 20px;
+            padding: 40px 30px;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+        }
+
+        .logo-auth {
+            width: 80px;
+            height: 80px;
+            margin: 0 auto 20px;
+            display: block;
+        }
+
+        .auth-title {
+            text-align: center;
+            color: #667eea;
+            font-size: 28px;
+            font-weight: 700;
+            margin-bottom: 10px;
+        }
+
+        .auth-subtitle {
+            text-align: center;
+            color: #666;
+            margin-bottom: 30px;
+            font-size: 14px;
+        }
+
+        .input-group {
+            margin-bottom: 20px;
+        }
+
+        .input-group label {
+            display: block;
+            margin-bottom: 8px;
+            font-weight: 600;
+            color: #333;
+            font-size: 14px;
+        }
+
+        .input-group input {
+            width: 100%;
+            padding: 12px;
+            border: 2px solid #e0e0e0;
+            border-radius: 8px;
+            font-size: 16px;
+            transition: border-color 0.3s;
+        }
+
+        .input-group input:focus {
+            outline: none;
+            border-color: #667eea;
+        }
+
+        .btn {
+            width: 100%;
+            padding: 14px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            border-radius: 8px;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: transform 0.2s;
+            margin-bottom: 10px;
+        }
+
+        .btn:hover {
+            transform: translateY(-2px);
+        }
+
+        .btn:active {
+            transform: scale(0.98);
+        }
+
+        .btn:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+        }
+
+        .btn-secondary {
+            background: #f0f0f0;
+            color: #667eea;
+        }
+
+        .toggle-auth {
+            text-align: center;
+            margin-top: 20px;
+            color: #666;
+            font-size: 14px;
+        }
+
+        .toggle-auth a {
+            color: #667eea;
+            text-decoration: none;
+            font-weight: 600;
+        }
+
+        .error-message {
+            background: #fee;
+            color: #c00;
+            padding: 12px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            font-size: 14px;
+            display: none;
+        }
+
+        .error-message.show {
+            display: block;
+        }
+
+        /* Main App */
+        .main-app {
+            display: none;
+            padding-bottom: 80px;
+            position: relative;
+            overflow-y: auto;
+            height: 100vh;
+        }
+
+        .header {
+            background: white;
+            padding: 15px 20px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            position: sticky;
+            top: 0;
+            z-index: 100;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .header-left {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .logo-small {
+            width: 40px;
+            height: 40px;
+        }
+
+        .app-title {
+            font-size: 20px;
+            font-weight: 700;
+            color: #667eea;
+        }
+
+        .header-right {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .refresh-btn {
+            width: 36px;
+            height: 36px;
+            border-radius: 50%;
+            background: #f0f0f0;
+            border: none;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 18px;
+            transition: all 0.3s;
+        }
+
+        .refresh-btn:active {
+            transform: rotate(180deg);
+            background: #667eea;
+        }
+
+        .refresh-btn.spinning {
+            animation: spin 1s linear;
+        }
+
+        .user-avatar {
+            width: 36px;
+            height: 36px;
+            border-radius: 50%;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: 600;
+            cursor: pointer;
+        }
+
+        .dropdown-menu {
+            display: none;
+            position: absolute;
+            right: 0;
+            top: 45px;
+            background: white;
+            border-radius: 8px;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.15);
+            min-width: 180px;
+            z-index: 1000;
+        }
+
+        .dropdown-menu.show {
+            display: block;
+        }
+
+        .dropdown-item {
+            padding: 12px 16px;
+            cursor: pointer;
+            border-bottom: 1px solid #f0f0f0;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .dropdown-item:last-child {
+            border-bottom: none;
+        }
+
+        .dropdown-item:hover {
+            background: #f8f9fa;
+        }
+
+        .dropdown-item#adminMenuItem {
+            background: linear-gradient(135deg, #667eea22 0%, #764ba222 100%);
+            border-bottom: 2px solid #667eea;
+            font-weight: 600;
+            color: #667eea;
+        }
+
+        .dropdown-item#adminMenuItem:hover {
+            background: linear-gradient(135deg, #667eea33 0%, #764ba233 100%);
+        }
+
+        /* Navigation Tabs */
+        .tab-nav {
+            display: grid;
+            grid-template-columns: 1fr 1fr 1fr;
+            gap: 8px;
+            padding: 12px;
+            margin: 0;
+        }
+
+        .tab-btn {
+            padding: 12px 8px;
+            background: white;
+            border: 2px solid #e0e0e0;
+            border-radius: 10px;
+            font-size: 11px;
+            font-weight: 600;
+            cursor: pointer;
+            color: #666;
+            transition: all 0.3s;
+            white-space: nowrap;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 5px;
+            box-shadow: 0 2px 6px rgba(0,0,0,0.05);
+        }
+
+        .tab-btn .tab-icon {
+            font-size: 18px;
+        }
+
+        .tab-btn.active {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border-color: #667eea;
+            transform: translateY(-2px);
+            box-shadow: 0 3px 10px rgba(102, 126, 234, 0.3);
+        }
+
+        /* Content Area */
+        .content-area {
+            padding: 0 15px 20px;
+        }
+
+        .tab-content {
+            display: none;
+        }
+
+        .tab-content.active {
+            display: block;
+        }
+
+        /* Cards */
+        .card {
+            background: white;
+            border-radius: 12px;
+            padding: 20px;
+            margin-bottom: 15px;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+        }
+
+        .card-title {
+            font-size: 18px;
+            font-weight: 600;
+            color: #333;
+            margin-bottom: 10px;
+        }
+
+        .card-subtitle {
+            font-size: 12px;
+            color: #999;
+            margin-bottom: 10px;
+        }
+
+        .card-content {
+            font-size: 15px;
+            color: #555;
+            line-height: 1.6;
+        }
+
+        /* Empty State */
+        .empty-state {
+            text-align: center;
+            padding: 60px 20px;
+            color: white;
+        }
+
+        .empty-icon {
+            font-size: 64px;
+            margin-bottom: 15px;
+            opacity: 0.5;
+        }
+
+        .empty-text {
+            font-size: 18px;
+            margin-bottom: 10px;
+        }
+
+        .empty-subtext {
+            font-size: 14px;
+            opacity: 0.8;
+        }
+
+        /* Floating Action Button */
+        .fab {
+            position: fixed;
+            bottom: 20px;
+            right: 20px;
+            width: 56px;
+            height: 56px;
+            border-radius: 50%;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            border: none;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.3);
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-size: 24px;
+            transition: transform 0.2s;
+            z-index: 99;
+        }
+
+        .fab:active {
+            transform: scale(0.9);
+        }
+
+        /* Modal */
+        .modal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0,0,0,0.5);
+            z-index: 1000;
+            overflow-y: auto;
+        }
+
+        .modal.show {
+            display: block;
+        }
+
+        .modal-content {
+            background: white;
+            border-radius: 20px 20px 0 0;
+            margin: 50px auto 0;
+            max-width: 500px;
+            min-height: calc(100vh - 50px);
+            padding: 30px 20px;
+        }
+
+        .modal-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 25px;
+        }
+
+        .modal-title {
+            font-size: 22px;
+            font-weight: 700;
+            color: #333;
+        }
+
+        .modal-close {
+            font-size: 28px;
+            color: #999;
+            cursor: pointer;
+            background: none;
+            border: none;
+            padding: 0;
+            width: 30px;
+            height: 30px;
+        }
+
+        /* Badge */
+        .badge {
+            display: inline-block;
+            padding: 4px 12px;
+            border-radius: 12px;
+            font-size: 11px;
+            font-weight: 600;
+            margin-top: 8px;
+        }
+
+        .badge-alert { background: #fee; color: #c00; }
+        .badge-event { background: #e3f2fd; color: #1976d2; }
+        .badge-maintenance { background: #fff3e0; color: #f57c00; }
+        .badge-social { background: #f3e5f5; color: #7b1fa2; }
+        .badge-emergency { background: #ffebee; color: #c62828; }
+
+        .badge-open { background: #fff3cd; color: #856404; }
+        .badge-assigned { background: #cce5ff; color: #004085; }
+        .badge-in-progress { background: #d1ecf1; color: #0c5460; }
+        .badge-resolved { background: #d4edda; color: #155724; }
+        .badge-closed { background: #e2e3e5; color: #383d41; }
+
+        /* Utility Classes */
+        .text-center { text-align: center; }
+        .mt-20 { margin-top: 20px; }
+        .mb-20 { margin-bottom: 20px; }
+        .hidden { display: none !important; }
+
+        /* Pull to Refresh */
+        .pull-to-refresh {
+            position: fixed;
+            top: -80px;
+            left: 0;
+            right: 0;
+            height: 80px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 9999;
+            pointer-events: none;
+            background: rgba(255,255,255,0.95);
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+
+        .pull-to-refresh-icon {
+            font-size: 32px;
+            transition: transform 0.3s;
+        }
+
+        .pull-to-refresh-text {
+            margin-left: 10px;
+            color: #667eea;
+            font-weight: 600;
+            font-size: 14px;
+        }
+
+        .pull-to-refresh.refreshing .pull-to-refresh-icon {
+            animation: spin 1s linear infinite;
+        }
+
+        @keyframes spin {
+            from { transform: rotate(0deg); }
+            to { transform: rotate(360deg); }
+        }
+
+        /* Terms Modal */
+        .terms-modal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0,0,0,0.8);
+            z-index: 10000;
+            overflow-y: auto;
+        }
+
+        .terms-modal.show {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+        }
+
+        .terms-content {
+            background: white;
+            border-radius: 16px;
+            max-width: 800px;
+            width: 100%;
+            max-height: 90vh;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .terms-header {
+            padding: 30px;
+            border-bottom: 2px solid #e0e0e0;
+        }
+
+        .terms-header h2 {
+            color: #667eea;
+            font-size: 24px;
+            margin-bottom: 10px;
+        }
+
+        .terms-body {
+            padding: 30px;
+            overflow-y: auto;
+            flex: 1;
+            font-size: 14px;
+            line-height: 1.6;
+        }
+
+        .terms-body h3 {
+            color: #667eea;
+            margin-top: 25px;
+            margin-bottom: 15px;
+            font-size: 18px;
+        }
+
+        .terms-body p {
+            margin-bottom: 15px;
+        }
+
+        .terms-body ul {
+            margin: 10px 0 15px 25px;
+        }
+
+        .terms-body li {
+            margin-bottom: 8px;
+        }
+
+        .terms-important {
+            background: #fff3cd;
+            border-left: 4px solid #ffc107;
+            padding: 15px;
+            margin: 20px 0;
+            border-radius: 4px;
+        }
+
+        .terms-footer {
+            padding: 20px 30px;
+            border-top: 2px solid #e0e0e0;
+            background: #f8f9fa;
+            border-radius: 0 0 16px 16px;
+        }
+
+        .terms-checkbox {
+            display: flex;
+            align-items: flex-start;
+            gap: 12px;
+            margin-bottom: 20px;
+            cursor: pointer;
+        }
+
+        .terms-checkbox input[type="checkbox"] {
+            width: 24px;
+            height: 24px;
+            margin-top: 2px;
+            cursor: pointer;
+            flex-shrink: 0;
+        }
+
+        .terms-checkbox label {
+            flex: 1;
+            cursor: pointer;
+            font-size: 14px;
+            line-height: 1.5;
+        }
+
+        .terms-buttons {
+            display: flex;
+            gap: 12px;
+        }
+
+        .terms-buttons button {
+            flex: 1;
+            padding: 14px;
+            border: none;
+            border-radius: 10px;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+
+        .btn-decline-terms {
+            background: #e0e0e0;
+            color: #666;
+        }
+
+        .btn-accept-terms {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+        }
+
+        .btn-accept-terms:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+
+        .terms-link {
+            color: #667eea;
+            text-decoration: underline;
+            cursor: pointer;
+        }
+
+        /* Profile Modal */
+        .profile-modal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0,0,0,0.5);
+            z-index: 9999;
+            overflow-y: auto;
+        }
+
+        .profile-modal.show {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+        }
+
+        .profile-content {
+            background: white;
+            border-radius: 16px;
+            max-width: 600px;
+            width: 100%;
+            max-height: 90vh;
+            overflow-y: auto;
+        }
+
+        .profile-header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 40px 30px;
+            border-radius: 16px 16px 0 0;
+            text-align: center;
+        }
+
+        .profile-avatar-large {
+            width: 100px;
+            height: 100px;
+            border-radius: 50%;
+            background: white;
+            color: #667eea;
+            font-size: 48px;
+            font-weight: 700;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin: 0 auto 20px;
+            border: 4px solid rgba(255,255,255,0.3);
+        }
+
+        .profile-header h2 {
+            margin: 0 0 10px 0;
+            font-size: 28px;
+        }
+
+        .profile-header p {
+            margin: 0;
+            opacity: 0.9;
+            font-size: 16px;
+        }
+
+        .profile-body {
+            padding: 30px;
+        }
+
+        .profile-section {
+            margin-bottom: 30px;
+            padding-bottom: 25px;
+            border-bottom: 2px solid #f0f0f0;
+        }
+
+        .profile-section:last-child {
+            border-bottom: none;
+            margin-bottom: 0;
+        }
+
+        .profile-section h3 {
+            color: #667eea;
+            font-size: 18px;
+            margin-bottom: 15px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .profile-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 12px 0;
+            border-bottom: 1px solid #f5f5f5;
+        }
+
+        .profile-item:last-child {
+            border-bottom: none;
+        }
+
+        .profile-label {
+            color: #666;
+            font-size: 14px;
+            font-weight: 600;
+        }
+
+        .profile-value {
+            color: #333;
+            font-size: 14px;
+            text-align: right;
+        }
+
+        .profile-actions {
+            display: flex;
+            gap: 12px;
+            margin-top: 20px;
+        }
+
+        .profile-btn {
+            flex: 1;
+            padding: 14px;
+            border: none;
+            border-radius: 10px;
+            font-size: 15px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+
+        .profile-btn-primary {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+        }
+
+        .profile-btn-secondary {
+            background: #e0e0e0;
+            color: #666;
+        }
+
+        .privacy-toggle {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            padding: 12px 0;
+        }
+
+        .privacy-toggle label {
+            flex: 1;
+            font-size: 14px;
+            color: #333;
+        }
+
+        .toggle-switch {
+            position: relative;
+            width: 50px;
+            height: 28px;
+            background: #ccc;
+            border-radius: 14px;
+            cursor: pointer;
+            transition: background 0.3s;
+        }
+
+        .toggle-switch.active {
+            background: #667eea;
+        }
+
+        .toggle-switch::after {
+            content: '';
+            position: absolute;
+            top: 3px;
+            left: 3px;
+            width: 22px;
+            height: 22px;
+            background: white;
+            border-radius: 50%;
+            transition: transform 0.3s;
+        }
+
+        .toggle-switch.active::after {
+            transform: translateX(22px);
+        }
+    </style>
+</head>
+<body>
+    <!-- Loading Screen -->
+    <div class="loading-screen" id="loadingScreen">
+        <svg class="logo" viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg">
+            <path d="M50 20 C30 20, 15 30, 15 45 L15 50 C15 50, 20 60, 50 60 C80 60, 85 50, 85 50 L85 45 C85 30, 70 20, 50 20 Z" fill="white"/>
+            <rect x="48" y="55" width="4" height="35" fill="white" rx="2"/>
+            <path d="M48 85 C48 85, 42 95, 35 95" stroke="white" stroke-width="3" fill="none" stroke-linecap="round"/>
+        </svg>
+        <div class="spinner"></div>
+    </div>
+
+    <!-- Auth Screen -->
+    <div class="auth-screen" id="authScreen">
+        <div class="auth-container">
+            <svg class="logo-auth" viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg">
+                <path d="M50 20 C30 20, 15 30, 15 45 L15 50 C15 50, 20 60, 50 60 C80 60, 85 50, 85 50 L85 45 C85 30, 70 20, 50 20 Z" fill="#667eea"/>
+                <rect x="48" y="55" width="4" height="35" fill="#764ba2" rx="2"/>
+                <path d="M48 85 C48 85, 42 95, 35 95" stroke="#764ba2" stroke-width="3" fill="none" stroke-linecap="round"/>
+            </svg>
+            
+            <h1 class="auth-title">☂️ Umbrella</h1>
+            <p class="auth-subtitle">Your HOA Community App</p>
+
+            <div class="error-message" id="authError"></div>
+
+            <!-- Login Form -->
+            <div id="loginForm">
+                <div class="input-group">
+                    <label>Email</label>
+                    <input type="email" id="loginEmail" placeholder="your@email.com" autocomplete="email">
+                </div>
+
+                <div class="input-group">
+                    <label>Password</label>
+                    <input type="password" id="loginPassword" placeholder="Enter your password" autocomplete="current-password">
+                </div>
+
+                <button class="btn" onclick="login()">Sign In</button>
+
+                <div class="toggle-auth">
+                    Don't have an account? <a href="#" onclick="showSignup(); return false;">Sign Up</a>
+                </div>
+            </div>
+
+            <!-- Signup Form -->
+            <div id="signupForm" class="hidden">
+                <div class="input-group">
+                    <label>Full Name</label>
+                    <input type="text" id="signupName" placeholder="John Doe">
+                </div>
+
+                <div class="input-group">
+                    <label>Email</label>
+                    <input type="email" id="signupEmail" placeholder="your@email.com" autocomplete="email">
+                </div>
+
+                <div class="input-group">
+                    <label>Unit Number</label>
+                    <input type="text" id="signupUnit" placeholder="101">
+                </div>
+
+                <div class="input-group">
+                    <label>Phone</label>
+                    <input type="tel" id="signupPhone" placeholder="555-1234">
+                </div>
+
+                <div class="input-group">
+                    <label>Password</label>
+                    <input type="password" id="signupPassword" placeholder="Choose a password" autocomplete="new-password">
+                </div>
+
+                <button class="btn" onclick="signup()">Create Account</button>
+
+                <div class="toggle-auth">
+                    Already have an account? <a href="#" onclick="showLogin(); return false;">Sign In</a>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Main App -->
+    <div class="main-app" id="mainApp">
+        <!-- Header -->
+        <div class="header">
+            <div class="header-left">
+                <svg class="logo-small" viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg">
+                    <path d="M50 20 C30 20, 15 30, 15 45 L15 50 C15 50, 20 60, 50 60 C80 60, 85 50, 85 50 L85 45 C85 30, 70 20, 50 20 Z" fill="#667eea"/>
+                    <rect x="48" y="55" width="4" height="35" fill="#764ba2" rx="2"/>
+                    <path d="M48 85 C48 85, 42 95, 35 95" stroke="#764ba2" stroke-width="3" fill="none" stroke-linecap="round"/>
+                </svg>
+                <div class="app-title">Umbrella</div>
+            </div>
+            <div class="header-right">
+                <button class="refresh-btn" onclick="refreshAllData()" title="Refresh">🔄</button>
+                <div class="user-menu">
+                    <div class="user-avatar" onclick="toggleUserMenu()" id="userAvatar">A</div>
+                    <div class="dropdown-menu" id="dropdownMenu">
+                        <div class="dropdown-item" id="adminMenuItem" style="display: none;" onclick="openAdminDashboard()">
+                            ⚙️ Admin Dashboard
+                        </div>
+                        <div class="dropdown-item" onclick="viewProfile()">
+                            👤 My Profile
+                        </div>
+                        <div class="dropdown-item" onclick="logout()">
+                            🚪 Sign Out
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Pull to Refresh Indicator -->
+        <div class="pull-to-refresh" id="pullToRefresh">
+            <div class="pull-to-refresh-icon">⬇️</div>
+            <div class="pull-to-refresh-text" id="pullToRefreshText">Pull to refresh</div>
+        </div>
+
+        <!-- Tab Navigation -->
+        <div class="tab-nav">
+            <button class="tab-btn active" onclick="switchTab('announcements')">
+                <span class="tab-icon">📢</span>
+                <span>Noticeboard</span>
+            </button>
+            <button class="tab-btn" onclick="switchTab('directory')">
+                <span class="tab-icon">👥</span>
+                <span>Directory</span>
+            </button>
+            <button class="tab-btn" onclick="switchTab('visitors')">
+                <span class="tab-icon">🚗</span>
+                <span>Visitors</span>
+            </button>
+            <button class="tab-btn" onclick="switchTab('tickets')">
+                <span class="tab-icon">🔧</span>
+                <span>Helpdesk</span>
+            </button>
+            <button class="tab-btn" onclick="switchTab('marketplace')">
+                <span class="tab-icon">🏪</span>
+                <span>Marketplace</span>
+            </button>
+            <button class="tab-btn" onclick="switchTab('communityshare')">
+                <span class="tab-icon">🤝</span>
+                <span>Comm Share</span>
+            </button>
+            <button class="tab-btn" onclick="switchTab('events')">
+                <span class="tab-icon">🎉</span>
+                <span>Events</span>
+            </button>
+        </div>
+
+        <!-- Content Area -->
+        <div class="content-area">
+            <!-- Announcements Tab -->
+            <div id="announcementsContent" class="tab-content active">
+                <div class="empty-state">
+                    <div class="empty-icon">📢</div>
+                    <div class="empty-text">No announcements yet</div>
+                    <div class="empty-subtext">Check back later for updates</div>
+                </div>
+            </div>
+
+            <!-- Directory Tab -->
+            <div id="directoryContent" class="tab-content">
+                <div class="empty-state">
+                    <div class="empty-icon">👥</div>
+                    <div class="empty-text">Loading residents...</div>
+                </div>
+            </div>
+
+            <!-- Visitors Tab -->
+            <div id="visitorsContent" class="tab-content">
+                <div class="empty-state">
+                    <div class="empty-icon">🚗</div>
+                    <div class="empty-text">No visitor passes yet</div>
+                    <div class="empty-subtext">Tap + to create a visitor pass</div>
+                </div>
+            </div>
+
+            <!-- Tickets Tab -->
+            <div id="ticketsContent" class="tab-content">
+                <div class="empty-state">
+                    <div class="empty-icon">🔧</div>
+                    <div class="empty-text">No tickets yet</div>
+                    <div class="empty-subtext">Tap + to submit a request</div>
+                </div>
+            </div>
+
+            <!-- Marketplace Tab -->
+            <div id="marketplaceContent" class="tab-content">
+                <div class="empty-state">
+                    <div class="empty-icon">🏪</div>
+                    <div class="empty-text">No items for sale yet</div>
+                    <div class="empty-subtext">Tap + to post something</div>
+                </div>
+            </div>
+
+            <!-- Community Share Tab -->
+            <div id="communityshareContent" class="tab-content">
+                <div class="empty-state">
+                    <div class="empty-icon">🤝</div>
+                    <div class="empty-text">No items shared yet</div>
+                    <div class="empty-subtext">Tap + to post what you need or can lend</div>
+                </div>
+            </div>
+
+            <!-- Events Tab -->
+            <div id="eventsContent" class="tab-content">
+                <div class="empty-state">
+                    <div class="empty-icon">🎉</div>
+                    <div class="empty-text">No events yet</div>
+                    <div class="empty-subtext">Tap + to create a community event</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Floating Action Button -->
+        <button class="fab hidden" id="fab" onclick="openCreateModal()">+</button>
+    </div>
+
+    <!-- Modal for Creating Content -->
+    <div class="modal" id="createModal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2 class="modal-title" id="modalTitle">Create</h2>
+                <button class="modal-close" onclick="closeModal()">&times;</button>
+            </div>
+            <div id="modalBody">
+                <!-- Dynamic content will be loaded here -->
+            </div>
+        </div>
+    </div>
+
+    <!-- QR Code Modal for Visitor Pass -->
+    <div class="modal" id="qrModal">
+        <div class="modal-content" style="text-align: center;">
+            <div class="modal-header">
+                <h2 class="modal-title">Visitor Pass</h2>
+                <button class="modal-close" onclick="closeQRModal()">&times;</button>
+            </div>
+            <div id="qrModalBody" style="padding: 20px;">
+                <!-- QR code will be displayed here -->
+            </div>
+        </div>
+    </div>
+
+    <!-- Marketplace Item Detail Modal -->
+    <div class="modal" id="marketplaceModal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2 class="modal-title">Item Details</h2>
+                <button class="modal-close" onclick="closeMarketplaceModal()">&times;</button>
+            </div>
+            <div id="marketplaceModalBody" style="padding: 20px;">
+                <!-- Item details and comments will be displayed here -->
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // ========================================
+        // FIREBASE CONFIGURATION
+        // ========================================
+        const firebaseConfig = {
+            apiKey: "AIzaSyDY_2X7mk9eCM24sVj0glrJhG7n2PSAff8",
+            authDomain: "umbrella-6b57a.firebaseapp.com",
+            projectId: "umbrella-6b57a",
+            storageBucket: "umbrella-6b57a.firebasestorage.app",
+            messagingSenderId: "636033970250",
+            appId: "1:636033970250:web:a49918b1f0d6e46cdcb6b3",
+            measurementId: "G-Y7VH8K070Z"
+        };
+
+        // Initialize Firebase
+        firebase.initializeApp(firebaseConfig);
+        const auth = firebase.auth();
+        const db = firebase.firestore();
+        const storage = firebase.storage();
+        const analytics = firebase.analytics();
+
+        // Current user
+        let currentUser = null;
+        let userData = null; // NEW: Separate object for user data
+        let currentTab = 'announcements';
+        let messagingToken = null; // For push notifications
+        let termsAcceptanceContext = 'existing'; // 'signup' or 'existing'
+
+        // Register service worker and setup push notifications
+        if ('serviceWorker' in navigator) {
+            navigator.serviceWorker.register('/firebase-messaging-sw.js')
+                .then((registration) => {
+                    console.log('Service Worker registered:', registration);
+                })
+                .catch((error) => {
+                    console.log('Service Worker registration failed:', error);
+                });
+        }
+
+        // Request notification permission
+        async function requestNotificationPermission() {
+            try {
+                const permission = await Notification.requestPermission();
+                console.log('Notification permission:', permission);
+                
+                if (permission === 'granted') {
+                    // Get FCM token
+                    // Note: This requires Firebase Messaging to be properly configured
+                    console.log('Notifications enabled!');
+                    
+                    // Store that user has enabled notifications
+                    if (currentUser) {
+                        await db.collection('users').doc(currentUser.uid).update({
+                            notificationsEnabled: true,
+                            notificationEnabledAt: firebase.firestore.FieldValue.serverTimestamp()
+                        });
+                    }
+                    
+                    return true;
+                }
+                return false;
+            } catch (error) {
+                console.error('Error requesting notification permission:', error);
+                return false;
+            }
+        }
+
+        // ========================================
+        // AUTHENTICATION
+        // ========================================
+        
+        // Check auth state
+        auth.onAuthStateChanged(async (user) => {
+            console.log('=== AUTH STATE CHANGED ===');
+            console.log('User email:', user?.email);
+            console.log('User UID:', user?.uid);
+            
+            if (user) {
+                currentUser = user;
+                
+                // Get user data from Firestore
+                console.log('Fetching user document from Firestore...');
+                const userDoc = await db.collection('users').doc(user.uid).get();
+                
+                console.log('Document exists?', userDoc.exists);
+                
+                if (userDoc.exists) {
+                    const userDataFromDb = userDoc.data();
+                    
+                    console.log('=== RAW USER DATA FROM FIRESTORE ===');
+                    console.log('Complete userData object:', userDataFromDb);
+                    console.log('userData.name:', userDataFromDb.name);
+                    console.log('userData.phone:', userDataFromDb.phone);
+                    console.log('userData.unitNumber:', userDataFromDb.unitNumber);
+                    console.log('userData.email:', userDataFromDb.email);
+                    console.log('userData.isApproved:', userDataFromDb.isApproved);
+                    
+                    // Check if user is approved
+                    if (!userDataFromDb.isApproved) {
+                        alert('⏳ Your account is pending approval. Please wait for admin to approve your account.');
+                        await auth.signOut();
+                        showAuth();
+                        return;
+                    }
+                    
+                    // Store user data in a separate object (Firebase Auth user is read-only!)
+                    userData = {
+                        uid: user.uid,
+                        displayName: userDataFromDb.name,
+                        name: userDataFromDb.name,
+                        role: userDataFromDb.role,
+                        unitNumber: userDataFromDb.unitNumber,
+                        email: userDataFromDb.email,
+                        phone: userDataFromDb.phone
+                    };
+                    
+                    console.log('=== USER DATA OBJECT CREATED ===');
+                    console.log('userData:', userData);
+                    
+                    // Update UI
+                    document.getElementById('userAvatar').textContent = (userDataFromDb.name || 'U').charAt(0).toUpperCase();
+                    
+                    // Show Admin Dashboard menu item if user is admin
+                    if (userDataFromDb.role === 'admin') {
+                        document.getElementById('adminMenuItem').style.display = 'block';
+                        console.log('✅ Admin user - showing Admin Dashboard menu item');
+                    }
+                    
+                    showMainApp();
+                    
+                    // CHECK TERMS ACCEPTANCE BEFORE LOADING DATA
+                    const termsAccepted = await checkTermsAcceptance();
+                    
+                    if (termsAccepted) {
+                        loadAllData();
+                        
+                        // Ask for notification permission
+                        console.log('=== NOTIFICATION CHECK ===');
+                        console.log('Notification.permission:', Notification.permission);
+                        
+                        const hasAskedBefore = localStorage.getItem('notificationPromptShown');
+                        
+                        setTimeout(() => {
+                            if (Notification.permission === 'default' && !hasAskedBefore) {
+                                console.log('First time - showing notification prompt');
+                                showNotificationPrompt();
+                                localStorage.setItem('notificationPromptShown', 'true');
+                            } else {
+                                console.log('Not showing prompt. Permission:', Notification.permission, 'Asked before:', hasAskedBefore);
+                            }
+                        }, 2000);
+                    }
+                    // If terms not accepted, modal is shown and data won't load until accepted
+                } else {
+                    console.log('ERROR: User document does not exist in Firestore!');
+                    console.log('Looking for document ID:', user.uid);
+                    // User exists in auth but not in Firestore - need to create profile
+                    alert('Profile not found. Please contact admin.');
+                    await auth.signOut();
+                    showAuth();
+                }
+            } else {
+                showAuth();
+            }
+        });
+
+        function showLogin() {
+            document.getElementById('loginForm').classList.remove('hidden');
+            document.getElementById('signupForm').classList.add('hidden');
+            clearAuthError();
+        }
+
+        function showSignup() {
+            document.getElementById('loginForm').classList.add('hidden');
+            document.getElementById('signupForm').classList.remove('hidden');
+            clearAuthError();
+        }
+
+        async function login() {
+            const email = document.getElementById('loginEmail').value.trim();
+            const password = document.getElementById('loginPassword').value;
+
+            if (!email || !password) {
+                showAuthError('Please fill in all fields');
+                return;
+            }
+
+            try {
+                await auth.signInWithEmailAndPassword(email, password);
+                // Auth state change will handle the rest
+            } catch (error) {
+                console.error('Login error:', error);
+                showAuthError(error.message);
+            }
+        }
+
+        async function signup() {
+            const name = document.getElementById('signupName').value.trim();
+            const email = document.getElementById('signupEmail').value.trim();
+            const unit = document.getElementById('signupUnit').value.trim();
+            const phone = document.getElementById('signupPhone').value.trim();
+            const password = document.getElementById('signupPassword').value;
+
+            if (!name || !email || !unit || !phone || !password) {
+                showAuthError('Please fill in all fields');
+                return;
+            }
+
+            if (password.length < 6) {
+                showAuthError('Password must be at least 6 characters');
+                return;
+            }
+
+            try {
+                const userCredential = await auth.createUserWithEmailAndPassword(email, password);
+                const user = userCredential.user;
+
+                await db.collection('users').doc(user.uid).set({
+                    email: email,
+                    name: name,
+                    unitNumber: unit,
+                    phone: phone,
+                    role: 'resident',
+                    isApproved: false,
+                    termsAccepted: false,
+                    termsVersion: null,
+                    createdAt: firebase.firestore.FieldValue.serverTimestamp()
+                });
+
+                await db.collection('residents').add({
+                    userId: user.uid,
+                    name: name,
+                    email: email,
+                    phone: phone,
+                    unitNumber: unit,
+                    moveInDate: firebase.firestore.FieldValue.serverTimestamp(),
+                    familyMembers: [],
+                    vehicles: [],
+                    pets: [],
+                    emergencyContacts: [],
+                    privacySettings: {
+                        showPhone: true,
+                        showEmail: true,
+                        showInDirectory: true
+                    }
+                });
+
+                // Show Terms modal - user must accept before approval request
+                showTermsModal('signup');
+
+            } catch (error) {
+                console.error('Signup error:', error);
+                showAuthError(error.message);
+            }
+        }
+
+        async function logout() {
+            try {
+                await auth.signOut();
+                // Auth state change will handle showing login screen
+            } catch (error) {
+                console.error('Logout error:', error);
+                alert('Error signing out. Please try again.');
+            }
+        }
+
+        function showAuthError(message) {
+            const errorDiv = document.getElementById('authError');
+            errorDiv.textContent = message;
+            errorDiv.classList.add('show');
+        }
+
+        function clearAuthError() {
+            const errorDiv = document.getElementById('authError');
+            errorDiv.textContent = '';
+            errorDiv.classList.remove('show');
+        }
+
+        // ========================================
+        // UI STATE MANAGEMENT
+        // ========================================
+
+        function showAuth() {
+            document.getElementById('loadingScreen').style.display = 'none';
+            document.getElementById('authScreen').style.display = 'block';
+            document.getElementById('mainApp').style.display = 'none';
+        }
+
+        function showMainApp() {
+            document.getElementById('loadingScreen').style.display = 'none';
+            document.getElementById('authScreen').style.display = 'none';
+            document.getElementById('mainApp').style.display = 'block';
+            
+            // Initialize pull to refresh
+            setTimeout(() => {
+                setupPullToRefresh();
+            }, 500);
+        }
+
+        function toggleUserMenu() {
+            document.getElementById('dropdownMenu').classList.toggle('show');
+        }
+
+        // Close dropdown when clicking outside
+        document.addEventListener('click', (e) => {
+            if (!e.target.closest('.user-menu')) {
+                document.getElementById('dropdownMenu').classList.remove('show');
+            }
+        });
+
+        function switchTab(tabName) {
+            // Update buttons
+            document.querySelectorAll('.tab-btn').forEach(btn => {
+                btn.classList.remove('active');
+            });
+            event.target.closest('.tab-btn').classList.add('active');
+
+            // Update content
+            document.querySelectorAll('.tab-content').forEach(content => {
+                content.classList.remove('active');
+            });
+            document.getElementById(tabName + 'Content').classList.add('active');
+
+            currentTab = tabName;
+
+            // Show/hide FAB based on tab
+            const fab = document.getElementById('fab');
+            if (tabName === 'visitors' || tabName === 'tickets' || tabName === 'marketplace' || tabName === 'communityshare' || tabName === 'events') {
+                fab.classList.remove('hidden');
+            } else {
+                fab.classList.add('hidden');
+            }
+        }
+
+        // ========================================
+        // LOAD DATA
+        // ========================================
+
+        function loadAllData() {
+            loadAnnouncements();
+            loadDirectory();
+            loadVisitors();
+            loadTickets();
+            loadMarketplace();
+            loadCommunityShare();
+            loadEvents();
+        }
+
+        function refreshAllData() {
+            const btn = document.querySelector('.refresh-btn');
+            btn.classList.add('spinning');
+            
+            loadAllData();
+            
+            setTimeout(() => {
+                btn.classList.remove('spinning');
+            }, 1000);
+        }
+
+        // ========== PULL TO REFRESH (SIMPLIFIED) ==========
+        let startY = 0;
+        let currentY = 0;
+        let pulling = false;
+        let refreshing = false;
+
+        function setupPullToRefresh() {
+            console.log('🔄 Setting up pull-to-refresh...');
+            
+            const indicator = document.getElementById('pullToRefresh');
+            if (!indicator) {
+                console.error('❌ Pull indicator not found');
+                return;
+            }
+
+            // Touchstart
+            window.addEventListener('touchstart', (e) => {
+                if (window.scrollY <= 5 && !refreshing) {
+                    startY = e.touches[0].pageY;
+                    pulling = true;
+                    console.log('👆 Touch start, scrollY:', window.scrollY);
+                }
+            }, { passive: true });
+
+            // Touchmove
+            window.addEventListener('touchmove', (e) => {
+                if (!pulling || refreshing) return;
+                
+                currentY = e.touches[0].pageY;
+                const diff = currentY - startY;
+
+                if (diff > 0 && window.scrollY <= 5) {
+                    e.preventDefault();
+                    
+                    const pullAmount = Math.min(diff * 0.5, 80);
+                    indicator.style.transform = `translateY(${pullAmount}px)`;
+                    indicator.style.opacity = Math.min(diff / 100, 1);
+
+                    const icon = indicator.querySelector('.pull-to-refresh-icon');
+                    const text = indicator.querySelector('.pull-to-refresh-text');
+
+                    if (diff > 100) {
+                        icon.textContent = '🔄';
+                        text.textContent = 'Release to refresh';
+                    } else {
+                        icon.textContent = '⬇️';
+                        text.textContent = 'Pull down';
+                    }
+                    
+                    console.log('📏 Diff:', diff);
+                }
+            }, { passive: false });
+
+            // Touchend
+            window.addEventListener('touchend', () => {
+                if (!pulling) return;
+
+                const diff = currentY - startY;
+                console.log('✋ Touch end, diff:', diff);
+
+                if (diff > 100 && !refreshing) {
+                    // Trigger refresh
+                    refreshing = true;
+                    const icon = indicator.querySelector('.pull-to-refresh-icon');
+                    const text = indicator.querySelector('.pull-to-refresh-text');
+                    
+                    indicator.style.transform = 'translateY(60px)';
+                    indicator.style.opacity = '1';
+                    indicator.classList.add('refreshing');
+                    icon.textContent = '🔄';
+                    text.textContent = 'Refreshing...';
+
+                    console.log('🔄 REFRESHING!');
+                    loadAllData();
+
+                    setTimeout(() => {
+                        indicator.style.transform = 'translateY(-80px)';
+                        indicator.style.opacity = '0';
+                        indicator.classList.remove('refreshing');
+                        refreshing = false;
+                        pulling = false;
+                    }, 1500);
+                } else {
+                    // Reset
+                    indicator.style.transform = 'translateY(-80px)';
+                    indicator.style.opacity = '0';
+                    pulling = false;
+                }
+
+                startY = 0;
+                currentY = 0;
+            }, { passive: true });
+
+            console.log('✅ Pull-to-refresh ready');
+        }
+
+        // ========== END PULL TO REFRESH ==========
+
+
+        async function loadAnnouncements() {
+            const container = document.getElementById('announcementsContent');
+            
+            try {
+                const snapshot = await db.collection('announcements')
+                    .orderBy('createdAt', 'desc')
+                    .limit(20)
+                    .get();
+
+                if (snapshot.empty) {
+                    container.innerHTML = `
+                        <div class="empty-state">
+                            <div class="empty-icon">📢</div>
+                            <div class="empty-text">No announcements yet</div>
+                            <div class="empty-subtext">Check back later for updates</div>
+                        </div>
+                    `;
+                    return;
+                }
+
+                let html = '';
+                snapshot.forEach(doc => {
+                    const data = doc.data();
+                    const date = data.createdAt ? data.createdAt.toDate().toLocaleDateString() : 'Recent';
+                    
+                    html += `
+                        <div class="card">
+                            <div class="card-title">${data.title || 'Announcement'}</div>
+                            <div class="card-subtitle">${date} • ${data.author || 'Admin'}</div>
+                            <div class="card-content">${data.message || ''}</div>
+                            ${data.category ? `<span class="badge badge-${data.category}">${data.category}</span>` : ''}
+                        </div>
+                    `;
+                });
+
+                container.innerHTML = html;
+            } catch (error) {
+                console.error('Error loading announcements:', error);
+                container.innerHTML = `
+                    <div class="empty-state">
+                        <div class="empty-icon">❌</div>
+                        <div class="empty-text">Error loading announcements</div>
+                        <div class="empty-subtext">${error.message}</div>
+                    </div>
+                `;
+            }
+        }
+
+        async function loadDirectory() {
+            const container = document.getElementById('directoryContent');
+            
+            try {
+                // Simple query - get all residents
+                const snapshot = await db.collection('residents').get();
+
+                if (snapshot.empty) {
+                    container.innerHTML = `
+                        <div class="empty-state">
+                            <div class="empty-icon">👥</div>
+                            <div class="empty-text">No residents in directory</div>
+                        </div>
+                    `;
+                    return;
+                }
+
+                // Sort by unit number in JS instead of Firestore
+                const residents = [];
+                snapshot.forEach(doc => residents.push({ id: doc.id, ...doc.data() }));
+                
+                // Filter residents who want to be shown (default to true if not set)
+                const visibleResidents = residents.filter(r => {
+                    if (!r.privacySettings) return true; // Show by default if no settings
+                    if (r.privacySettings.showInDirectory === undefined) return true; // Show by default
+                    return r.privacySettings.showInDirectory === true;
+                });
+
+                // Sort by unit number
+                visibleResidents.sort((a, b) => (a.unitNumber || '').localeCompare(b.unitNumber || ''));
+
+                if (visibleResidents.length === 0) {
+                    container.innerHTML = `
+                        <div class="empty-state">
+                            <div class="empty-icon">👥</div>
+                            <div class="empty-text">No residents found</div>
+                        </div>
+                    `;
+                    return;
+                }
+
+                let html = '';
+                visibleResidents.forEach(data => {
+                    let details = '';
+                    
+                    // Show phone if privacy allows (default to true)
+                    const showPhone = !data.privacySettings || data.privacySettings.showPhone !== false;
+                    const showEmail = !data.privacySettings || data.privacySettings.showEmail !== false;
+                    
+                    if (showPhone && data.phone) {
+                        details += `<div><strong>Phone:</strong> ${data.phone}</div>`;
+                    }
+                    if (showEmail && data.email) {
+                        details += `<div><strong>Email:</strong> ${data.email}</div>`;
+                    }
+
+                    html += `
+                        <div class="card">
+                            <div class="card-title">${data.name || 'Resident'}</div>
+                            <div class="card-subtitle">Unit ${data.unitNumber || 'N/A'}</div>
+                            <div class="card-content">${details || '<div style="color: #999;">Contact info hidden by resident</div>'}</div>
+                        </div>
+                    `;
+                });
+
+                container.innerHTML = html;
+            } catch (error) {
+                console.error('Error loading directory:', error);
+                container.innerHTML = `
+                    <div class="empty-state">
+                        <div class="empty-icon">❌</div>
+                        <div class="empty-text">Error loading directory</div>
+                        <div class="empty-subtext">${error.message}</div>
+                    </div>
+                `;
+            }
+        }
+
+        async function loadVisitors() {
+            const container = document.getElementById('visitorsContent');
+            
+            try {
+                let query;
+                
+                // Admins can see all visitors, residents only see their own
+                if (userData.role === 'admin') {
+                    // Admin sees all visitors
+                    query = db.collection('visitors');
+                } else {
+                    // Regular residents only see their own visitors
+                    query = db.collection('visitors').where('residentId', '==', currentUser.uid);
+                }
+                
+                const snapshot = await query.get();
+
+                if (snapshot.empty) {
+                    container.innerHTML = `
+                        <div class="empty-state">
+                            <div class="empty-icon">🚗</div>
+                            <div class="empty-text">No visitor passes yet</div>
+                            <div class="empty-subtext">Tap + to create a visitor pass</div>
+                        </div>
+                    `;
+                    return;
+                }
+
+                // Sort in JS to avoid composite index
+                const visitors = [];
+                snapshot.forEach(doc => visitors.push({ id: doc.id, ...doc.data() }));
+                visitors.sort((a, b) => {
+                    const dateA = a.createdAt ? a.createdAt.toMillis() : 0;
+                    const dateB = b.createdAt ? b.createdAt.toMillis() : 0;
+                    return dateB - dateA;
+                });
+
+                let html = '';
+                visitors.forEach(data => {
+                    const date = data.visitDate ? data.visitDate.toDate().toLocaleDateString() : 'TBD';
+                    const isOwner = data.residentId === currentUser.uid;
+                    
+                    html += `
+                        <div class="card" onclick="viewVisitorQR('${data.id}', '${data.visitorName || 'Visitor'}', '${data.qrCode || ''}', '${date}')">
+                            <div class="card-title">${data.visitorName || 'Visitor'}</div>
+                            <div class="card-subtitle">Visit: ${date}</div>
+                            ${!isOwner ? `<div style="font-size: 12px; color: #999; margin-top: 5px;">👤 ${data.residentName || 'Unknown'} • Unit ${data.residentUnit || 'N/A'}</div>` : ''}
+                            <div class="card-content">
+                                ${data.visitorPhone ? `<div><strong>Phone:</strong> ${data.visitorPhone}</div>` : ''}
+                                ${data.vehicleNumber ? `<div><strong>Vehicle:</strong> ${data.vehicleNumber}</div>` : ''}
+                                ${data.purpose ? `<div><strong>Purpose:</strong> ${data.purpose}</div>` : ''}
+                                ${data.qrCode ? `<div style="margin-top:10px;"><strong>Pass Code:</strong> <code style="background:#f0f0f0;padding:4px 8px;border-radius:4px;font-size:13px;">${data.qrCode}</code></div>` : ''}
+                            </div>
+                            <span class="badge badge-${data.status || 'pending'}">${data.status || 'pending'}</span>
+                            ${data.qrCode ? '<div style="margin-top:10px;color:#667eea;font-size:12px;font-weight:600;">📱 Tap to view QR code</div>' : ''}
+                        </div>
+                    `;
+                });
+
+                container.innerHTML = html;
+            } catch (error) {
+                console.error('Error loading visitors:', error);
+                container.innerHTML = `
+                    <div class="empty-state">
+                        <div class="empty-icon">❌</div>
+                        <div class="empty-text">Error loading visitors</div>
+                        <div class="empty-subtext">${error.message}</div>
+                    </div>
+                `;
+            }
+        }
+
+        async function loadTickets() {
+            const container = document.getElementById('ticketsContent');
+            
+            try {
+                // Simple query - filter only, no orderBy to avoid index requirement
+                const snapshot = await db.collection('tickets')
+                    .where('residentId', '==', currentUser.uid)
+                    .get();
+
+                if (snapshot.empty) {
+                    container.innerHTML = `
+                        <div class="empty-state">
+                            <div class="empty-icon">🔧</div>
+                            <div class="empty-text">No tickets yet</div>
+                            <div class="empty-subtext">Tap + to submit a request</div>
+                        </div>
+                    `;
+                    return;
+                }
+
+                // Sort in JS to avoid composite index
+                const tickets = [];
+                snapshot.forEach(doc => tickets.push({ id: doc.id, ...doc.data() }));
+                tickets.sort((a, b) => {
+                    const dateA = a.createdAt ? a.createdAt.toMillis() : 0;
+                    const dateB = b.createdAt ? b.createdAt.toMillis() : 0;
+                    return dateB - dateA;
+                });
+
+                let html = '';
+                tickets.forEach(data => {
+                    const date = data.createdAt ? data.createdAt.toDate().toLocaleDateString() : 'Recent';
+                    
+                    html += `
+                        <div class="card">
+                            <div class="card-title">${data.title || 'Support Ticket'}</div>
+                            <div class="card-subtitle">${date} • ${data.category || 'General'}</div>
+                            <div class="card-content">${data.description || ''}</div>
+                            <span class="badge badge-${data.status || 'open'}">${data.status || 'open'}</span>
+                        </div>
+                    `;
+                });
+
+                container.innerHTML = html;
+            } catch (error) {
+                console.error('Error loading tickets:', error);
+                container.innerHTML = `
+                    <div class="empty-state">
+                        <div class="empty-icon">❌</div>
+                        <div class="empty-text">Error loading tickets</div>
+                        <div class="empty-subtext">${error.message}</div>
+                    </div>
+                `;
+            }
+        }
+
+        async function loadMarketplace() {
+            const container = document.getElementById('marketplaceContent');
+            
+            try {
+                const snapshot = await db.collection('marketplace')
+                    .where('status', '==', 'active')
+                    .get();
+
+                if (snapshot.empty) {
+                    container.innerHTML = `
+                        <div class="empty-state">
+                            <div class="empty-icon">🏪</div>
+                            <div class="empty-text">No items for sale yet</div>
+                            <div class="empty-subtext">Tap + to post something</div>
+                        </div>
+                    `;
+                    return;
+                }
+
+                // Sort by date
+                const items = [];
+                snapshot.forEach(doc => items.push({ id: doc.id, ...doc.data() }));
+                items.sort((a, b) => {
+                    const dateA = a.createdAt ? a.createdAt.toMillis() : 0;
+                    const dateB = b.createdAt ? b.createdAt.toMillis() : 0;
+                    return dateB - dateA;
+                });
+
+                let html = '';
+                items.forEach(data => {
+                    const date = data.createdAt ? data.createdAt.toDate().toLocaleDateString() : 'Recent';
+                    const isOwner = data.sellerId === currentUser.uid;
+                    const commentCount = data.comments ? data.comments.length : 0;
+                    
+                    html += `
+                        <div class="card" onclick="viewMarketplaceItem('${data.id}')" style="cursor: pointer;">
+                            <div class="card-title">${data.title || 'Item for Sale'}</div>
+                            <div class="card-subtitle">
+                                <strong style="color: #667eea; font-size: 18px;">$${data.price || '0'}</strong>
+                            </div>
+                            <div class="card-content" style="margin-top: 10px;">
+                                ${data.description || 'No description'}
+                                ${data.category ? `<br><span class="badge" style="background: #e3f2fd; color: #1976d2; margin-top: 8px;">${data.category}</span>` : ''}
+                            </div>
+                            <div style="margin-top: 12px; padding-top: 12px; border-top: 1px solid #f0f0f0; font-size: 13px; color: #666;">
+                                👤 ${data.sellerName || 'Unknown'} • Unit ${data.unitNumber || 'N/A'} • ${date}
+                                ${commentCount > 0 ? ` • 💬 ${commentCount} comment${commentCount > 1 ? 's' : ''}` : ''}
+                            </div>
+                        </div>
+                    `;
+                });
+
+                container.innerHTML = html;
+            } catch (error) {
+                console.error('Error loading marketplace:', error);
+                
+                // Check if it's a permission error
+                if (error.code === 'permission-denied') {
+                    container.innerHTML = `
+                        <div class="empty-state">
+                            <div class="empty-icon">🔒</div>
+                            <div class="empty-text">Marketplace is not available</div>
+                            <div class="empty-subtext">Please contact admin to enable marketplace feature</div>
+                        </div>
+                    `;
+                } else {
+                    container.innerHTML = `
+                        <div class="empty-state">
+                            <div class="empty-icon">🏪</div>
+                            <div class="empty-text">No items yet</div>
+                            <div class="empty-subtext">Be the first to post something!</div>
+                        </div>
+                    `;
+                }
+            }
+        }
+
+        // ========================================
+        // MODAL & CREATE ACTIONS
+        // ========================================
+
+        function openCreateModal() {
+            const modal = document.getElementById('createModal');
+            const modalTitle = document.getElementById('modalTitle');
+            const modalBody = document.getElementById('modalBody');
+
+            if (currentTab === 'visitors') {
+                modalTitle.textContent = 'Create Visitor Pass';
+                modalBody.innerHTML = `
+                    <div class="input-group">
+                        <label>Visitor Name</label>
+                        <input type="text" id="visitorName" placeholder="John Smith">
+                    </div>
+                    <div class="input-group">
+                        <label>Phone Number</label>
+                        <input type="tel" id="visitorPhone" placeholder="555-1234">
+                    </div>
+                    <div class="input-group">
+                        <label>Vehicle Number</label>
+                        <input type="text" id="visitorVehicle" placeholder="ABC-1234">
+                    </div>
+                    <div class="input-group">
+                        <label>Visit Date</label>
+                        <input type="date" id="visitDate">
+                    </div>
+                    <div class="input-group">
+                        <label>Purpose</label>
+                        <input type="text" id="visitPurpose" placeholder="Delivery, Guest, etc.">
+                    </div>
+                    <button class="btn" onclick="createVisitor()">Create Visitor Pass</button>
+                `;
+            } else if (currentTab === 'tickets') {
+                modalTitle.textContent = 'Submit Helpdesk Ticket';
+                modalBody.innerHTML = `
+                    <div class="input-group">
+                        <label>Title</label>
+                        <input type="text" id="ticketTitle" placeholder="Brief description">
+                    </div>
+                    <div class="input-group">
+                        <label>Category</label>
+                        <select id="ticketCategory" style="width:100%;padding:12px;border:2px solid #e0e0e0;border-radius:8px;">
+                            <option value="plumbing">Plumbing</option>
+                            <option value="electrical">Electrical</option>
+                            <option value="cleaning">Cleaning</option>
+                            <option value="security">Security</option>
+                            <option value="other">Other</option>
+                        </select>
+                    </div>
+                    <div class="input-group">
+                        <label>Priority</label>
+                        <select id="ticketPriority" style="width:100%;padding:12px;border:2px solid #e0e0e0;border-radius:8px;">
+                            <option value="low">Low</option>
+                            <option value="medium">Medium</option>
+                            <option value="high">High</option>
+                            <option value="urgent">Urgent</option>
+                        </select>
+                    </div>
+                    <div class="input-group">
+                        <label>Description</label>
+                        <textarea id="ticketDescription" placeholder="Describe the issue in detail" style="width:100%;padding:12px;border:2px solid #e0e0e0;border-radius:8px;min-height:100px;font-family:inherit;"></textarea>
+                    </div>
+                    <div class="input-group">
+                        <label>Location</label>
+                        <input type="text" id="ticketLocation" placeholder="Unit 101, Lobby, etc.">
+                    </div>
+                    <button class="btn" onclick="createTicket()">Submit Ticket</button>
+                `;
+            } else if (currentTab === 'marketplace') {
+                modalTitle.textContent = 'Post Item for Sale';
+                modalBody.innerHTML = `
+                    <div class="input-group">
+                        <label>Item Title</label>
+                        <input type="text" id="itemTitle" placeholder="e.g., Sofa, Bicycle, Table">
+                    </div>
+                    <div class="input-group">
+                        <label>Price ($)</label>
+                        <input type="number" id="itemPrice" placeholder="0" min="0" step="0.01">
+                    </div>
+                    <div class="input-group">
+                        <label>Category</label>
+                        <select id="itemCategory" style="width:100%;padding:12px;border:2px solid #e0e0e0;border-radius:8px;">
+                            <option value="furniture">Furniture</option>
+                            <option value="electronics">Electronics</option>
+                            <option value="appliances">Appliances</option>
+                            <option value="books">Books</option>
+                            <option value="sports">Sports & Fitness</option>
+                            <option value="toys">Toys & Games</option>
+                            <option value="clothing">Clothing</option>
+                            <option value="other">Other</option>
+                        </select>
+                    </div>
+                    <div class="input-group">
+                        <label>Description</label>
+                        <textarea id="itemDescription" placeholder="Describe the item's condition, features, etc." style="width:100%;padding:12px;border:2px solid #e0e0e0;border-radius:8px;min-height:100px;font-family:inherit;"></textarea>
+                    </div>
+                    <div class="input-group">
+                        <label>Your Contact (Phone or Email)</label>
+                        <input type="text" id="sellerContact" placeholder="555-1234 or email@example.com" value="${userData.phone || userData.email || ''}">
+                    </div>
+                    <button class="btn" onclick="createMarketplaceItem()">Post Item</button>
+                `;
+            } else if (currentTab === 'communityshare') {
+                modalTitle.textContent = 'Share with Community';
+                modalBody.innerHTML = `
+                    <div class="input-group">
+                        <label>What do you want to do?</label>
+                        <select id="shareType" style="width:100%;padding:12px;border:2px solid #e0e0e0;border-radius:8px;font-size:14px;">
+                            <option value="lend">🎁 I have something to lend</option>
+                            <option value="need">🙏 I need to borrow something</option>
+                        </select>
+                    </div>
+                    <div class="input-group">
+                        <label>Item Name</label>
+                        <input type="text" id="shareTitle" placeholder="e.g., Ladder, Lawn Mower, Drill">
+                    </div>
+                    <div class="input-group">
+                        <label>Description</label>
+                        <textarea id="shareDescription" placeholder="Describe the item and any conditions..." style="width:100%;padding:12px;border:2px solid #e0e0e0;border-radius:8px;min-height:100px;font-family:inherit;"></textarea>
+                    </div>
+                    <div class="input-group">
+                        <label>Available Until (Optional)</label>
+                        <input type="date" id="shareAvailableUntil" style="width:100%;padding:12px;border:2px solid #e0e0e0;border-radius:8px;">
+                    </div>
+                    <div class="input-group">
+                        <label>Your Contact (Phone or Email)</label>
+                        <input type="text" id="shareContact" placeholder="555-1234 or email@example.com" value="${userData.phone || userData.email || ''}">
+                    </div>
+                    <button class="btn" onclick="createCommunityShareItem()">Post</button>
+                `;
+            } else if (currentTab === 'events') {
+                modalTitle.textContent = 'Create Community Event';
+                modalBody.innerHTML = `
+                    <div class="input-group">
+                        <label>Event Name *</label>
+                        <input type="text" id="eventTitle" placeholder="e.g., Lemonade Stand, Ice Cream Truck">
+                    </div>
+                    <div class="input-group">
+                        <label>Description *</label>
+                        <textarea id="eventDescription" placeholder="What's happening? Where to find you?" style="width:100%;padding:12px;border:2px solid #e0e0e0;border-radius:8px;min-height:100px;font-family:inherit;"></textarea>
+                    </div>
+                    <div class="input-group">
+                        <label>Date *</label>
+                        <input type="date" id="eventDate" style="width:100%;padding:12px;border:2px solid #e0e0e0;border-radius:8px;">
+                    </div>
+                    <div class="input-group">
+                        <label>Time *</label>
+                        <input type="time" id="eventTime" style="width:100%;padding:12px;border:2px solid #e0e0e0;border-radius:8px;">
+                    </div>
+                    <div class="input-group">
+                        <label>Location *</label>
+                        <input type="text" id="eventLocation" placeholder="e.g., Unit 101, Community Lawn">
+                    </div>
+                    <div class="input-group">
+                        <label>Your Contact (Phone or Email) *</label>
+                        <input type="text" id="eventContact" placeholder="555-1234 or email@example.com" value="${userData.phone || userData.email || ''}">
+                    </div>
+                    <button class="btn" onclick="createCommunityEvent()">Create Event</button>
+                `;
+            }
+
+            modal.classList.add('show');
+        }
+
+        function closeModal() {
+            document.getElementById('createModal').classList.remove('show');
+        }
+
+        async function createVisitor() {
+            const name = document.getElementById('visitorName').value.trim();
+            const phone = document.getElementById('visitorPhone').value.trim();
+            const vehicle = document.getElementById('visitorVehicle').value.trim();
+            const date = document.getElementById('visitDate').value;
+            const purpose = document.getElementById('visitPurpose').value.trim();
+
+            if (!name || !phone || !date) {
+                alert('Please fill in required fields (Name, Phone, Date)');
+                return;
+            }
+
+            try {
+                const qrCode = generateQRCode();
+                console.log('Generated QR Code:', qrCode); // Debug log
+                
+                await db.collection('visitors').add({
+                    residentId: currentUser.uid,
+                    residentName: userData.displayName,
+                    residentUnit: userData.unitNumber,
+                    visitorName: name,
+                    visitorPhone: phone,
+                    vehicleNumber: vehicle,
+                    visitDate: firebase.firestore.Timestamp.fromDate(new Date(date)),
+                    purpose: purpose,
+                    status: 'approved', // Auto-approve for now
+                    qrCode: qrCode,
+                    createdAt: firebase.firestore.FieldValue.serverTimestamp()
+                });
+
+                closeModal();
+                loadVisitors();
+                alert('✅ Visitor pass created successfully! Tap the card to view QR code.');
+            } catch (error) {
+                console.error('Error creating visitor:', error);
+                alert('Error creating visitor pass: ' + error.message);
+            }
+        }
+
+        async function createTicket() {
+            const title = document.getElementById('ticketTitle').value.trim();
+            const category = document.getElementById('ticketCategory').value;
+            const priority = document.getElementById('ticketPriority').value;
+            const description = document.getElementById('ticketDescription').value.trim();
+            const location = document.getElementById('ticketLocation').value.trim();
+
+            if (!title || !description) {
+                alert('Please fill in required fields (Title, Description)');
+                return;
+            }
+
+            try {
+                await db.collection('tickets').add({
+                    residentId: currentUser.uid,
+                    residentName: userData.displayName,
+                    unitNumber: userData.unitNumber,
+                    title: title,
+                    category: category,
+                    priority: priority,
+                    description: description,
+                    location: location,
+                    status: 'open',
+                    photos: [],
+                    comments: [],
+                    createdAt: firebase.firestore.FieldValue.serverTimestamp()
+                });
+
+                closeModal();
+                loadTickets();
+                alert('Ticket submitted successfully!');
+            } catch (error) {
+                console.error('Error creating ticket:', error);
+                alert('Error submitting ticket: ' + error.message);
+            }
+        }
+
+        async function createMarketplaceItem() {
+            const title = document.getElementById('itemTitle').value.trim();
+            const price = document.getElementById('itemPrice').value;
+            const category = document.getElementById('itemCategory').value;
+            const description = document.getElementById('itemDescription').value.trim();
+            const contact = document.getElementById('sellerContact').value.trim();
+
+            console.log('=== Creating Marketplace Item ===');
+            console.log('Current User Object:', currentUser);
+            console.log('Display Name:', userData.displayName);
+            console.log('Email:', userData.email);
+            console.log('Phone:', userData.phone);
+            console.log('Unit:', userData.unitNumber);
+
+            if (!title || !price || !description || !contact) {
+                alert('Please fill in all required fields (Title, Price, Description, Contact)');
+                return;
+            }
+
+            try {
+                // Determine if contact is phone or email
+                const isEmail = contact.includes('@');
+                
+                const itemData = {
+                    sellerId: currentUser.uid,
+                    sellerName: userData.displayName || 'Unknown',
+                    sellerEmail: isEmail ? contact : (userData.email || ''),
+                    sellerPhone: isEmail ? '' : contact,
+                    unitNumber: userData.unitNumber || 'N/A',
+                    title: title,
+                    price: parseFloat(price),
+                    category: category,
+                    description: description,
+                    status: 'active',
+                    comments: [],
+                    createdAt: firebase.firestore.FieldValue.serverTimestamp()
+                };
+
+                console.log('Item Data to Save:', itemData);
+                
+                await db.collection('marketplace').add(itemData);
+
+                closeModal();
+                loadMarketplace();
+                alert('✅ Item posted successfully!');
+            } catch (error) {
+                console.error('Error creating marketplace item:', error);
+                alert('Error posting item: ' + error.message);
+            }
+        }
+
+        function contactSeller(itemId, sellerName, sellerContact) {
+            const message = `Hi! I'm interested in your item on Umbrella Marketplace.\n\nContact: ${sellerContact}`;
+            
+            if (navigator.share) {
+                navigator.share({
+                    title: 'Contact Seller',
+                    text: message
+                }).catch(err => {
+                    copyToClipboard(message);
+                });
+            } else {
+                copyToClipboard(message);
+            }
+        }
+
+        async function viewMarketplaceItem(itemId) {
+            try {
+                const doc = await db.collection('marketplace').doc(itemId).get();
+                if (!doc.exists) {
+                    alert('Item not found');
+                    return;
+                }
+
+                const data = doc.data();
+                const date = data.createdAt ? data.createdAt.toDate().toLocaleString() : 'Unknown';
+                const isOwner = data.sellerId === currentUser.uid;
+                const comments = data.comments || [];
+
+                let html = `
+                    <div style="margin-bottom: 25px;">
+                        <h3 style="font-size: 22px; margin-bottom: 10px; color: #333;">${data.title || 'Item for Sale'}</h3>
+                        <div style="font-size: 28px; font-weight: 700; color: #667eea; margin-bottom: 15px;">$${data.price || '0'}</div>
+                        
+                        ${data.category ? `<span class="badge" style="background: #e3f2fd; color: #1976d2; font-size: 13px;">${data.category}</span>` : ''}
+                        
+                        <div style="margin-top: 15px; padding: 15px; background: #f8f9fa; border-radius: 8px;">
+                            <div style="font-weight: 600; margin-bottom: 8px;">Description:</div>
+                            <div style="line-height: 1.6;">${data.description || 'No description provided'}</div>
+                        </div>
+
+                        <div style="margin-top: 15px; padding: 15px; background: #e8f4f8; border-radius: 8px;">
+                            <div style="font-weight: 600; margin-bottom: 8px;">Seller Information:</div>
+                            <div style="line-height: 1.8;">
+                                <strong>Name:</strong> ${data.sellerName || 'Unknown'}<br>
+                                <strong>Unit:</strong> ${data.unitNumber || 'N/A'}<br>
+                                <strong>Phone:</strong> ${data.sellerPhone || 'Not provided'}<br>
+                                <strong>Email:</strong> ${data.sellerEmail || 'Not provided'}<br>
+                                <strong>Posted:</strong> ${date}
+                            </div>
+                        </div>
+
+                        ${!isOwner ? `
+                            <button class="btn" style="width: 100%; margin-top: 15px;" onclick="copySellerContact('${data.sellerPhone || ''}', '${data.sellerEmail || ''}', '${data.sellerName || 'Seller'}')">
+                                📞 Copy Contact Info
+                            </button>
+                        ` : ''}
+
+                        ${isOwner ? `
+                            <button class="btn" style="width: 100%; margin-top: 15px; background: #f44336;" onclick="if(confirm('Delete this item?')) { deleteMarketplaceItem('${itemId}'); closeMarketplaceModal(); }">
+                                🗑️ Delete Item
+                            </button>
+                        ` : ''}
+                    </div>
+
+                    <div style="border-top: 2px solid #e0e0e0; padding-top: 20px; margin-top: 20px;">
+                        <h4 style="font-size: 18px; margin-bottom: 15px; color: #333;">💬 Comments (${comments.length})</h4>
+                        
+                        <div id="commentsList" style="max-height: 300px; overflow-y: auto; margin-bottom: 15px;">
+                `;
+
+                if (comments.length === 0) {
+                    html += `<div style="text-align: center; color: #999; padding: 20px;">No comments yet. Be the first to comment!</div>`;
+                } else {
+                    comments.sort((a, b) => {
+                        const dateA = a.timestamp ? a.timestamp.toMillis() : 0;
+                        const dateB = b.timestamp ? b.timestamp.toMillis() : 0;
+                        return dateA - dateB;
+                    });
+
+                    comments.forEach(comment => {
+                        const commentDate = comment.timestamp ? comment.timestamp.toDate().toLocaleString() : 'Unknown';
+                        html += `
+                            <div style="background: #f8f9fa; padding: 12px; border-radius: 8px; margin-bottom: 10px; border-left: 3px solid #667eea;">
+                                <div style="font-weight: 600; color: #667eea; margin-bottom: 5px;">
+                                    ${comment.userName || 'Unknown'} 
+                                    <span style="font-weight: normal; color: #999; font-size: 12px;">• ${commentDate}</span>
+                                </div>
+                                <div style="color: #333; line-height: 1.5;">${comment.message || ''}</div>
+                            </div>
+                        `;
+                    });
+                }
+
+                html += `
+                        </div>
+
+                        <div class="input-group" style="margin-bottom: 0;">
+                            <textarea id="commentInput" placeholder="Write a comment..." 
+                                      style="width:100%;padding:12px;border:2px solid #e0e0e0;border-radius:8px;min-height:80px;font-family:inherit;resize:vertical;"></textarea>
+                        </div>
+                        <button class="btn" style="width: 100%; margin-top: 10px;" onclick="addMarketplaceComment('${itemId}')">
+                            💬 Post Comment
+                        </button>
+                    </div>
+                `;
+
+                document.getElementById('marketplaceModalBody').innerHTML = html;
+                document.getElementById('marketplaceModal').classList.add('show');
+            } catch (error) {
+                console.error('Error loading item details:', error);
+                alert('Error loading item: ' + error.message);
+            }
+        }
+
+        function closeMarketplaceModal() {
+            document.getElementById('marketplaceModal').classList.remove('show');
+        }
+
+        function copySellerContact(phone, email, sellerName) {
+            let contactInfo = `Seller: ${sellerName}\n`;
+            if (phone) contactInfo += `Phone: ${phone}\n`;
+            if (email) contactInfo += `Email: ${email}`;
+
+            copyToClipboard(contactInfo);
+            alert('✅ Contact info copied to clipboard!');
+        }
+
+        async function addMarketplaceComment(itemId) {
+            const commentText = document.getElementById('commentInput').value.trim();
+            
+            console.log('=== Adding Comment ===');
+            console.log('Current User:', currentUser);
+            console.log('Display Name:', userData.displayName);
+            console.log('Unit:', userData.unitNumber);
+            
+            if (!commentText) {
+                alert('Please write a comment');
+                return;
+            }
+
+            try {
+                const doc = await db.collection('marketplace').doc(itemId).get();
+                const data = doc.data();
+                const comments = data.comments || [];
+
+                const newComment = {
+                    userId: currentUser.uid,
+                    userName: userData.displayName || 'Unknown',
+                    userUnit: userData.unitNumber || 'N/A',
+                    message: commentText,
+                    timestamp: firebase.firestore.Timestamp.now()
+                };
+
+                console.log('New Comment:', newComment);
+                
+                comments.push(newComment);
+                
+                console.log('All Comments:', comments);
+
+                await db.collection('marketplace').doc(itemId).update({
+                    comments: comments
+                });
+
+                console.log('Comment saved successfully!');
+
+                // Reload the item to show new comment
+                viewMarketplaceItem(itemId);
+                loadMarketplace(); // Refresh main list to update comment count
+            } catch (error) {
+                console.error('=== Error adding comment ===');
+                console.error('Error object:', error);
+                console.error('Error code:', error.code);
+                console.error('Error message:', error.message);
+                alert('Error posting comment: ' + error.message);
+            }
+        }
+
+        async function deleteMarketplaceItem(itemId) {
+            if (!confirm('Are you sure you want to delete this item?')) return;
+
+            try {
+                await db.collection('marketplace').doc(itemId).delete();
+                loadMarketplace();
+                alert('✅ Item deleted successfully!');
+            } catch (error) {
+                console.error('Error deleting item:', error);
+                alert('Error deleting item: ' + error.message);
+            }
+        }
+
+        // ========== COMMUNITY SHARE FUNCTIONS ==========
+
+        async function loadCommunityShare() {
+            const container = document.getElementById('communityshareContent');
+            
+            try {
+                const snapshot = await db.collection('communityshare')
+                    .where('status', '==', 'active')
+                    .get();
+
+                if (snapshot.empty) {
+                    container.innerHTML = `
+                        <div class="empty-state">
+                            <div class="empty-icon">🤝</div>
+                            <div class="empty-text">No items shared yet</div>
+                            <div class="empty-subtext">Tap + to post what you need or can lend</div>
+                        </div>
+                    `;
+                    return;
+                }
+
+                // Sort by date
+                const items = [];
+                snapshot.forEach(doc => items.push({ id: doc.id, ...doc.data() }));
+                items.sort((a, b) => {
+                    const dateA = a.createdAt ? a.createdAt.toMillis() : 0;
+                    const dateB = b.createdAt ? b.createdAt.toMillis() : 0;
+                    return dateB - dateA;
+                });
+
+                let html = '';
+                items.forEach(data => {
+                    const date = data.createdAt ? data.createdAt.toDate().toLocaleDateString() : 'Recent';
+                    const commentCount = data.comments ? data.comments.length : 0;
+                    const typeIcon = data.type === 'need' ? '🙏' : '🎁';
+                    const typeLabel = data.type === 'need' ? 'Need to Borrow' : 'Available to Lend';
+                    const typeBg = data.type === 'need' ? '#fff3e0' : '#e8f5e9';
+                    const typeColor = data.type === 'need' ? '#e65100' : '#2e7d32';
+                    
+                    html += `
+                        <div class="card" onclick="viewCommunityShareItem('${data.id}')" style="cursor: pointer;">
+                            <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 8px;">
+                                <span style="background: ${typeBg}; color: ${typeColor}; padding: 4px 10px; border-radius: 12px; font-size: 11px; font-weight: 600;">
+                                    ${typeIcon} ${typeLabel}
+                                </span>
+                            </div>
+                            <div class="card-title">${data.title || 'Item'}</div>
+                            <div class="card-content" style="margin-top: 10px;">
+                                ${data.description || 'No description'}
+                                ${data.availableUntil ? `<div style="margin-top: 8px; font-size: 12px; color: #666;"><strong>Available until:</strong> ${data.availableUntil.toDate().toLocaleDateString()}</div>` : ''}
+                            </div>
+                            <div style="margin-top: 12px; padding-top: 12px; border-top: 1px solid #f0f0f0; font-size: 13px; color: #666;">
+                                👤 ${data.ownerName || 'Unknown'} • Unit ${data.unitNumber || 'N/A'} • ${date}
+                                ${commentCount > 0 ? ` • 💬 ${commentCount} comment${commentCount > 1 ? 's' : ''}` : ''}
+                            </div>
+                        </div>
+                    `;
+                });
+
+                container.innerHTML = html;
+            } catch (error) {
+                console.error('Error loading community share:', error);
+                container.innerHTML = `
+                    <div class="empty-state">
+                        <div class="empty-icon">🤝</div>
+                        <div class="empty-text">No items yet</div>
+                        <div class="empty-subtext">Be the first to share!</div>
+                    </div>
+                `;
+            }
+        }
+
+        async function viewCommunityShareItem(itemId) {
+            try {
+                const doc = await db.collection('communityshare').doc(itemId).get();
+                if (!doc.exists) {
+                    alert('Item not found');
+                    return;
+                }
+
+                const data = doc.data();
+                const date = data.createdAt ? data.createdAt.toDate().toLocaleString() : 'Unknown';
+                const isOwner = data.ownerId === currentUser.uid;
+                const comments = data.comments || [];
+                const typeIcon = data.type === 'need' ? '🙏' : '🎁';
+                const typeLabel = data.type === 'need' ? 'Need to Borrow' : 'Available to Lend';
+                const typeBg = data.type === 'need' ? '#fff3e0' : '#e8f5e9';
+                const typeColor = data.type === 'need' ? '#e65100' : '#2e7d32';
+
+                let html = `
+                    <div style="margin-bottom: 25px;">
+                        <span style="background: ${typeBg}; color: ${typeColor}; padding: 6px 14px; border-radius: 14px; font-size: 12px; font-weight: 600; display: inline-block; margin-bottom: 15px;">
+                            ${typeIcon} ${typeLabel}
+                        </span>
+                        
+                        <h3 style="font-size: 22px; margin-bottom: 15px; color: #333;">${data.title || 'Item'}</h3>
+                        
+                        <div style="margin-top: 15px; padding: 15px; background: #f8f9fa; border-radius: 8px;">
+                            <div style="font-weight: 600; margin-bottom: 8px;">Description:</div>
+                            <div style="line-height: 1.6;">${data.description || 'No description provided'}</div>
+                        </div>
+
+                        ${data.availableUntil ? `
+                            <div style="margin-top: 15px; padding: 15px; background: #e3f2fd; border-radius: 8px;">
+                                <strong>Available Until:</strong> ${data.availableUntil.toDate().toLocaleDateString()}
+                            </div>
+                        ` : ''}
+
+                        <div style="margin-top: 15px; padding: 15px; background: #e8f4f8; border-radius: 8px;">
+                            <div style="font-weight: 600; margin-bottom: 8px;">Owner Information:</div>
+                            <div style="line-height: 1.8;">
+                                <strong>Name:</strong> ${data.ownerName || 'Unknown'}<br>
+                                <strong>Unit:</strong> ${data.unitNumber || 'N/A'}<br>
+                                <strong>Phone:</strong> ${data.ownerPhone || 'Not provided'}<br>
+                                <strong>Posted:</strong> ${date}
+                            </div>
+                        </div>
+
+                        ${!isOwner ? `
+                            <button class="btn" style="width: 100%; margin-top: 15px;" onclick="copyOwnerContact('${data.ownerPhone || ''}', '${data.ownerEmail || ''}', '${data.ownerName || 'Owner'}')">
+                                📞 Copy Contact Info
+                            </button>
+                        ` : ''}
+
+                        ${isOwner ? `
+                            <button class="btn" style="width: 100%; margin-top: 15px; background: #f44336;" onclick="if(confirm('Delete this item?')) { deleteCommunityShareItem('${itemId}'); closeMarketplaceModal(); }">
+                                🗑️ Delete Item
+                            </button>
+                        ` : ''}
+                    </div>
+
+                    <div style="border-top: 2px solid #e0e0e0; padding-top: 20px; margin-top: 20px;">
+                        <h4 style="font-size: 18px; margin-bottom: 15px; color: #333;">💬 Comments (${comments.length})</h4>
+                        
+                        <div id="commentsList" style="max-height: 300px; overflow-y: auto; margin-bottom: 15px;">
+                `;
+
+                if (comments.length === 0) {
+                    html += `<div style="text-align: center; color: #999; padding: 20px;">No comments yet. Be the first!</div>`;
+                } else {
+                    comments.sort((a, b) => {
+                        const dateA = a.timestamp ? a.timestamp.toMillis() : 0;
+                        const dateB = b.timestamp ? b.timestamp.toMillis() : 0;
+                        return dateA - dateB;
+                    });
+
+                    comments.forEach(comment => {
+                        const commentDate = comment.timestamp ? comment.timestamp.toDate().toLocaleString() : 'Unknown';
+                        html += `
+                            <div style="background: #f8f9fa; padding: 12px; border-radius: 8px; margin-bottom: 10px; border-left: 3px solid #667eea;">
+                                <div style="font-weight: 600; color: #667eea; margin-bottom: 5px;">
+                                    ${comment.userName || 'Unknown'} 
+                                    <span style="font-weight: normal; color: #999; font-size: 12px;">• ${commentDate}</span>
+                                </div>
+                                <div style="color: #333; line-height: 1.5;">${comment.message || ''}</div>
+                            </div>
+                        `;
+                    });
+                }
+
+                html += `
+                        </div>
+
+                        <div class="input-group" style="margin-bottom: 0;">
+                            <textarea id="commentInput" placeholder="Write a comment..." 
+                                      style="width:100%;padding:12px;border:2px solid #e0e0e0;border-radius:8px;min-height:80px;font-family:inherit;resize:vertical;"></textarea>
+                        </div>
+                        <button class="btn" style="width: 100%; margin-top: 10px;" onclick="addCommunityShareComment('${itemId}')">
+                            💬 Post Comment
+                        </button>
+                    </div>
+                `;
+
+                document.getElementById('marketplaceModalBody').innerHTML = html;
+                document.getElementById('marketplaceModal').classList.add('show');
+            } catch (error) {
+                console.error('Error loading item details:', error);
+                alert('Error loading item: ' + error.message);
+            }
+        }
+
+        function copyOwnerContact(phone, email, ownerName) {
+            let contactInfo = `Owner: ${ownerName}\n`;
+            if (phone) contactInfo += `Phone: ${phone}\n`;
+            if (email) contactInfo += `Email: ${email}`;
+
+            copyToClipboard(contactInfo);
+            alert('✅ Contact info copied to clipboard!');
+        }
+
+        async function addCommunityShareComment(itemId) {
+            const commentText = document.getElementById('commentInput').value.trim();
+            
+            if (!commentText) {
+                alert('Please write a comment');
+                return;
+            }
+
+            try {
+                const doc = await db.collection('communityshare').doc(itemId).get();
+                const data = doc.data();
+                const comments = data.comments || [];
+
+                const newComment = {
+                    userId: currentUser.uid,
+                    userName: userData.displayName || 'Unknown',
+                    userUnit: userData.unitNumber || 'N/A',
+                    message: commentText,
+                    timestamp: firebase.firestore.Timestamp.now()
+                };
+                
+                comments.push(newComment);
+
+                await db.collection('communityshare').doc(itemId).update({
+                    comments: comments
+                });
+
+                viewCommunityShareItem(itemId);
+                loadCommunityShare();
+            } catch (error) {
+                console.error('Error adding comment:', error);
+                alert('Error posting comment: ' + error.message);
+            }
+        }
+
+        async function createCommunityShareItem() {
+            const type = document.getElementById('shareType').value;
+            const title = document.getElementById('shareTitle').value.trim();
+            const description = document.getElementById('shareDescription').value.trim();
+            const availableUntil = document.getElementById('shareAvailableUntil').value;
+            const contact = document.getElementById('shareContact').value.trim();
+
+            if (!title || !description || !contact) {
+                alert('Please fill in all required fields (Title, Description, Contact)');
+                return;
+            }
+
+            try {
+                const isEmail = contact.includes('@');
+                
+                await db.collection('communityshare').add({
+                    ownerId: currentUser.uid,
+                    ownerName: userData.displayName || 'Unknown',
+                    ownerEmail: isEmail ? contact : (userData.email || ''),
+                    ownerPhone: isEmail ? '' : contact,
+                    unitNumber: userData.unitNumber || 'N/A',
+                    type: type,
+                    title: title,
+                    description: description,
+                    availableUntil: availableUntil ? firebase.firestore.Timestamp.fromDate(new Date(availableUntil)) : null,
+                    status: 'active',
+                    comments: [],
+                    createdAt: firebase.firestore.FieldValue.serverTimestamp()
+                });
+
+                closeModal();
+                loadCommunityShare();
+                alert('✅ Posted successfully!');
+            } catch (error) {
+                console.error('Error creating share item:', error);
+                alert('Error posting item: ' + error.message);
+            }
+        }
+
+        async function deleteCommunityShareItem(itemId) {
+            if (!confirm('Are you sure you want to delete this item?')) return;
+
+            try {
+                await db.collection('communityshare').doc(itemId).delete();
+                loadCommunityShare();
+                alert('✅ Item deleted successfully!');
+            } catch (error) {
+                console.error('Error deleting item:', error);
+                alert('Error deleting item: ' + error.message);
+            }
+        }
+
+        // ========== END COMMUNITY SHARE FUNCTIONS ==========
+
+        function generateQRCode() {
+            return 'UMBRELLA-' + Date.now().toString(36).toUpperCase() + '-' + Math.random().toString(36).substr(2, 4).toUpperCase();
+        }
+
+        function openAdminDashboard() {
+            window.open('admin.html', '_blank');
+        }
+
+        async function viewProfile() {
+            try {
+                // Show modal
+                document.getElementById('profileModal').classList.add('show');
+                
+                // Load user data from Firestore
+                const userDoc = await db.collection('users').doc(currentUser.uid).get();
+                const residentQuery = await db.collection('residents').where('userId', '==', currentUser.uid).get();
+                
+                if (!userDoc.exists) {
+                    alert('Error loading profile');
+                    return;
+                }
+                
+                const userDataFromDb = userDoc.data();
+                const residentData = !residentQuery.empty ? residentQuery.docs[0].data() : {};
+                
+                // Update basic info
+                document.getElementById('profileAvatarLarge').textContent = (userDataFromDb.name || 'U').charAt(0).toUpperCase();
+                document.getElementById('profileName').textContent = userDataFromDb.name || 'Unknown';
+                document.getElementById('profileUnit').textContent = 'Unit ' + (userDataFromDb.unitNumber || 'N/A');
+                document.getElementById('profileEmail').textContent = userDataFromDb.email || 'Not provided';
+                document.getElementById('profilePhone').textContent = userDataFromDb.phone || 'Not provided';
+                
+                // Update account info
+                document.getElementById('profileRole').textContent = userDataFromDb.role === 'admin' ? 'Administrator' : 'Resident';
+                
+                const createdDate = userDataFromDb.createdAt ? userDataFromDb.createdAt.toDate().toLocaleDateString() : 'Unknown';
+                document.getElementById('profileMemberSince').textContent = createdDate;
+                
+                const termsDate = userDataFromDb.termsAcceptedAt ? userDataFromDb.termsAcceptedAt.toDate().toLocaleDateString() : 'Not accepted';
+                document.getElementById('profileTermsAccepted').textContent = termsDate;
+                
+                // Update privacy settings
+                const privacySettings = residentData.privacySettings || {};
+                updateToggle('toggleDirectory', privacySettings.showInDirectory !== false);
+                updateToggle('togglePhone', privacySettings.showPhone !== false);
+                updateToggle('toggleEmail', privacySettings.showEmail !== false);
+                
+                // Load activity summary
+                await loadActivitySummary();
+                
+            } catch (error) {
+                console.error('Error loading profile:', error);
+                alert('Error loading profile: ' + error.message);
+            }
+        }
+
+        async function loadActivitySummary() {
+            try {
+                // Count marketplace posts
+                const marketplaceSnapshot = await db.collection('marketplace')
+                    .where('sellerId', '==', currentUser.uid)
+                    .where('status', '==', 'active')
+                    .get();
+                document.getElementById('profileMarketplace').textContent = marketplaceSnapshot.size;
+                
+                // Count community share posts
+                const shareSnapshot = await db.collection('communityshare')
+                    .where('ownerId', '==', currentUser.uid)
+                    .where('status', '==', 'active')
+                    .get();
+                document.getElementById('profileCommunityShare').textContent = shareSnapshot.size;
+                
+                // Count events organized
+                const eventsSnapshot = await db.collection('events')
+                    .where('organizerId', '==', currentUser.uid)
+                    .where('status', '==', 'active')
+                    .get();
+                document.getElementById('profileEventsOrganized').textContent = eventsSnapshot.size;
+                
+                // Count events RSVP'd
+                const allEventsSnapshot = await db.collection('events')
+                    .where('status', '==', 'active')
+                    .get();
+                let rsvpCount = 0;
+                allEventsSnapshot.forEach(doc => {
+                    const data = doc.data();
+                    if (data.rsvps && data.rsvps.some(r => r.userId === currentUser.uid)) {
+                        rsvpCount++;
+                    }
+                });
+                document.getElementById('profileEventsRsvp').textContent = rsvpCount;
+                
+                // Count helpdesk tickets
+                const ticketsSnapshot = await db.collection('tickets')
+                    .where('residentId', '==', currentUser.uid)
+                    .get();
+                document.getElementById('profileTickets').textContent = ticketsSnapshot.size;
+                
+            } catch (error) {
+                console.error('Error loading activity summary:', error);
+            }
+        }
+
+        function updateToggle(toggleId, isActive) {
+            const toggle = document.getElementById(toggleId);
+            if (isActive) {
+                toggle.classList.add('active');
+            } else {
+                toggle.classList.remove('active');
+            }
+        }
+
+        async function togglePrivacySetting(setting) {
+            try {
+                // Find resident document
+                const residentQuery = await db.collection('residents').where('userId', '==', currentUser.uid).get();
+                
+                if (residentQuery.empty) {
+                    alert('Resident profile not found');
+                    return;
+                }
+                
+                const residentDoc = residentQuery.docs[0];
+                const residentData = residentDoc.data();
+                const privacySettings = residentData.privacySettings || {};
+                
+                // Toggle the setting
+                privacySettings[setting] = !privacySettings[setting];
+                
+                // Update in Firestore
+                await db.collection('residents').doc(residentDoc.id).update({
+                    privacySettings: privacySettings
+                });
+                
+                // Update UI
+                const toggleMap = {
+                    'showInDirectory': 'toggleDirectory',
+                    'showPhone': 'togglePhone',
+                    'showEmail': 'toggleEmail'
+                };
+                updateToggle(toggleMap[setting], privacySettings[setting]);
+                
+            } catch (error) {
+                console.error('Error updating privacy setting:', error);
+                alert('Error updating setting: ' + error.message);
+            }
+        }
+
+        function closeProfile() {
+            document.getElementById('profileModal').classList.remove('show');
+        }
+
+        function viewTerms() {
+            closeProfile();
+            window.open('umbrella-terms-and-privacy.html', '_blank');
+        }
+
+        function viewVisitorQR(visitorId, visitorName, qrCode, visitDate) {
+            if (!qrCode || qrCode === 'undefined' || qrCode === 'null') {
+                // Generate a new QR code for this visitor
+                const newQRCode = generateQRCode();
+                
+                // Update in Firestore
+                db.collection('visitors').doc(visitorId).update({
+                    qrCode: newQRCode
+                }).then(() => {
+                    console.log('QR code generated for visitor:', visitorId);
+                    // Now show the QR code
+                    showQRCodeModal(visitorName, newQRCode, visitDate, visitorId);
+                    // Reload visitors to refresh the list
+                    loadVisitors();
+                }).catch(error => {
+                    console.error('Error updating QR code:', error);
+                    alert('Error generating QR code. Please try again.');
+                });
+                return;
+            }
+
+            showQRCodeModal(visitorName, qrCode, visitDate, visitorId);
+        }
+
+        function showQRCodeModal(visitorName, qrCode, visitDate, visitorId) {
+            const modalBody = document.getElementById('qrModalBody');
+            modalBody.innerHTML = `
+                <div style="margin-bottom: 20px;">
+                    <h3 style="color: #667eea; margin-bottom: 10px;">${visitorName}</h3>
+                    <p style="color: #666; margin-bottom: 20px;">Visit Date: ${visitDate}</p>
+                </div>
+                <div id="qrcode-container" style="display: inline-block; padding: 20px; background: white; border-radius: 12px; box-shadow: 0 4px 15px rgba(0,0,0,0.1);"></div>
+                <div style="margin-top: 20px; padding: 15px; background: #f8f9fa; border-radius: 8px;">
+                    <div style="font-size: 12px; color: #666; margin-bottom: 8px;">Pass Code:</div>
+                    <div style="font-family: monospace; font-size: 16px; font-weight: 700; color: #333; letter-spacing: 1px;">${qrCode}</div>
+                </div>
+                <div style="margin-top: 20px;">
+                    <button class="btn btn-primary" style="width: 100%; margin-bottom: 10px;" onclick="shareVisitorPass('${visitorName}', '${qrCode}', '${visitDate}')">
+                        📤 Share Pass
+                    </button>
+                    <button class="btn btn-secondary" style="width: 100%;" onclick="downloadQRCode('${visitorName}')">
+                        💾 Download QR Code
+                    </button>
+                </div>
+                <div style="margin-top: 20px; font-size: 13px; color: #999; line-height: 1.6;">
+                    Share this QR code with your visitor. Security can scan it at the gate for quick entry.
+                </div>
+            `;
+
+            // Generate QR code
+            document.getElementById('qrModal').classList.add('show');
+            
+            // Wait for modal to be visible, then generate QR
+            setTimeout(() => {
+                const qrContainer = document.getElementById('qrcode-container');
+                qrContainer.innerHTML = ''; // Clear previous QR code
+                new QRCode(qrContainer, {
+                    text: qrCode,
+                    width: 200,
+                    height: 200,
+                    colorDark: "#667eea",
+                    colorLight: "#ffffff",
+                    correctLevel: QRCode.CorrectLevel.H
+                });
+            }, 100);
+        }
+
+        function closeQRModal() {
+            document.getElementById('qrModal').classList.remove('show');
+        }
+
+        async function shareVisitorPass(visitorName, qrCode, visitDate) {
+            const shareText = `Umbrella Visitor Pass\n\nVisitor: ${visitorName}\nDate: ${visitDate}\nPass Code: ${qrCode}\n\nShow this at security gate for entry.`;
+            
+            if (navigator.share) {
+                try {
+                    await navigator.share({
+                        title: 'Umbrella Visitor Pass',
+                        text: shareText
+                    });
+                } catch (error) {
+                    if (error.name !== 'AbortError') {
+                        copyToClipboard(shareText);
+                    }
+                }
+            } else {
+                copyToClipboard(shareText);
+            }
+        }
+
+        function copyToClipboard(text) {
+            if (navigator.clipboard) {
+                navigator.clipboard.writeText(text).then(() => {
+                    alert('✅ Pass details copied to clipboard!');
+                });
+            } else {
+                // Fallback for older browsers
+                const textArea = document.createElement('textarea');
+                textArea.value = text;
+                document.body.appendChild(textArea);
+                textArea.select();
+                document.execCommand('copy');
+                document.body.removeChild(textArea);
+                alert('✅ Pass details copied to clipboard!');
+            }
+        }
+
+        function downloadQRCode(visitorName) {
+            const canvas = document.querySelector('#qrcode-container canvas');
+            if (canvas) {
+                const link = document.createElement('a');
+                link.download = `umbrella-visitor-${visitorName.replace(/\s+/g, '-')}.png`;
+                link.href = canvas.toDataURL();
+                link.click();
+                alert('✅ QR code downloaded!');
+            } else {
+                alert('❌ Error downloading QR code. Please try again.');
+            }
+        }
+
+        function showNotificationPrompt() {
+            // Create custom modal for notification prompt
+            const modal = document.createElement('div');
+            modal.style.cssText = `
+                position: fixed;
+                top: 0;
+                left: 0;
+                width: 100%;
+                height: 100%;
+                background: rgba(0,0,0,0.5);
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                z-index: 10000;
+                padding: 20px;
+            `;
+            
+            modal.innerHTML = `
+                <div style="background: white; border-radius: 16px; padding: 30px; max-width: 400px; width: 100%; box-shadow: 0 10px 40px rgba(0,0,0,0.3);">
+                    <div style="font-size: 48px; text-align: center; margin-bottom: 20px;">🔔</div>
+                    <h3 style="font-size: 20px; font-weight: 700; color: #333; text-align: center; margin-bottom: 15px;">
+                        Stay Updated
+                    </h3>
+                    <p style="font-size: 15px; color: #666; text-align: center; line-height: 1.5; margin-bottom: 25px;">
+                        Get notified when new announcements are posted
+                    </p>
+                    <div style="display: flex; gap: 10px;">
+                        <button id="declineNotifications" style="flex: 1; padding: 14px; border: 2px solid #e0e0e0; background: white; color: #666; border-radius: 10px; font-size: 15px; font-weight: 600; cursor: pointer;">
+                            Not Now
+                        </button>
+                        <button id="acceptNotifications" style="flex: 1; padding: 14px; border: none; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; border-radius: 10px; font-size: 15px; font-weight: 600; cursor: pointer;">
+                            Allow
+                        </button>
+                    </div>
+                </div>
+            `;
+            
+            document.body.appendChild(modal);
+            
+            // Handle decline
+            document.getElementById('declineNotifications').onclick = () => {
+                document.body.removeChild(modal);
+                // Save that user declined
+                db.collection('users').doc(currentUser.uid).update({
+                    notificationsEnabled: false,
+                    notificationDeclinedAt: firebase.firestore.FieldValue.serverTimestamp()
+                }).catch(err => console.log('Error saving decline:', err));
+            };
+            
+            // Handle accept
+            document.getElementById('acceptNotifications').onclick = async () => {
+                document.body.removeChild(modal);
+                const granted = await requestNotificationPermission();
+                if (granted) {
+                    // Show success message
+                    const successMsg = document.createElement('div');
+                    successMsg.style.cssText = `
+                        position: fixed;
+                        top: 20px;
+                        left: 50%;
+                        transform: translateX(-50%);
+                        background: #4CAF50;
+                        color: white;
+                        padding: 15px 25px;
+                        border-radius: 10px;
+                        font-weight: 600;
+                        z-index: 10001;
+                        box-shadow: 0 4px 15px rgba(0,0,0,0.2);
+                    `;
+                    successMsg.textContent = '✅ Notifications enabled!';
+                    document.body.appendChild(successMsg);
+                    setTimeout(() => document.body.removeChild(successMsg), 3000);
+                }
+            };
+        }
+
+        // Close modal when clicking outside
+        document.getElementById('createModal').addEventListener('click', (e) => {
+            if (e.target.id === 'createModal') {
+                closeModal();
+            }
+        });
+
+        // ========== EVENTS FUNCTIONS ==========
+        async function loadEvents() {
+            const container = document.getElementById('eventsContent');
+            try {
+                const snapshot = await db.collection('events').where('status', '==', 'active').get();
+                if (snapshot.empty) {
+                    container.innerHTML = '<div class="empty-state"><div class="empty-icon">🎉</div><div class="empty-text">No events yet</div><div class="empty-subtext">Tap + to create a community event</div></div>';
+                    return;
+                }
+                const items = [];
+                snapshot.forEach(doc => items.push({ id: doc.id, ...doc.data() }));
+                items.sort((a, b) => (a.eventDate ? a.eventDate.toMillis() : 0) - (b.eventDate ? b.eventDate.toMillis() : 0));
+                const now = new Date();
+                let html = '';
+                items.forEach(data => {
+                    const eventDate = data.eventDate ? data.eventDate.toDate() : null;
+                    const isPast = eventDate && eventDate < now;
+                    const dateStr = eventDate ? eventDate.toLocaleDateString() : 'TBD';
+                    const timeStr = eventDate ? eventDate.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'}) : '';
+                    const rsvpCount = data.rsvps ? data.rsvps.length : 0;
+                    const commentCount = data.comments ? data.comments.length : 0;
+                    html += '<div class="card" onclick="viewEvent(\'' + data.id + '\')" style="cursor: pointer;' + (isPast ? ' opacity: 0.6;' : '') + '"><div class="card-title">' + (data.title || 'Event') + '</div><div class="card-subtitle">📅 ' + dateStr + (timeStr ? ' • ⏰ ' + timeStr : '') + '</div><div class="card-content" style="margin-top: 10px;">' + (data.description || '') + (data.location ? '<div style="margin-top: 8px;"><strong>📍</strong> ' + data.location + '</div>' : '') + '</div><div style="margin-top: 12px; padding-top: 12px; border-top: 1px solid #f0f0f0; font-size: 13px; color: #666;">👤 ' + (data.organizerName || 'Unknown') + ' • Unit ' + (data.unitNumber || 'N/A') + (rsvpCount > 0 ? ' • ✅ ' + rsvpCount + ' RSVP' + (rsvpCount > 1 ? 's' : '') : '') + (commentCount > 0 ? ' • 💬 ' + commentCount + ' comment' + (commentCount > 1 ? 's' : '') : '') + '</div></div>';
+                });
+                container.innerHTML = html;
+            } catch (error) {
+                console.error('Error loading events:', error);
+                container.innerHTML = '<div class="empty-state"><div class="empty-icon">🎉</div><div class="empty-text">No events yet</div></div>';
+            }
+        }
+
+        async function addEventComment(eventId) {
+            const commentText = document.getElementById('commentInput').value.trim();
+            
+            if (!commentText) {
+                alert('Please write a comment');
+                return;
+            }
+
+            try {
+                const doc = await db.collection('events').doc(eventId).get();
+                const data = doc.data();
+                let comments = data.comments || [];
+
+                const newComment = {
+                    userId: currentUser.uid,
+                    userName: userData.displayName || 'Unknown',
+                    userUnit: userData.unitNumber || 'N/A',
+                    message: commentText,
+                    timestamp: firebase.firestore.Timestamp.now()
+                };
+                
+                comments.push(newComment);
+
+                await db.collection('events').doc(eventId).update({
+                    comments: comments
+                });
+
+                viewEvent(eventId);
+                loadEvents();
+            } catch (error) {
+                console.error('Error adding comment:', error);
+                alert('Error posting comment: ' + error.message);
+            }
+        }
+
+        async function viewEvent(eventId) {
+            try {
+                const doc = await db.collection('events').doc(eventId).get();
+                if (!doc.exists) { alert('Event not found'); return; }
+                const data = doc.data();
+                const eventDate = data.eventDate ? data.eventDate.toDate() : null;
+                const dateStr = eventDate ? eventDate.toLocaleDateString() : 'TBD';
+                const timeStr = eventDate ? eventDate.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'}) : '';
+                const isOrganizer = data.organizerId === currentUser.uid;
+                const rsvps = data.rsvps || [];
+                const hasRSVPd = rsvps.some(r => r.userId === currentUser.uid);
+                const comments = data.comments || [];
+                
+                let html = '<div style="margin-bottom: 25px;"><h3 style="font-size: 22px; margin-bottom: 15px; color: #333;">' + (data.title || 'Event') + '</h3><div style="margin-bottom: 15px; padding: 15px; background: #e3f2fd; border-radius: 8px;"><div style="font-size: 18px; font-weight: 600; color: #1976d2;">📅 ' + dateStr + (timeStr ? ' • ⏰ ' + timeStr : '') + '</div>' + (data.location ? '<div style="margin-top: 5px;">📍 ' + data.location + '</div>' : '') + '</div><div style="padding: 15px; background: #f8f9fa; border-radius: 8px; margin-bottom: 15px;"><strong>About:</strong><div style="margin-top: 8px;">' + (data.description || '') + '</div></div><div style="padding: 15px; background: #e8f4f8; border-radius: 8px; margin-bottom: 15px;"><strong>Organized by:</strong><div>' + (data.organizerName || 'Unknown') + ' • Unit ' + (data.unitNumber || 'N/A') + '</div>' + (data.organizerPhone ? '<div style="margin-top: 5px;">📞 ' + data.organizerPhone + '</div>' : '') + '</div>' + (!isOrganizer ? '<button class="btn" style="width: 100%; margin-bottom: 10px;" onclick="toggleRSVP(\'' + eventId + '\', ' + hasRSVPd + ')">' + (hasRSVPd ? '✅ You are Going!' : '✓ RSVP') + '</button>' : '') + (isOrganizer ? '<button class="btn" style="width: 100%; background: #f44336;" onclick="if(confirm(\'Delete event?\')) { deleteEvent(\'' + eventId + '\'); closeMarketplaceModal(); }">🗑️ Delete</button>' : '') + (rsvps.length > 0 ? '<div style="padding: 15px; background: #f8f9fa; border-radius: 8px; margin-top: 15px;"><strong>✅ Going (' + rsvps.length + '):</strong>' + rsvps.map(r => '<div style="padding: 5px 0;">• ' + (r.userName || 'Resident') + '</div>').join('') + '</div>' : '') + '</div>';
+
+                // Add comments section
+                html += '<div style="border-top: 2px solid #e0e0e0; padding-top: 20px; margin-top: 20px;"><h4 style="font-size: 18px; margin-bottom: 15px; color: #333;">💬 Comments (' + comments.length + ')</h4><div id="commentsList" style="max-height: 300px; overflow-y: auto; margin-bottom: 15px;">';
+
+                if (comments.length === 0) {
+                    html += '<div style="text-align: center; color: #999; padding: 20px;">No comments yet. Be the first to comment!</div>';
+                } else {
+                    comments.sort((a, b) => {
+                        const dateA = a.timestamp ? a.timestamp.toMillis() : 0;
+                        const dateB = b.timestamp ? b.timestamp.toMillis() : 0;
+                        return dateA - dateB;
+                    });
+
+                    comments.forEach(comment => {
+                        const commentDate = comment.timestamp ? comment.timestamp.toDate().toLocaleString() : 'Unknown';
+                        html += '<div style="background: #f8f9fa; padding: 12px; border-radius: 8px; margin-bottom: 10px; border-left: 3px solid #667eea;"><div style="font-weight: 600; color: #667eea; margin-bottom: 5px;">' + (comment.userName || 'Unknown') + ' <span style="font-weight: normal; color: #999; font-size: 12px;">• ' + commentDate + '</span></div><div style="color: #333; line-height: 1.5;">' + (comment.message || '') + '</div></div>';
+                    });
+                }
+
+                html += '</div><div class="input-group" style="margin-bottom: 0;"><textarea id="commentInput" placeholder="Write a comment or ask a question..." style="width:100%;padding:12px;border:2px solid #e0e0e0;border-radius:8px;min-height:80px;font-family:inherit;resize:vertical;"></textarea></div><button class="btn" style="width: 100%; margin-top: 10px;" onclick="addEventComment(\'' + eventId + '\')">💬 Post Comment</button></div>';
+
+                document.getElementById('marketplaceModalBody').innerHTML = html;
+                document.getElementById('marketplaceModal').classList.add('show');
+            } catch (error) {
+                console.error('Error loading event:', error);
+                alert('Error: ' + error.message);
+            }
+        }
+
+        async function toggleRSVP(eventId, hasRSVPd) {
+            try {
+                const doc = await db.collection('events').doc(eventId).get();
+                let rsvps = doc.data().rsvps || [];
+                if (hasRSVPd) {
+                    rsvps = rsvps.filter(r => r.userId !== currentUser.uid);
+                } else {
+                    rsvps.push({ userId: currentUser.uid, userName: userData.displayName || 'Unknown', userUnit: userData.unitNumber || 'N/A', rsvpedAt: firebase.firestore.Timestamp.now() });
+                }
+                await db.collection('events').doc(eventId).update({ rsvps: rsvps });
+                viewEvent(eventId);
+                loadEvents();
+            } catch (error) {
+                console.error('Error updating RSVP:', error);
+                alert('Error: ' + error.message);
+            }
+        }
+
+        async function createCommunityEvent() {
+            console.log('=== CREATE EVENT CLICKED ===');
+            
+            const title = document.getElementById('eventTitle');
+            const description = document.getElementById('eventDescription');
+            const eventDate = document.getElementById('eventDate');
+            const eventTime = document.getElementById('eventTime');
+            const location = document.getElementById('eventLocation');
+            const contact = document.getElementById('eventContact');
+            
+            console.log('Form elements found:', {
+                title: title ? 'YES' : 'NO',
+                description: description ? 'YES' : 'NO',
+                eventDate: eventDate ? 'YES' : 'NO',
+                eventTime: eventTime ? 'YES' : 'NO',
+                location: location ? 'YES' : 'NO',
+                contact: contact ? 'YES' : 'NO'
+            });
+            
+            if (!title || !description || !eventDate || !location || !contact) {
+                console.error('Missing form elements!');
+                alert('Error: Form elements not found. Please try again.');
+                return;
+            }
+            
+            const titleVal = title.value.trim();
+            const descVal = description.value.trim();
+            const dateVal = eventDate.value;
+            const timeVal = eventTime.value;
+            const locVal = location.value.trim();
+            const contactVal = contact.value.trim();
+            
+            console.log('Form values:', {
+                title: titleVal,
+                description: descVal,
+                date: dateVal,
+                time: timeVal,
+                location: locVal,
+                contact: contactVal
+            });
+            
+            if (!titleVal || !descVal || !dateVal || !locVal || !contactVal) {
+                console.log('Missing required fields');
+                alert('Please fill in all required fields (Title, Description, Date, Location, Contact)');
+                return;
+            }
+            
+            try {
+                console.log('Creating event...');
+                const dateTime = new Date(dateVal + 'T' + (timeVal || '12:00'));
+                console.log('DateTime:', dateTime);
+                
+                const isEmail = contactVal.includes('@');
+                
+                const eventData = {
+                    organizerId: currentUser.uid,
+                    organizerName: userData.displayName || 'Unknown',
+                    organizerEmail: isEmail ? contactVal : (userData.email || ''),
+                    organizerPhone: isEmail ? '' : contactVal,
+                    unitNumber: userData.unitNumber || 'N/A',
+                    title: titleVal,
+                    description: descVal,
+                    eventDate: firebase.firestore.Timestamp.fromDate(dateTime),
+                    location: locVal,
+                    status: 'active',
+                    rsvps: [],
+                    comments: [],
+                    createdAt: firebase.firestore.FieldValue.serverTimestamp()
+                };
+                
+                console.log('Event data to save:', eventData);
+                
+                await db.collection('events').add(eventData);
+                
+                console.log('Event created successfully!');
+                closeModal();
+                loadEvents();
+                alert('✅ Event created successfully!');
+            } catch (error) {
+                console.error('Error creating event:', error);
+                console.error('Error details:', error.message, error.code);
+                alert('Error creating event: ' + error.message);
+            }
+        }
+
+        async function deleteEvent(eventId) {
+            try {
+                await db.collection('events').doc(eventId).delete();
+                loadEvents();
+                alert('✅ Event deleted!');
+            } catch (error) {
+                console.error('Error:', error);
+                alert('Error: ' + error.message);
+            }
+        }
+
+        // ========== TERMS & CONDITIONS FUNCTIONS ==========
+
+        function showTermsModal(context = 'existing') {
+            termsAcceptanceContext = context;
+            document.getElementById('termsModal').classList.add('show');
+            document.getElementById('termsCheckbox').checked = false;
+            document.getElementById('acceptTermsBtn').disabled = true;
+        }
+
+        function hideTermsModal() {
+            document.getElementById('termsModal').classList.remove('show');
+        }
+
+        function toggleTermsCheckbox() {
+            const checkbox = document.getElementById('termsCheckbox');
+            const btn = document.getElementById('acceptTermsBtn');
+            btn.disabled = !checkbox.checked;
+            console.log('✅ Checkbox state:', checkbox.checked, 'Button disabled:', btn.disabled);
+        }
+
+        async function acceptTerms() {
+            console.log('=== ACCEPT TERMS CLICKED ===');
+            const checkbox = document.getElementById('termsCheckbox');
+            console.log('Checkbox checked:', checkbox.checked);
+            
+            if (!checkbox.checked) {
+                alert('Please check the box to accept the Terms');
+                return;
+            }
+
+            try {
+                console.log('Saving terms acceptance...');
+                const acceptanceData = {
+                    userId: currentUser.uid,
+                    userEmail: currentUser.email,
+                    userName: userData ? userData.displayName : 'Unknown',
+                    acceptedAt: firebase.firestore.FieldValue.serverTimestamp(),
+                    userAgent: navigator.userAgent,
+                    termsVersion: '1.0',
+                    context: termsAcceptanceContext
+                };
+
+                await db.collection('terms_acceptances').add(acceptanceData);
+                await db.collection('users').doc(currentUser.uid).update({
+                    termsAccepted: true,
+                    termsAcceptedAt: firebase.firestore.FieldValue.serverTimestamp(),
+                    termsVersion: '1.0'
+                });
+
+                console.log('Terms acceptance saved successfully');
+                hideTermsModal();
+
+                if (termsAcceptanceContext === 'signup') {
+                    alert('✅ Terms accepted! Your account has been submitted for admin approval. You will be notified when approved.');
+                    await auth.signOut();
+                    showAuth();
+                } else {
+                    alert('✅ Terms accepted! Thank you.');
+                    loadAllData();
+                }
+            } catch (error) {
+                console.error('Error recording terms acceptance:', error);
+                alert('Error saving acceptance: ' + error.message);
+            }
+        }
+
+        function declineTerms() {
+            if (termsAcceptanceContext === 'signup') {
+                if (confirm('You must accept the Terms to create an account. Your account will be deleted. Continue?')) {
+                    if (currentUser) {
+                        currentUser.delete().then(() => {
+                            console.log('User account deleted');
+                        }).catch((error) => {
+                            console.error('Error deleting user:', error);
+                        });
+                    }
+                    hideTermsModal();
+                    showAuth();
+                }
+            } else {
+                if (confirm('You must accept the Terms to continue using Umbrella. Decline will log you out.')) {
+                    hideTermsModal();
+                    logout();
+                }
+            }
+        }
+
+        async function checkTermsAcceptance() {
+            try {
+                const userDoc = await db.collection('users').doc(currentUser.uid).get();
+                const userDataFromDb = userDoc.data();
+                
+                if (!userDataFromDb.termsAccepted || !userDataFromDb.termsAcceptedAt) {
+                    console.log('User has not accepted terms - showing modal');
+                    showTermsModal('existing');
+                    return false;
+                }
+                
+                if (userDataFromDb.termsVersion !== '1.0') {
+                    console.log('Terms version updated - showing modal');
+                    showTermsModal('existing');
+                    return false;
+                }
+                
+                return true;
+            } catch (error) {
+                console.error('Error checking terms acceptance:', error);
+                return false;
+            }
+        }
+
+        // ========== END TERMS FUNCTIONS ==========
+
+    </script>
+
+
+    <!-- Profile Modal -->
+    <div class="profile-modal" id="profileModal">
+        <div class="profile-content">
+            <div class="profile-header">
+                <div class="profile-avatar-large" id="profileAvatarLarge">U</div>
+                <h2 id="profileName">Loading...</h2>
+                <p id="profileUnit">Unit ---</p>
+            </div>
+            
+            <div class="profile-body">
+                <!-- Contact Information -->
+                <div class="profile-section">
+                    <h3>📞 Contact Information</h3>
+                    <div class="profile-item">
+                        <span class="profile-label">Email</span>
+                        <span class="profile-value" id="profileEmail">---</span>
+                    </div>
+                    <div class="profile-item">
+                        <span class="profile-label">Phone</span>
+                        <span class="profile-value" id="profilePhone">---</span>
+                    </div>
+                </div>
+
+                <!-- Privacy Settings -->
+                <div class="profile-section">
+                    <h3>🔒 Privacy Settings</h3>
+                    <div class="privacy-toggle">
+                        <label>Show in directory</label>
+                        <div class="toggle-switch" id="toggleDirectory" onclick="togglePrivacySetting('showInDirectory')"></div>
+                    </div>
+                    <div class="privacy-toggle">
+                        <label>Show phone number</label>
+                        <div class="toggle-switch" id="togglePhone" onclick="togglePrivacySetting('showPhone')"></div>
+                    </div>
+                    <div class="privacy-toggle">
+                        <label>Show email address</label>
+                        <div class="toggle-switch" id="toggleEmail" onclick="togglePrivacySetting('showEmail')"></div>
+                    </div>
+                </div>
+
+                <!-- Account Information -->
+                <div class="profile-section">
+                    <h3>👤 Account Information</h3>
+                    <div class="profile-item">
+                        <span class="profile-label">Account Type</span>
+                        <span class="profile-value" id="profileRole">Resident</span>
+                    </div>
+                    <div class="profile-item">
+                        <span class="profile-label">Member Since</span>
+                        <span class="profile-value" id="profileMemberSince">---</span>
+                    </div>
+                    <div class="profile-item">
+                        <span class="profile-label">Terms Accepted</span>
+                        <span class="profile-value" id="profileTermsAccepted">---</span>
+                    </div>
+                </div>
+
+                <!-- Activity Summary -->
+                <div class="profile-section">
+                    <h3>📊 Activity Summary</h3>
+                    <div class="profile-item">
+                        <span class="profile-label">Marketplace Posts</span>
+                        <span class="profile-value" id="profileMarketplace">0</span>
+                    </div>
+                    <div class="profile-item">
+                        <span class="profile-label">Community Share Posts</span>
+                        <span class="profile-value" id="profileCommunityShare">0</span>
+                    </div>
+                    <div class="profile-item">
+                        <span class="profile-label">Events Organized</span>
+                        <span class="profile-value" id="profileEventsOrganized">0</span>
+                    </div>
+                    <div class="profile-item">
+                        <span class="profile-label">Events RSVP'd</span>
+                        <span class="profile-value" id="profileEventsRsvp">0</span>
+                    </div>
+                    <div class="profile-item">
+                        <span class="profile-label">Helpdesk Tickets</span>
+                        <span class="profile-value" id="profileTickets">0</span>
+                    </div>
+                </div>
+
+                <!-- Actions -->
+                <div class="profile-actions">
+                    <button class="profile-btn profile-btn-secondary" onclick="closeProfile()">Close</button>
+                    <button class="profile-btn profile-btn-primary" onclick="viewTerms()">View Terms</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Terms & Conditions Modal -->
+    <div class="terms-modal" id="termsModal">
+        <div class="terms-content">
+            <div class="terms-header">
+                <h2>📋 Terms of Service & Privacy Policy</h2>
+                <p style="color: #666; font-size: 14px;">Last Updated: February 21, 2026</p>
+            </div>
+            
+            <div class="terms-body" id="termsBody">
+                <div class="terms-important">
+                    <strong>⚠️ IMPORTANT:</strong> By using Umbrella, you agree to these Terms. Please read carefully.
+                </div>
+
+                <h3>1. Platform Overview</h3>
+                <p><strong>Umbrella is a PLATFORM ONLY.</strong> We facilitate connections but DO NOT:</p>
+                <ul>
+                    <li>Participate in, verify, or guarantee any transactions</li>
+                    <li>Take custody of items or payments</li>
+                    <li>Verify condition, ownership, or legality of items</li>
+                    <li>Act as agent, broker, or intermediary</li>
+                </ul>
+
+                <h3>2. Marketplace & Community Share</h3>
+                <div class="terms-important">
+                    <strong>CRITICAL:</strong> ALL transactions are DIRECTLY between residents. Platform has NO responsibility for:
+                    <ul style="margin-top: 10px;">
+                        <li>Quality, safety, or legality of items</li>
+                        <li>Failed transactions or disputes</li>
+                        <li>Damaged, lost, or unreturned items</li>
+                        <li>Financial losses</li>
+                    </ul>
+                </div>
+                <p><strong>You are STRONGLY ENCOURAGED to:</strong></p>
+                <ul>
+                    <li>Document item condition with photos before lending</li>
+                    <li>Get written agreements for items over $100</li>
+                    <li>Verify homeowners insurance covers lending/borrowing</li>
+                    <li>Meet in public areas for exchanges</li>
+                </ul>
+
+                <h3>3. Events</h3>
+                <p><strong>Event organizers are SOLELY responsible for:</strong></p>
+                <ul>
+                    <li>Event safety, permits, and insurance</li>
+                    <li>All injuries, damages, or losses at events</li>
+                    <li>Food safety and health compliance</li>
+                </ul>
+                <p>Platform is NOT responsible for any event-related issues. <strong>Attend at your own risk.</strong></p>
+
+                <h3>4. Privacy & Data</h3>
+                <p><strong>We collect:</strong> Name, email, phone, unit number, posts, listings</p>
+                <p><strong>We use it for:</strong> Platform functionality, resident communication</p>
+                <p><strong>We share:</strong> Your name and unit are visible. You control phone/email visibility.</p>
+                <p><strong>We do NOT sell your personal information.</strong></p>
+
+                <h3>5. User Conduct - You may NOT:</h3>
+                <ul>
+                    <li>Post false, misleading, or fraudulent information</li>
+                    <li>Harass, threaten, or defame other users</li>
+                    <li>Sell illegal items or services</li>
+                    <li>Violate any laws or HOA rules</li>
+                </ul>
+
+                <h3>6. Disclaimers & Limitation of Liability</h3>
+                <div class="terms-important">
+                    <strong>⚠️ PLATFORM PROVIDED "AS IS":</strong>
+                    <ul style="margin-top: 10px;">
+                        <li>NO WARRANTIES of any kind</li>
+                        <li>NOT responsible for user content or actions</li>
+                        <li>NOT liable for damages from platform use</li>
+                        <li>TOTAL LIABILITY shall not exceed $100</li>
+                    </ul>
+                </div>
+
+                <h3>7. Indemnification</h3>
+                <p><strong>YOU AGREE TO INDEMNIFY AND HOLD HARMLESS Umbrella from ANY claims arising from:</strong></p>
+                <ul>
+                    <li>Your use of the platform</li>
+                    <li>Transactions with other users</li>
+                    <li>Events you organize or attend</li>
+                    <li>Items you sell, buy, lend, or borrow</li>
+                </ul>
+
+                <h3>8. Your Rights</h3>
+                <p>You have the right to:</p>
+                <ul>
+                    <li>Access your personal data</li>
+                    <li>Request deletion of your account</li>
+                    <li>Control privacy settings</li>
+                    <li>Opt out of non-essential notifications</li>
+                </ul>
+
+                <p style="margin-top: 30px; padding-top: 20px; border-top: 2px solid #e0e0e0;">
+                    <strong>📄 Full Terms Available:</strong> For complete Terms of Service and Privacy Policy, 
+                    <a href="umbrella-terms-and-privacy.html" target="_blank" style="color: #667eea; text-decoration: underline; cursor: pointer;">click here to view full document</a>
+                </p>
+            </div>
+            
+            <div class="terms-footer">
+                <div class="terms-checkbox">
+                    <input type="checkbox" id="termsCheckbox" onchange="toggleTermsCheckbox()">
+                    <label for="termsCheckbox" style="cursor: pointer;">
+                        <strong>I have read and agree to the Terms of Service and Privacy Policy.</strong>
+                        I understand Umbrella is a platform only and not responsible for user transactions.
+                        I accept all risks associated with using the platform.
+                    </label>
+                </div>
+                
+                <div class="terms-buttons">
+                    <button class="btn-decline-terms" onclick="declineTerms()">Decline</button>
+                    <button class="btn-accept-terms" id="acceptTermsBtn" disabled onclick="acceptTerms()">I Agree & Continue</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+</body>
+</html>
