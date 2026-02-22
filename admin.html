@@ -1,0 +1,1395 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Umbrella - Admin Dashboard</title>
+    
+    <!-- Firebase SDK -->
+    <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-auth-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-storage-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-analytics-compat.js"></script>
+    
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+            background: #f5f6fa;
+            min-height: 100vh;
+        }
+
+        /* Loading Screen */
+        .loading-screen {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            z-index: 9999;
+        }
+
+        .spinner {
+            border: 4px solid rgba(255,255,255,0.3);
+            border-top: 4px solid white;
+            border-radius: 50%;
+            width: 50px;
+            height: 50px;
+            animation: spin 1s linear infinite;
+            margin-bottom: 20px;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        /* Header */
+        .header {
+            background: white;
+            padding: 20px 30px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.05);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .header-left {
+            display: flex;
+            align-items: center;
+            gap: 15px;
+        }
+
+        .logo {
+            width: 45px;
+            height: 45px;
+        }
+
+        .admin-title {
+            font-size: 24px;
+            font-weight: 700;
+            color: #667eea;
+        }
+
+        .admin-badge {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 6px 16px;
+            border-radius: 20px;
+            font-size: 13px;
+            font-weight: 600;
+        }
+
+        .header-right {
+            display: flex;
+            align-items: center;
+            gap: 20px;
+        }
+
+        .btn-link {
+            color: #667eea;
+            text-decoration: none;
+            font-weight: 600;
+            padding: 8px 16px;
+            border-radius: 8px;
+            transition: background 0.3s;
+        }
+
+        .btn-link:hover {
+            background: #f5f5ff;
+        }
+
+        .user-info {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .user-avatar {
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: 600;
+        }
+
+        /* Main Container */
+        .container {
+            max-width: 1400px;
+            margin: 30px auto;
+            padding: 0 30px;
+        }
+
+        /* Stats Cards */
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 20px;
+            margin-bottom: 30px;
+        }
+
+        .stat-card {
+            background: white;
+            border-radius: 12px;
+            padding: 25px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.05);
+        }
+
+        .stat-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 15px;
+        }
+
+        .stat-title {
+            font-size: 14px;
+            color: #666;
+            font-weight: 500;
+        }
+
+        .stat-icon {
+            width: 40px;
+            height: 40px;
+            border-radius: 10px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 20px;
+        }
+
+        .stat-icon.blue { background: #e3f2fd; }
+        .stat-icon.green { background: #e8f5e9; }
+        .stat-icon.orange { background: #fff3e0; }
+        .stat-icon.purple { background: #f3e5f5; }
+
+        .stat-value {
+            font-size: 32px;
+            font-weight: 700;
+            color: #333;
+        }
+
+        .stat-subtitle {
+            font-size: 13px;
+            color: #999;
+            margin-top: 5px;
+        }
+
+        /* Tabs */
+        .tabs {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 25px;
+            border-bottom: 2px solid #e0e0e0;
+            overflow-x: auto;
+        }
+
+        .tab {
+            padding: 12px 24px;
+            background: none;
+            border: none;
+            border-bottom: 3px solid transparent;
+            cursor: pointer;
+            font-size: 15px;
+            font-weight: 600;
+            color: #666;
+            transition: all 0.3s;
+            white-space: nowrap;
+        }
+
+        .tab.active {
+            color: #667eea;
+            border-bottom-color: #667eea;
+        }
+
+        .tab:hover {
+            color: #667eea;
+        }
+
+        /* Tab Content */
+        .tab-content {
+            display: none;
+        }
+
+        .tab-content.active {
+            display: block;
+        }
+
+        /* Section */
+        .section {
+            background: white;
+            border-radius: 12px;
+            padding: 25px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.05);
+            margin-bottom: 25px;
+        }
+
+        .section-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+        }
+
+        .section-title {
+            font-size: 20px;
+            font-weight: 700;
+            color: #333;
+        }
+
+        /* Buttons */
+        .btn {
+            padding: 10px 20px;
+            border: none;
+            border-radius: 8px;
+            font-size: 14px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: transform 0.2s;
+        }
+
+        .btn:hover {
+            transform: translateY(-2px);
+        }
+
+        .btn-primary {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+        }
+
+        .btn-success {
+            background: #4CAF50;
+            color: white;
+        }
+
+        .btn-danger {
+            background: #f44336;
+            color: white;
+        }
+
+        .btn-secondary {
+            background: #e0e0e0;
+            color: #666;
+        }
+
+        .btn-small {
+            padding: 6px 12px;
+            font-size: 12px;
+        }
+
+        /* Table */
+        .table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+
+        .table th {
+            text-align: left;
+            padding: 12px;
+            background: #f8f9fa;
+            font-weight: 600;
+            color: #666;
+            font-size: 13px;
+            border-bottom: 2px solid #e0e0e0;
+        }
+
+        .table td {
+            padding: 15px 12px;
+            border-bottom: 1px solid #f0f0f0;
+            color: #333;
+            font-size: 14px;
+        }
+
+        .table tr:hover {
+            background: #f8f9fa;
+        }
+
+        /* Badge */
+        .badge {
+            display: inline-block;
+            padding: 4px 10px;
+            border-radius: 12px;
+            font-size: 11px;
+            font-weight: 600;
+        }
+
+        .badge-pending { background: #fff3cd; color: #856404; }
+        .badge-approved { background: #d4edda; color: #155724; }
+        .badge-open { background: #fff3cd; color: #856404; }
+        .badge-assigned { background: #cce5ff; color: #004085; }
+        .badge-in-progress { background: #d1ecf1; color: #0c5460; }
+        .badge-resolved { background: #d4edda; color: #155724; }
+        .badge-closed { background: #e2e3e5; color: #383d41; }
+        .badge-low { background: #e8f5e9; color: #2e7d32; }
+        .badge-medium { background: #fff3e0; color: #f57c00; }
+        .badge-high { background: #ffe0b2; color: #e65100; }
+        .badge-urgent { background: #ffcdd2; color: #c62828; }
+
+        /* Modal */
+        .modal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0,0,0,0.5);
+            z-index: 1000;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+        }
+
+        .modal.show {
+            display: flex;
+        }
+
+        .modal-content {
+            background: white;
+            border-radius: 12px;
+            max-width: 600px;
+            width: 100%;
+            max-height: 90vh;
+            overflow-y: auto;
+            padding: 30px;
+        }
+
+        .modal-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 25px;
+        }
+
+        .modal-title {
+            font-size: 22px;
+            font-weight: 700;
+            color: #333;
+        }
+
+        .modal-close {
+            font-size: 28px;
+            color: #999;
+            cursor: pointer;
+            background: none;
+            border: none;
+            padding: 0;
+            width: 30px;
+            height: 30px;
+        }
+
+        .modal-close:hover {
+            color: #666;
+        }
+
+        /* Form */
+        .form-group {
+            margin-bottom: 20px;
+        }
+
+        .form-label {
+            display: block;
+            margin-bottom: 8px;
+            font-weight: 600;
+            color: #333;
+            font-size: 14px;
+        }
+
+        .form-input,
+        .form-select,
+        .form-textarea {
+            width: 100%;
+            padding: 12px;
+            border: 2px solid #e0e0e0;
+            border-radius: 8px;
+            font-size: 14px;
+            font-family: inherit;
+            transition: border-color 0.3s;
+        }
+
+        .form-input:focus,
+        .form-select:focus,
+        .form-textarea:focus {
+            outline: none;
+            border-color: #667eea;
+        }
+
+        .form-textarea {
+            min-height: 120px;
+            resize: vertical;
+        }
+
+        /* Empty State */
+        .empty-state {
+            text-align: center;
+            padding: 60px 20px;
+            color: #999;
+        }
+
+        .empty-icon {
+            font-size: 64px;
+            margin-bottom: 15px;
+            opacity: 0.5;
+        }
+
+        .empty-text {
+            font-size: 18px;
+            margin-bottom: 10px;
+            color: #666;
+        }
+
+        /* Alert */
+        .alert {
+            padding: 15px 20px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            font-size: 14px;
+        }
+
+        .alert-success {
+            background: #d4edda;
+            color: #155724;
+            border: 1px solid #c3e6cb;
+        }
+
+        .alert-error {
+            background: #f8d7da;
+            color: #721c24;
+            border: 1px solid #f5c6cb;
+        }
+
+        /* Responsive */
+        @media (max-width: 768px) {
+            .container {
+                padding: 0 15px;
+            }
+
+            .header {
+                padding: 15px 20px;
+            }
+
+            .stats-grid {
+                grid-template-columns: 1fr;
+            }
+
+            .table {
+                font-size: 12px;
+            }
+
+            .table th,
+            .table td {
+                padding: 10px 8px;
+            }
+        }
+
+        .hidden {
+            display: none !important;
+        }
+    </style>
+</head>
+<body>
+    <!-- Loading Screen -->
+    <div class="loading-screen" id="loadingScreen">
+        <div class="spinner"></div>
+        <p style="color: white; margin-top: 20px;">Loading Admin Dashboard...</p>
+    </div>
+
+    <!-- Main Dashboard -->
+    <div id="dashboard" class="hidden">
+        <!-- Header -->
+        <div class="header">
+            <div class="header-left">
+                <svg class="logo" viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg">
+                    <path d="M50 20 C30 20, 15 30, 15 45 L15 50 C15 50, 20 60, 50 60 C80 60, 85 50, 85 50 L85 45 C85 30, 70 20, 50 20 Z" fill="#667eea"/>
+                    <rect x="48" y="55" width="4" height="35" fill="#764ba2" rx="2"/>
+                    <path d="M48 85 C48 85, 42 95, 35 95" stroke="#764ba2" stroke-width="3" fill="none" stroke-linecap="round"/>
+                </svg>
+                <div>
+                    <div class="admin-title">Umbrella Admin</div>
+                    <span class="admin-badge">Administrator</span>
+                </div>
+            </div>
+            <div class="header-right">
+                <a href="index.html" class="btn-link">← Back to App</a>
+                <div class="user-info">
+                    <div class="user-avatar" id="userAvatar">A</div>
+                    <button class="btn btn-secondary btn-small" onclick="logout()">Sign Out</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Main Container -->
+        <div class="container">
+            <!-- Stats Grid -->
+            <div class="stats-grid">
+                <div class="stat-card">
+                    <div class="stat-header">
+                        <div class="stat-title">Total Residents</div>
+                        <div class="stat-icon blue">👥</div>
+                    </div>
+                    <div class="stat-value" id="totalResidents">0</div>
+                    <div class="stat-subtitle">Active residents</div>
+                </div>
+
+                <div class="stat-card">
+                    <div class="stat-header">
+                        <div class="stat-title">Pending Approvals</div>
+                        <div class="stat-icon orange">⏳</div>
+                    </div>
+                    <div class="stat-value" id="pendingApprovals">0</div>
+                    <div class="stat-subtitle">Waiting for approval</div>
+                </div>
+
+                <div class="stat-card">
+                    <div class="stat-header">
+                        <div class="stat-title">Open Tickets</div>
+                        <div class="stat-icon purple">🔧</div>
+                    </div>
+                    <div class="stat-value" id="openTickets">0</div>
+                    <div class="stat-subtitle">Need attention</div>
+                </div>
+
+                <div class="stat-card">
+                    <div class="stat-header">
+                        <div class="stat-title">Active Visitors</div>
+                        <div class="stat-icon green">🚗</div>
+                    </div>
+                    <div class="stat-value" id="activeVisitors">0</div>
+                    <div class="stat-subtitle">Today's visitors</div>
+                </div>
+            </div>
+
+            <!-- Tabs -->
+            <div class="tabs">
+                <button class="tab active" onclick="switchTab('announcements')">📢 Announcements</button>
+                <button class="tab" onclick="switchTab('residents')">👥 Approve Residents</button>
+                <button class="tab" onclick="switchTab('tickets')">🔧 Manage Tickets</button>
+            </div>
+
+            <!-- Announcements Tab -->
+            <div id="announcementsTab" class="tab-content active">
+                <div class="section">
+                    <div class="section-header">
+                        <h2 class="section-title">Announcements</h2>
+                        <button class="btn btn-primary" onclick="openCreateAnnouncement()">+ Create Announcement</button>
+                    </div>
+                    <div id="announcementsList">
+                        <div class="empty-state">
+                            <div class="empty-icon">📢</div>
+                            <div class="empty-text">Loading announcements...</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Residents Tab -->
+            <div id="residentsTab" class="tab-content">
+                <!-- Pending Approvals Section -->
+                <div class="section">
+                    <div class="section-header">
+                        <h2 class="section-title">Pending Resident Approvals</h2>
+                    </div>
+                    <div id="residentsList">
+                        <div class="empty-state">
+                            <div class="empty-icon">👥</div>
+                            <div class="empty-text">Loading residents...</div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- All Residents Section -->
+                <div class="section" style="margin-top: 25px;">
+                    <div class="section-header">
+                        <h2 class="section-title">All Residents</h2>
+                        <button class="btn btn-primary" onclick="exportResidents()">📊 Export to Excel</button>
+                    </div>
+                    
+                    <!-- Search Bar -->
+                    <div style="margin-bottom: 20px;">
+                        <input type="text" id="residentSearch" placeholder="🔍 Search by name, unit, email, or phone..." 
+                               style="width: 100%; padding: 12px 15px; border: 2px solid #e0e0e0; border-radius: 8px; font-size: 14px;"
+                               oninput="filterResidents()">
+                    </div>
+                    
+                    <div id="allResidentsList">
+                        <div class="empty-state">
+                            <div class="empty-icon">👥</div>
+                            <div class="empty-text">Loading residents...</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Tickets Tab -->
+            <div id="ticketsTab" class="tab-content">
+                <div class="section">
+                    <div class="section-header">
+                        <h2 class="section-title">All Support Tickets</h2>
+                    </div>
+                    
+                    <!-- Filters -->
+                    <div style="display: flex; gap: 15px; margin-bottom: 20px; flex-wrap: wrap;">
+                        <input type="text" id="ticketSearch" placeholder="🔍 Search by title, resident, or unit..." 
+                               style="flex: 1; min-width: 250px; padding: 10px 15px; border: 2px solid #e0e0e0; border-radius: 8px; font-size: 14px;"
+                               oninput="filterTickets()">
+                        <select id="ticketStatusFilter" onchange="filterTickets()" 
+                                style="padding: 10px 15px; border: 2px solid #e0e0e0; border-radius: 8px; font-size: 14px;">
+                            <option value="">All Status</option>
+                            <option value="open">Open</option>
+                            <option value="assigned">Assigned</option>
+                            <option value="in-progress">In Progress</option>
+                            <option value="resolved">Resolved</option>
+                            <option value="closed">Closed</option>
+                        </select>
+                        <select id="ticketPriorityFilter" onchange="filterTickets()" 
+                                style="padding: 10px 15px; border: 2px solid #e0e0e0; border-radius: 8px; font-size: 14px;">
+                            <option value="">All Priority</option>
+                            <option value="urgent">Urgent</option>
+                            <option value="high">High</option>
+                            <option value="medium">Medium</option>
+                            <option value="low">Low</option>
+                        </select>
+                        <select id="ticketCategoryFilter" onchange="filterTickets()" 
+                                style="padding: 10px 15px; border: 2px solid #e0e0e0; border-radius: 8px; font-size: 14px;">
+                            <option value="">All Categories</option>
+                            <option value="plumbing">Plumbing</option>
+                            <option value="electrical">Electrical</option>
+                            <option value="cleaning">Cleaning</option>
+                            <option value="security">Security</option>
+                            <option value="other">Other</option>
+                        </select>
+                    </div>
+                    
+                    <div id="ticketsList">
+                        <div class="empty-state">
+                            <div class="empty-icon">🔧</div>
+                            <div class="empty-text">Loading tickets...</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Create Announcement Modal -->
+    <div class="modal" id="createAnnouncementModal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2 class="modal-title">Create Announcement</h2>
+                <button class="modal-close" onclick="closeModal('createAnnouncementModal')">&times;</button>
+            </div>
+            <div id="announcementAlert"></div>
+            <form onsubmit="createAnnouncement(event)">
+                <div class="form-group">
+                    <label class="form-label">Title *</label>
+                    <input type="text" class="form-input" id="announcementTitle" required placeholder="Announcement title">
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Category *</label>
+                    <select class="form-select" id="announcementCategory" required>
+                        <option value="alert">Alert</option>
+                        <option value="event">Event</option>
+                        <option value="maintenance">Maintenance</option>
+                        <option value="social">Social</option>
+                        <option value="emergency">Emergency</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Message *</label>
+                    <textarea class="form-textarea" id="announcementMessage" required placeholder="Write your announcement message here..."></textarea>
+                </div>
+                <button type="submit" class="btn btn-primary" style="width: 100%;">Publish Announcement</button>
+            </form>
+        </div>
+    </div>
+
+    <!-- View Ticket Modal -->
+    <div class="modal" id="viewTicketModal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2 class="modal-title">Ticket Details</h2>
+                <button class="modal-close" onclick="closeModal('viewTicketModal')">&times;</button>
+            </div>
+            <div id="ticketDetails"></div>
+        </div>
+    </div>
+
+    <script>
+        // Firebase Configuration
+        const firebaseConfig = {
+            apiKey: "AIzaSyDY_2X7mk9eCM24sVj0glrJhG7n2PSAff8",
+            authDomain: "umbrella-6b57a.firebaseapp.com",
+            projectId: "umbrella-6b57a",
+            storageBucket: "umbrella-6b57a.firebasestorage.app",
+            messagingSenderId: "636033970250",
+            appId: "1:636033970250:web:a49918b1f0d6e46cdcb6b3",
+            measurementId: "G-Y7VH8K070Z"
+        };
+
+        // Initialize Firebase
+        firebase.initializeApp(firebaseConfig);
+        const auth = firebase.auth();
+        const db = firebase.firestore();
+        const storage = firebase.storage();
+        const analytics = firebase.analytics();
+
+        let currentUser = null;
+
+        // Check authentication
+        auth.onAuthStateChanged(async (user) => {
+            if (!user) {
+                window.location.href = 'index.html';
+                return;
+            }
+
+            // Check if user is admin
+            const userDoc = await db.collection('users').doc(user.uid).get();
+            if (!userDoc.exists || userDoc.data().role !== 'admin') {
+                alert('Access denied. Admin privileges required.');
+                window.location.href = 'index.html';
+                return;
+            }
+
+            currentUser = user;
+            const userData = userDoc.data();
+            document.getElementById('userAvatar').textContent = userData.name.charAt(0).toUpperCase();
+
+            // Show dashboard
+            document.getElementById('loadingScreen').style.display = 'none';
+            document.getElementById('dashboard').classList.remove('hidden');
+
+            // Load all data
+            loadStats();
+            loadAnnouncements();
+            loadPendingResidents();
+            loadAllResidents();
+            loadAllTickets();
+        });
+
+        function logout() {
+            auth.signOut().then(() => {
+                window.location.href = 'index.html';
+            });
+        }
+
+        // Tab switching
+        function switchTab(tabName) {
+            document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+            event.target.classList.add('active');
+
+            document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
+            document.getElementById(tabName + 'Tab').classList.add('active');
+        }
+
+        // Load Stats
+        async function loadStats() {
+            try {
+                // Total residents
+                const residentsSnapshot = await db.collection('residents').get();
+                document.getElementById('totalResidents').textContent = residentsSnapshot.size;
+
+                // Pending approvals
+                const pendingSnapshot = await db.collection('users').where('isApproved', '==', false).get();
+                document.getElementById('pendingApprovals').textContent = pendingSnapshot.size;
+
+                // Open tickets
+                const ticketsSnapshot = await db.collection('tickets')
+                    .where('status', 'in', ['open', 'assigned', 'in-progress'])
+                    .get();
+                document.getElementById('openTickets').textContent = ticketsSnapshot.size;
+
+                // Active visitors (today)
+                const today = new Date();
+                today.setHours(0, 0, 0, 0);
+                const visitorsSnapshot = await db.collection('visitors')
+                    .where('visitDate', '>=', firebase.firestore.Timestamp.fromDate(today))
+                    .where('status', '==', 'approved')
+                    .get();
+                document.getElementById('activeVisitors').textContent = visitorsSnapshot.size;
+            } catch (error) {
+                console.error('Error loading stats:', error);
+            }
+        }
+
+        // Load Announcements
+        async function loadAnnouncements() {
+            const container = document.getElementById('announcementsList');
+            try {
+                const snapshot = await db.collection('announcements')
+                    .orderBy('createdAt', 'desc')
+                    .limit(50)
+                    .get();
+
+                if (snapshot.empty) {
+                    container.innerHTML = `
+                        <div class="empty-state">
+                            <div class="empty-icon">📢</div>
+                            <div class="empty-text">No announcements yet</div>
+                        </div>
+                    `;
+                    return;
+                }
+
+                let html = '<table class="table"><thead><tr><th>Title</th><th>Category</th><th>Date</th><th>Actions</th></tr></thead><tbody>';
+                
+                snapshot.forEach(doc => {
+                    const data = doc.data();
+                    const date = data.createdAt ? data.createdAt.toDate().toLocaleDateString() : 'Recent';
+                    
+                    html += `
+                        <tr>
+                            <td><strong>${data.title || 'Untitled'}</strong><br><small style="color:#999">${(data.message || '').substring(0, 80)}...</small></td>
+                            <td><span class="badge badge-${data.category}">${data.category || 'general'}</span></td>
+                            <td>${date}</td>
+                            <td>
+                                <button class="btn btn-danger btn-small" onclick="deleteAnnouncement('${doc.id}')">Delete</button>
+                            </td>
+                        </tr>
+                    `;
+                });
+                
+                html += '</tbody></table>';
+                container.innerHTML = html;
+            } catch (error) {
+                console.error('Error loading announcements:', error);
+                container.innerHTML = `<div class="alert alert-error">Error loading announcements: ${error.message}</div>`;
+            }
+        }
+
+        // Load Pending Residents
+        async function loadPendingResidents() {
+            const container = document.getElementById('residentsList');
+            try {
+                const snapshot = await db.collection('users')
+                    .where('isApproved', '==', false)
+                    .get();
+
+                if (snapshot.empty) {
+                    container.innerHTML = `
+                        <div class="empty-state">
+                            <div class="empty-icon">✅</div>
+                            <div class="empty-text">No pending approvals</div>
+                        </div>
+                    `;
+                    return;
+                }
+
+                let html = '<table class="table"><thead><tr><th>Name</th><th>Email</th><th>Unit</th><th>Phone</th><th>Actions</th></tr></thead><tbody>';
+                
+                snapshot.forEach(doc => {
+                    const data = doc.data();
+                    
+                    html += `
+                        <tr>
+                            <td><strong>${data.name || 'N/A'}</strong></td>
+                            <td>${data.email || 'N/A'}</td>
+                            <td>${data.unitNumber || 'N/A'}</td>
+                            <td>${data.phone || 'N/A'}</td>
+                            <td>
+                                <button class="btn btn-success btn-small" onclick="approveResident('${doc.id}')">Approve</button>
+                                <button class="btn btn-danger btn-small" onclick="rejectResident('${doc.id}')">Reject</button>
+                            </td>
+                        </tr>
+                    `;
+                });
+                
+                html += '</tbody></table>';
+                container.innerHTML = html;
+            } catch (error) {
+                console.error('Error loading residents:', error);
+                container.innerHTML = `<div class="alert alert-error">Error loading residents: ${error.message}</div>`;
+            }
+        }
+
+        // Load All Residents
+        async function loadAllResidents() {
+            const container = document.getElementById('allResidentsList');
+            try {
+                const snapshot = await db.collection('residents').get();
+
+                if (snapshot.empty) {
+                    container.innerHTML = `
+                        <div class="empty-state">
+                            <div class="empty-icon">👥</div>
+                            <div class="empty-text">No residents yet</div>
+                        </div>
+                    `;
+                    return;
+                }
+
+                // Store all residents for filtering and export
+                allResidentsData = [];
+                snapshot.forEach(doc => allResidentsData.push({ id: doc.id, ...doc.data() }));
+                
+                // Sort by unit number
+                allResidentsData.sort((a, b) => {
+                    const unitA = a.unitNumber || '';
+                    const unitB = b.unitNumber || '';
+                    return unitA.localeCompare(unitB);
+                });
+
+                displayAllResidents(allResidentsData);
+            } catch (error) {
+                console.error('Error loading all residents:', error);
+                container.innerHTML = `<div class="alert alert-error">Error loading residents: ${error.message}</div>`;
+            }
+        }
+
+        function displayAllResidents(residents) {
+            const container = document.getElementById('allResidentsList');
+            
+            if (residents.length === 0) {
+                container.innerHTML = `
+                    <div class="empty-state">
+                        <div class="empty-icon">🔍</div>
+                        <div class="empty-text">No residents match your search</div>
+                    </div>
+                `;
+                return;
+            }
+
+            let html = '<table class="table"><thead><tr><th>Unit</th><th>Name</th><th>Contact</th><th>Move-In</th><th>Actions</th></tr></thead><tbody>';
+            
+            residents.forEach(data => {
+                const moveInDate = data.moveInDate ? data.moveInDate.toDate().toLocaleDateString() : 'N/A';
+                const vehicleCount = data.vehicles ? data.vehicles.length : 0;
+                const petCount = data.pets ? data.pets.length : 0;
+                
+                html += `
+                    <tr>
+                        <td><strong>Unit ${data.unitNumber || 'N/A'}</strong></td>
+                        <td>
+                            <strong>${data.name || 'Unknown'}</strong><br>
+                            ${data.familyMembers && data.familyMembers.length > 0 ? 
+                                `<small style="color:#999">+${data.familyMembers.length} family member(s)</small>` : ''}
+                        </td>
+                        <td>
+                            ${data.phone ? `📱 ${data.phone}<br>` : ''}
+                            ${data.email ? `📧 ${data.email}` : ''}
+                        </td>
+                        <td>
+                            ${moveInDate}<br>
+                            ${vehicleCount > 0 ? `<small style="color:#999">🚗 ${vehicleCount} vehicle(s)</small><br>` : ''}
+                            ${petCount > 0 ? `<small style="color:#999">🐕 ${petCount} pet(s)</small>` : ''}
+                        </td>
+                        <td>
+                            <button class="btn btn-primary btn-small" onclick="viewResidentDetails('${data.id}')">View</button>
+                            <button class="btn btn-danger btn-small" onclick="deleteResident('${data.id}')">Delete</button>
+                        </td>
+                    </tr>
+                `;
+            });
+            
+            html += '</tbody></table>';
+            container.innerHTML = html;
+        }
+
+        function filterResidents() {
+            const searchTerm = document.getElementById('residentSearch').value.toLowerCase();
+
+            const filtered = allResidentsData.filter(resident => {
+                return (resident.name || '').toLowerCase().includes(searchTerm) ||
+                       (resident.unitNumber || '').toLowerCase().includes(searchTerm) ||
+                       (resident.email || '').toLowerCase().includes(searchTerm) ||
+                       (resident.phone || '').toLowerCase().includes(searchTerm);
+            });
+
+            displayAllResidents(filtered);
+        }
+
+        function viewResidentDetails(residentId) {
+            const resident = allResidentsData.find(r => r.id === residentId);
+            if (!resident) {
+                alert('Resident not found');
+                return;
+            }
+
+            let detailsHtml = `
+                <div style="line-height: 1.8;">
+                    <h3 style="margin-bottom: 15px; color: #667eea;">${resident.name || 'Unknown'}</h3>
+                    
+                    <div style="margin-bottom: 20px;">
+                        <strong>Unit:</strong> ${resident.unitNumber || 'N/A'}<br>
+                        <strong>Phone:</strong> ${resident.phone || 'N/A'}<br>
+                        <strong>Email:</strong> ${resident.email || 'N/A'}<br>
+                        <strong>Move-In Date:</strong> ${resident.moveInDate ? resident.moveInDate.toDate().toLocaleDateString() : 'N/A'}
+                    </div>
+            `;
+
+            if (resident.familyMembers && resident.familyMembers.length > 0) {
+                detailsHtml += `
+                    <div style="margin-bottom: 20px;">
+                        <strong>Family Members:</strong>
+                        <ul style="margin-top: 8px;">
+                            ${resident.familyMembers.map(fm => `<li>${fm.name || 'N/A'} (${fm.relation || 'N/A'})</li>`).join('')}
+                        </ul>
+                    </div>
+                `;
+            }
+
+            if (resident.vehicles && resident.vehicles.length > 0) {
+                detailsHtml += `
+                    <div style="margin-bottom: 20px;">
+                        <strong>Vehicles:</strong>
+                        <ul style="margin-top: 8px;">
+                            ${resident.vehicles.map(v => `<li>${v.make || ''} ${v.model || ''} - ${v.licensePlate || 'N/A'}</li>`).join('')}
+                        </ul>
+                    </div>
+                `;
+            }
+
+            if (resident.pets && resident.pets.length > 0) {
+                detailsHtml += `
+                    <div style="margin-bottom: 20px;">
+                        <strong>Pets:</strong>
+                        <ul style="margin-top: 8px;">
+                            ${resident.pets.map(p => `<li>${p.name || 'N/A'} (${p.type || 'N/A'})</li>`).join('')}
+                        </ul>
+                    </div>
+                `;
+            }
+
+            if (resident.emergencyContacts && resident.emergencyContacts.length > 0) {
+                detailsHtml += `
+                    <div style="margin-bottom: 20px;">
+                        <strong>Emergency Contacts:</strong>
+                        <ul style="margin-top: 8px;">
+                            ${resident.emergencyContacts.map(ec => `<li>${ec.name || 'N/A'} (${ec.relation || 'N/A'}) - ${ec.phone || 'N/A'}</li>`).join('')}
+                        </ul>
+                    </div>
+                `;
+            }
+
+            detailsHtml += '</div>';
+
+            document.getElementById('ticketDetails').innerHTML = detailsHtml;
+            document.getElementById('viewTicketModal').classList.add('show');
+        }
+
+        async function deleteResident(residentId) {
+            if (!confirm('Are you sure you want to delete this resident? This action cannot be undone.')) return;
+
+            try {
+                await db.collection('residents').doc(residentId).delete();
+                loadAllResidents();
+                loadStats();
+                alert('Resident deleted successfully');
+            } catch (error) {
+                console.error('Error deleting resident:', error);
+                alert('Error deleting resident: ' + error.message);
+            }
+        }
+
+        function exportResidents() {
+            if (allResidentsData.length === 0) {
+                alert('No residents to export');
+                return;
+            }
+
+            // Create CSV content
+            let csv = 'Unit,Name,Phone,Email,Move-In Date,Vehicles,Pets,Family Members\n';
+            
+            allResidentsData.forEach(resident => {
+                const moveInDate = resident.moveInDate ? resident.moveInDate.toDate().toLocaleDateString() : 'N/A';
+                const vehicles = resident.vehicles ? resident.vehicles.length : 0;
+                const pets = resident.pets ? resident.pets.length : 0;
+                const family = resident.familyMembers ? resident.familyMembers.length : 0;
+                
+                csv += `"${resident.unitNumber || 'N/A'}","${resident.name || 'Unknown'}","${resident.phone || 'N/A'}","${resident.email || 'N/A'}","${moveInDate}","${vehicles}","${pets}","${family}"\n`;
+            });
+
+            // Download CSV
+            const blob = new Blob([csv], { type: 'text/csv' });
+            const url = window.URL.createObjectURL(blob);
+            const link = document.createElement('a');
+            link.href = url;
+            link.download = `umbrella-residents-${new Date().toISOString().split('T')[0]}.csv`;
+            link.click();
+            window.URL.revokeObjectURL(url);
+            
+            alert('✅ Residents list exported successfully!');
+        }
+
+        let allTickets = [];
+        let allResidentsData = [];
+
+        // Load All Tickets
+        async function loadAllTickets() {
+            const container = document.getElementById('ticketsList');
+            try {
+                const snapshot = await db.collection('tickets').get();
+
+                if (snapshot.empty) {
+                    container.innerHTML = `
+                        <div class="empty-state">
+                            <div class="empty-icon">🔧</div>
+                            <div class="empty-text">No tickets yet</div>
+                        </div>
+                    `;
+                    return;
+                }
+
+                // Store all tickets for filtering
+                allTickets = [];
+                snapshot.forEach(doc => allTickets.push({ id: doc.id, ...doc.data() }));
+                
+                // Sort by date
+                allTickets.sort((a, b) => {
+                    const dateA = a.createdAt ? a.createdAt.toMillis() : 0;
+                    const dateB = b.createdAt ? b.createdAt.toMillis() : 0;
+                    return dateB - dateA;
+                });
+
+                displayTickets(allTickets);
+            } catch (error) {
+                console.error('Error loading tickets:', error);
+                container.innerHTML = `<div class="alert alert-error">Error loading tickets: ${error.message}</div>`;
+            }
+        }
+
+        function displayTickets(tickets) {
+            const container = document.getElementById('ticketsList');
+            
+            if (tickets.length === 0) {
+                container.innerHTML = `
+                    <div class="empty-state">
+                        <div class="empty-icon">🔍</div>
+                        <div class="empty-text">No tickets match your filters</div>
+                    </div>
+                `;
+                return;
+            }
+
+            let html = '<table class="table"><thead><tr><th>Ticket</th><th>Resident</th><th>Category</th><th>Priority</th><th>Status</th><th>Actions</th></tr></thead><tbody>';
+            
+            tickets.forEach(data => {
+                const date = data.createdAt ? data.createdAt.toDate().toLocaleDateString() : 'Recent';
+                
+                html += `
+                    <tr>
+                        <td>
+                            <strong>${data.title || 'Untitled'}</strong><br>
+                            <small style="color:#999">${date}</small>
+                        </td>
+                        <td>${data.residentName || 'Unknown'}<br><small style="color:#999">Unit ${data.unitNumber || 'N/A'}</small></td>
+                        <td><span class="badge badge-${data.category}">${data.category || 'general'}</span></td>
+                        <td><span class="badge badge-${data.priority}">${data.priority || 'medium'}</span></td>
+                        <td><span class="badge badge-${data.status}">${data.status || 'open'}</span></td>
+                        <td>
+                            <button class="btn btn-primary btn-small" onclick="viewTicket('${data.id}')">View</button>
+                            ${data.status !== 'resolved' ? `<button class="btn btn-success btn-small" onclick="resolveTicket('${data.id}')">Resolve</button>` : ''}
+                        </td>
+                    </tr>
+                `;
+            });
+            
+            html += '</tbody></table>';
+            container.innerHTML = html;
+        }
+
+        function filterTickets() {
+            const searchTerm = document.getElementById('ticketSearch').value.toLowerCase();
+            const statusFilter = document.getElementById('ticketStatusFilter').value;
+            const priorityFilter = document.getElementById('ticketPriorityFilter').value;
+            const categoryFilter = document.getElementById('ticketCategoryFilter').value;
+
+            let filtered = allTickets.filter(ticket => {
+                // Search filter
+                const matchesSearch = !searchTerm || 
+                    (ticket.title || '').toLowerCase().includes(searchTerm) ||
+                    (ticket.residentName || '').toLowerCase().includes(searchTerm) ||
+                    (ticket.unitNumber || '').toLowerCase().includes(searchTerm) ||
+                    (ticket.description || '').toLowerCase().includes(searchTerm);
+
+                // Status filter
+                const matchesStatus = !statusFilter || ticket.status === statusFilter;
+
+                // Priority filter
+                const matchesPriority = !priorityFilter || ticket.priority === priorityFilter;
+
+                // Category filter
+                const matchesCategory = !categoryFilter || ticket.category === categoryFilter;
+
+                return matchesSearch && matchesStatus && matchesPriority && matchesCategory;
+            });
+
+            displayTickets(filtered);
+        }
+
+        // Create Announcement
+        function openCreateAnnouncement() {
+            document.getElementById('createAnnouncementModal').classList.add('show');
+            document.getElementById('announcementAlert').innerHTML = '';
+        }
+
+        async function createAnnouncement(event) {
+            event.preventDefault();
+            
+            const title = document.getElementById('announcementTitle').value.trim();
+            const category = document.getElementById('announcementCategory').value;
+            const message = document.getElementById('announcementMessage').value.trim();
+
+            try {
+                await db.collection('announcements').add({
+                    title: title,
+                    message: message,
+                    category: category,
+                    author: currentUser.displayName || 'Admin',
+                    authorId: currentUser.uid,
+                    createdAt: firebase.firestore.FieldValue.serverTimestamp(),
+                    readBy: []
+                });
+
+                document.getElementById('announcementAlert').innerHTML = 
+                    '<div class="alert alert-success">Announcement created successfully!</div>';
+                
+                setTimeout(() => {
+                    closeModal('createAnnouncementModal');
+                    loadAnnouncements();
+                    loadStats();
+                }, 1500);
+
+                // Reset form
+                event.target.reset();
+            } catch (error) {
+                console.error('Error creating announcement:', error);
+                document.getElementById('announcementAlert').innerHTML = 
+                    `<div class="alert alert-error">Error: ${error.message}</div>`;
+            }
+        }
+
+        async function deleteAnnouncement(id) {
+            if (!confirm('Are you sure you want to delete this announcement?')) return;
+
+            try {
+                await db.collection('announcements').doc(id).delete();
+                loadAnnouncements();
+                loadStats();
+            } catch (error) {
+                console.error('Error deleting announcement:', error);
+                alert('Error deleting announcement: ' + error.message);
+            }
+        }
+
+        // Approve/Reject Resident
+        async function approveResident(userId) {
+            try {
+                await db.collection('users').doc(userId).update({
+                    isApproved: true
+                });
+                loadPendingResidents();
+                loadStats();
+                alert('Resident approved successfully!');
+            } catch (error) {
+                console.error('Error approving resident:', error);
+                alert('Error approving resident: ' + error.message);
+            }
+        }
+
+        async function rejectResident(userId) {
+            if (!confirm('Are you sure you want to reject this resident? This will delete their account.')) return;
+
+            try {
+                // Delete from users collection
+                await db.collection('users').doc(userId).delete();
+                
+                // Also delete from residents collection
+                const residentSnapshot = await db.collection('residents').where('userId', '==', userId).get();
+                residentSnapshot.forEach(doc => doc.ref.delete());
+
+                loadPendingResidents();
+                loadStats();
+                alert('Resident rejected and removed.');
+            } catch (error) {
+                console.error('Error rejecting resident:', error);
+                alert('Error rejecting resident: ' + error.message);
+            }
+        }
+
+        // View Ticket
+        async function viewTicket(ticketId) {
+            try {
+                const doc = await db.collection('tickets').doc(ticketId).get();
+                if (!doc.exists) {
+                    alert('Ticket not found');
+                    return;
+                }
+
+                const data = doc.data();
+                const date = data.createdAt ? data.createdAt.toDate().toLocaleString() : 'Unknown';
+
+                let html = `
+                    <div style="margin-bottom: 20px;">
+                        <h3 style="margin-bottom: 10px;">${data.title || 'Untitled Ticket'}</h3>
+                        <div style="margin-bottom: 15px;">
+                            <span class="badge badge-${data.category}">${data.category || 'general'}</span>
+                            <span class="badge badge-${data.priority}">${data.priority || 'medium'}</span>
+                            <span class="badge badge-${data.status}">${data.status || 'open'}</span>
+                        </div>
+                        <p style="color: #666; margin-bottom: 20px;">
+                            <strong>Submitted by:</strong> ${data.residentName || 'Unknown'} (Unit ${data.unitNumber || 'N/A'})<br>
+                            <strong>Date:</strong> ${date}<br>
+                            ${data.location ? `<strong>Location:</strong> ${data.location}<br>` : ''}
+                        </p>
+                        <div style="background: #f8f9fa; padding: 15px; border-radius: 8px; margin-bottom: 20px;">
+                            <strong>Description:</strong><br>
+                            ${data.description || 'No description provided'}
+                        </div>
+                    </div>
+                `;
+
+                document.getElementById('ticketDetails').innerHTML = html;
+                document.getElementById('viewTicketModal').classList.add('show');
+            } catch (error) {
+                console.error('Error loading ticket:', error);
+                alert('Error loading ticket: ' + error.message);
+            }
+        }
+
+        async function resolveTicket(ticketId) {
+            if (!confirm('Mark this ticket as resolved?')) return;
+
+            try {
+                await db.collection('tickets').doc(ticketId).update({
+                    status: 'resolved',
+                    resolvedAt: firebase.firestore.FieldValue.serverTimestamp()
+                });
+                loadAllTickets();
+                loadStats();
+            } catch (error) {
+                console.error('Error resolving ticket:', error);
+                alert('Error resolving ticket: ' + error.message);
+            }
+        }
+
+        // Modal functions
+        function closeModal(modalId) {
+            document.getElementById(modalId).classList.remove('show');
+        }
+
+        // Close modal on outside click
+        document.querySelectorAll('.modal').forEach(modal => {
+            modal.addEventListener('click', (e) => {
+                if (e.target === modal) {
+                    modal.classList.remove('show');
+                }
+            });
+        });
+    </script>
+</body>
+</html>
