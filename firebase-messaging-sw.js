@@ -16,47 +16,8 @@ firebase.initializeApp({
 
 const messaging = firebase.messaging();
 
-// Handle background messages (data-only)
-messaging.onBackgroundMessage((payload) => {
-    console.log('[firebase-messaging-sw.js] Received background message:', payload);
-    
-    // Extract data from payload
-    const notificationTitle = payload.notification?.title || payload.data?.title || 'Umbrella';
-    const notificationBody = payload.notification?.body || payload.data?.body || 'New announcement';
-    
-    const notificationOptions = {
-        body: notificationBody,
-        // Removed icon and badge to avoid 404 errors
-        tag: 'announcement',
-        requireInteraction: false,
-        data: {
-            url: payload.data?.click_action || self.location.origin,
-            type: payload.data?.type
-        }
-    };
-    
-    return self.registration.showNotification(notificationTitle, notificationOptions);
-});
+console.log('[SW] Firebase Messaging Service Worker loaded - Announcements only');
 
-// Handle notification click
-self.addEventListener('notificationclick', (event) => {
-    console.log('[firebase-messaging-sw.js] Notification clicked');
-    
-    event.notification.close();
-    
-    // Open the app at the correct URL
-    event.waitUntil(
-        clients.matchAll({ type: 'window', includeUncontrolled: true }).then(windowClients => {
-            // Check if app is already open
-            for (let client of windowClients) {
-                if (client.url.includes(self.location.origin) && 'focus' in client) {
-                    return client.focus();
-                }
-            }
-            // If not open, open new window with full URL
-            if (clients.openWindow) {
-                return clients.openWindow(self.location.origin);
-            }
-        })
-    );
-});
+// Firebase automatically handles notification display when message contains 'notification' payload
+// Firebase automatically handles click when webpush.fcmOptions.link is set
+// We don't need to do anything else!
