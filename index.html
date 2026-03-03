@@ -1548,9 +1548,10 @@
                             badge: '/icon-72.png'
                         };
                         
-                        if (Notification.permission === 'granted') {
-                            new Notification(notificationTitle, notificationOptions);
-                        }
+                        // Service worker handles notification display - don't create duplicate!
+                        // if (Notification.permission === 'granted') {
+                        //     new Notification(notificationTitle, notificationOptions);
+                        // }
                         
                         // Refresh announcements
                         if (currentTab === 'announcements') {
@@ -4042,10 +4043,10 @@
                 requireInteraction: false
             };
             
-            // Show notification even when app is open
-            if (Notification.permission === 'granted') {
-                new Notification(notificationTitle, notificationOptions);
-            }
+            // Service worker handles notification display - don't create duplicate!
+            // if (Notification.permission === 'granted') {
+            //     new Notification(notificationTitle, notificationOptions);
+            // }
         });
 
         function viewTerms() {
