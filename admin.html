@@ -1,0 +1,1126 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Admin Dashboard - Umbrella</title>
+    <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-auth-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-messaging-compat.js"></script>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+        
+        /* Header */
+        .header {
+            background: white;
+            padding: 20px 30px;
+            border-radius: 12px;
+            margin-bottom: 20px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        .header-left h1 {
+            color: #667eea;
+            font-size: 28px;
+            margin-bottom: 5px;
+        }
+        .welcome-text {
+            color: #666;
+            font-size: 14px;
+        }
+        .header-right {
+            display: flex;
+            gap: 10px;
+            align-items: center;
+        }
+        .admin-name {
+            font-weight: 600;
+            color: #333;
+        }
+        
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 16px;
+            padding: 30px;
+            box-shadow: 0 8px 30px rgba(0,0,0,0.2);
+        }
+        
+        .tabs {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 30px;
+            border-bottom: 2px solid #e0e0e0;
+            overflow-x: auto;
+        }
+        .tab-btn {
+            padding: 12px 20px;
+            border: none;
+            background: none;
+            cursor: pointer;
+            font-size: 14px;
+            color: #666;
+            border-bottom: 3px solid transparent;
+            white-space: nowrap;
+        }
+        .tab-btn.active { color: #667eea; border-bottom-color: #667eea; font-weight: 600; }
+        .tab-content { display: none; }
+        .tab-content.active { display: block; }
+        
+        .stats {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 15px;
+            margin-bottom: 30px;
+        }
+        .stat-card {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 20px;
+            border-radius: 12px;
+            text-align: center;
+            cursor: pointer;
+            transition: transform 0.2s, box-shadow 0.2s;
+        }
+        .stat-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 8px 20px rgba(102, 126, 234, 0.4);
+        }
+        .stat-number { font-size: 36px; font-weight: 700; }
+        .stat-label { font-size: 14px; opacity: 0.9; }
+        
+        .card {
+            background: #f8f9fa;
+            padding: 20px;
+            border-radius: 12px;
+            margin-bottom: 15px;
+        }
+        
+        .btn {
+            padding: 10px 20px;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 14px;
+            font-weight: 600;
+            margin: 5px;
+            transition: opacity 0.2s;
+        }
+        .btn:hover { opacity: 0.9; }
+        .btn-primary { background: #667eea; color: white; }
+        .btn-success { background: #28a745; color: white; }
+        .btn-danger { background: #dc3545; color: white; }
+        .btn-warning { background: #ffc107; color: #333; }
+        .btn-secondary { background: #6c757d; color: white; }
+        .btn-info { background: #17a2b8; color: white; }
+        
+        .input-group { margin-bottom: 15px; }
+        .input-group label { display: block; margin-bottom: 5px; font-weight: 600; color: #333; }
+        .input-group input, .input-group select, .input-group textarea {
+            width: 100%;
+            padding: 10px;
+            border: 1px solid #ddd;
+            border-radius: 8px;
+            font-size: 14px;
+        }
+        .input-group textarea { resize: vertical; min-height: 100px; }
+        
+        .form-container { 
+            display: none; 
+            background: #f0f0f0; 
+            padding: 20px; 
+            border-radius: 12px; 
+            margin-bottom: 20px; 
+        }
+        .form-container.show { display: block; }
+        
+        .search-box { 
+            width: 100%; 
+            padding: 12px; 
+            border: 1px solid #ddd; 
+            border-radius: 8px; 
+            margin-bottom: 20px;
+            font-size: 14px;
+        }
+        
+        .empty-state { 
+            text-align: center; 
+            padding: 40px; 
+            color: #999; 
+        }
+        
+        .badge {
+            display: inline-block;
+            padding: 4px 12px;
+            border-radius: 12px;
+            font-size: 12px;
+            font-weight: 600;
+        }
+        .badge-success { background: #d4edda; color: #155724; }
+        .badge-warning { background: #fff3cd; color: #856404; }
+        .badge-danger { background: #f8d7da; color: #721c24; }
+        .badge-info { background: #d1ecf1; color: #0c5460; }
+        
+        .notification-form {
+            background: #e3f2fd;
+            padding: 20px;
+            border-radius: 12px;
+            border: 2px solid #667eea;
+        }
+        
+        .action-buttons {
+            display: flex;
+            gap: 5px;
+            flex-wrap: wrap;
+        }
+    </style>
+</head>
+<body>
+    <!-- Header -->
+    <div class="header">
+        <div class="header-left">
+            <h1>⚙️ Admin Dashboard</h1>
+            <div class="welcome-text">Welcome, <span class="admin-name" id="adminName">Admin</span></div>
+        </div>
+        <div class="header-right">
+            <button class="btn btn-secondary" onclick="signOut()">🚪 Sign Out</button>
+        </div>
+    </div>
+
+    <div class="container">
+        <!-- Stats Overview -->
+        <div class="stats">
+            <div class="stat-card" onclick="switchTab('approvals')">
+                <div class="stat-number" id="statPending">0</div>
+                <div class="stat-label">Pending Approvals</div>
+            </div>
+            <div class="stat-card" onclick="switchTab('residents')">
+                <div class="stat-number" id="statResidents">0</div>
+                <div class="stat-label">Total Residents</div>
+            </div>
+            <div class="stat-card" onclick="switchTab('tickets')">
+                <div class="stat-number" id="statTickets">0</div>
+                <div class="stat-label">Open Tickets</div>
+            </div>
+            <div class="stat-card" onclick="switchTab('services')">
+                <div class="stat-number" id="statServices">0</div>
+                <div class="stat-label">Service Contacts</div>
+            </div>
+        </div>
+
+        <!-- Tabs -->
+        <div class="tabs">
+            <button class="tab-btn active" onclick="switchTab('approvals')">Pending Approvals</button>
+            <button class="tab-btn" onclick="switchTab('residents')">Residents</button>
+            <button class="tab-btn" onclick="switchTab('tickets')">Tickets</button>
+            <button class="tab-btn" onclick="switchTab('services')">Service Contacts</button>
+            <button class="tab-btn" onclick="switchTab('notifications')">📢 Send Notification</button>
+        </div>
+
+        <!-- Tab: Pending Approvals -->
+        <div class="tab-content active" id="tab-approvals">
+            <h2>Pending Resident Approvals</h2>
+            <div id="approvalsList"></div>
+        </div>
+
+        <!-- Tab: Residents -->
+        <div class="tab-content" id="tab-residents">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+                <h2 style="margin: 0;">All Residents</h2>
+                <button class="btn btn-primary" onclick="toggleResidentForm()">➕ Add Resident</button>
+            </div>
+            
+            <!-- Add/Edit Resident Form -->
+            <div class="form-container" id="residentFormContainer">
+                <h3 id="residentFormTitle">Add New Resident</h3>
+                <form onsubmit="saveResident(); return false;">
+                    <input type="hidden" id="editResidentId">
+                    <input type="hidden" id="editResidentUserId">
+                    
+                    <div class="input-group">
+                        <label>Full Name *</label>
+                        <input type="text" id="residentName" placeholder="John Doe" required>
+                    </div>
+                    <div class="input-group">
+                        <label>Email *</label>
+                        <input type="email" id="residentEmail" placeholder="john@example.com" required>
+                    </div>
+                    <div class="input-group">
+                        <label>Phone *</label>
+                        <input type="tel" id="residentPhone" placeholder="555-1234" required>
+                    </div>
+                    <div class="input-group">
+                        <label>Unit Number *</label>
+                        <input type="text" id="residentUnit" placeholder="101" required>
+                    </div>
+                    <div class="input-group">
+                        <label>Password (for new residents only)</label>
+                        <input type="password" id="residentPassword" placeholder="Leave empty when editing" minlength="6" autocomplete="new-password">
+                    </div>
+                    
+                    <div style="display: flex; gap: 10px;">
+                        <button type="submit" class="btn btn-success">💾 Save Resident</button>
+                        <button type="button" class="btn btn-secondary" onclick="cancelResidentForm()">Cancel</button>
+                    </div>
+                </form>
+            </div>
+            
+            <input type="text" class="search-box" id="residentSearch" placeholder="🔍 Search residents by name, unit, or email..." onkeyup="filterResidents()">
+            <div id="residentsList"></div>
+        </div>
+
+        <!-- Tab: Tickets -->
+        <div class="tab-content" id="tab-tickets">
+            <h2>Helpdesk Tickets</h2>
+            
+            <!-- Search Box -->
+            <input type="text" class="search-box" id="ticketSearch" placeholder="🔍 Search tickets by title, category, or reporter..." onkeyup="filterTickets()">
+            
+            <!-- Filter Buttons -->
+            <div style="margin-bottom: 20px;">
+                <button class="btn btn-primary" onclick="filterTicketsByStatus('all')">All</button>
+                <button class="btn btn-warning" onclick="filterTicketsByStatus('open')">Open</button>
+                <button class="btn btn-info" onclick="filterTicketsByStatus('in-progress')">In Progress</button>
+                <button class="btn btn-success" onclick="filterTicketsByStatus('resolved')">Resolved</button>
+            </div>
+            
+            <div id="ticketsList"></div>
+        </div>
+
+        <!-- Tab: Service Contacts -->
+        <div class="tab-content" id="tab-services">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+                <h2 style="margin: 0;">Service Contacts</h2>
+                <button class="btn btn-primary" onclick="toggleServiceForm()">➕ Add Service Contact</button>
+            </div>
+            
+            <!-- Add/Edit Service Form -->
+            <div class="form-container" id="serviceFormContainer">
+                <h3 id="serviceFormTitle">Add New Service Contact</h3>
+                <input type="hidden" id="editServiceId">
+                
+                <div class="input-group">
+                    <label>Service Name *</label>
+                    <input type="text" id="serviceName" placeholder="ABC Plumbing" required>
+                </div>
+                <div class="input-group">
+                    <label>Category *</label>
+                    <select id="serviceCategory" required>
+                        <option value="">Select Category</option>
+                        <option value="Plumber">Plumber</option>
+                        <option value="Electrician">Electrician</option>
+                        <option value="Landscaping">Landscaping</option>
+                        <option value="Pest Control">Pest Control</option>
+                        <option value="Security">Security</option>
+                        <option value="Cleaning">Cleaning</option>
+                        <option value="HVAC">HVAC</option>
+                        <option value="General">General</option>
+                    </select>
+                </div>
+                <div class="input-group">
+                    <label>Phone *</label>
+                    <input type="tel" id="servicePhone" placeholder="555-1234" required>
+                </div>
+                <div class="input-group">
+                    <label>Email</label>
+                    <input type="email" id="serviceEmail" placeholder="contact@service.com">
+                </div>
+                <div class="input-group">
+                    <label>Notes</label>
+                    <textarea id="serviceNotes" placeholder="Available hours, pricing info, etc."></textarea>
+                </div>
+                
+                <div style="display: flex; gap: 10px;">
+                    <button class="btn btn-success" onclick="saveServiceContact()">💾 Save Contact</button>
+                    <button class="btn btn-secondary" onclick="cancelServiceForm()">Cancel</button>
+                </div>
+            </div>
+            
+            <!-- Search Box -->
+            <input type="text" class="search-box" id="serviceSearch" placeholder="🔍 Search service contacts by name, category, or phone..." onkeyup="filterServices()">
+            
+            <div id="servicesList"></div>
+        </div>
+
+        <!-- Tab: Send Notification -->
+        <div class="tab-content" id="tab-notifications">
+            <h2>📢 Send Push Notification</h2>
+            <p style="color: #666; margin-bottom: 20px;">Send a notification to all residents who have enabled notifications.</p>
+            
+            <div class="notification-form">
+                <div class="input-group">
+                    <label>Notification Title *</label>
+                    <input type="text" id="notifTitle" placeholder="Important Update" required>
+                </div>
+                <div class="input-group">
+                    <label>Notification Message *</label>
+                    <textarea id="notifMessage" placeholder="Your message here..." required></textarea>
+                </div>
+                
+                <button class="btn btn-primary" onclick="sendManualNotification()">📤 Send Notification</button>
+                
+                <div style="margin-top: 20px; padding: 15px; background: #fff3cd; border-radius: 8px;">
+                    <strong>ℹ️ Note:</strong> This will send a push notification to all residents who have enabled notifications in their settings.
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Firebase Configuration
+        const firebaseConfig = {
+            apiKey: "AIzaSyDY_2X7mk9eCM24sVj0glrJhG7n2PSAff8",
+            authDomain: "umbrella-6b57a.firebaseapp.com",
+            projectId: "umbrella-6b57a",
+            storageBucket: "umbrella-6b57a.firebasestorage.app",
+            messagingSenderId: "636033970250",
+            appId: "1:636033970250:web:a49918b1f0d6e46cdcb6b3"
+        };
+
+        firebase.initializeApp(firebaseConfig);
+        const auth = firebase.auth();
+        const db = firebase.firestore();
+        const messaging = firebase.messaging();
+
+        let currentUser = null;
+        let communityId = null;
+        let allResidents = [];
+        let allTickets = [];
+        let allServices = [];
+        let currentTicketStatusFilter = 'all';
+
+        // Auth Check
+        auth.onAuthStateChanged(async (user) => {
+            if (!user) {
+                window.location.href = 'index.html';
+                return;
+            }
+            
+            currentUser = user;
+            const userDoc = await db.collection('users').doc(user.uid).get();
+            const userData = userDoc.data();
+            
+            if (userData.role !== 'admin') {
+                alert('Access denied. Admin only.');
+                await auth.signOut();
+                window.location.href = 'index.html';
+                return;
+            }
+            
+            communityId = userData.communityId;
+            document.getElementById('adminName').textContent = userData.name || userData.email;
+            
+            loadCommunityName();
+            loadStats();
+            loadApprovals();
+            loadResidents();
+            loadTickets();
+            loadServiceContacts();
+        });
+
+        async function loadCommunityName() {
+            try {
+                const communityDoc = await db.collection('communities').doc(communityId).get();
+                if (communityDoc.exists) {
+                    const data = communityDoc.data();
+                    const name = data.displayName || data.name || communityId;
+                    document.querySelector('.header-left h1').textContent = `⚙️ ${name} - Admin Dashboard`;
+                }
+            } catch (error) {
+                console.error('Error loading community name:', error);
+            }
+        }
+
+        async function loadStats() {
+            try {
+                // Pending Approvals
+                const pendingSnapshot = await db.collection('residents')
+                    .where('communityId', '==', communityId)
+                    .where('isApproved', '==', false)
+                    .get();
+                document.getElementById('statPending').textContent = pendingSnapshot.size;
+                
+                // Total Residents
+                const residentsSnapshot = await db.collection('residents')
+                    .where('communityId', '==', communityId)
+                    .get();
+                document.getElementById('statResidents').textContent = residentsSnapshot.size;
+                
+                // Open Tickets
+                const ticketsSnapshot = await db.collection('tickets')
+                    .where('communityId', '==', communityId)
+                    .where('status', 'in', ['open', 'in-progress'])
+                    .get();
+                document.getElementById('statTickets').textContent = ticketsSnapshot.size;
+                
+                // Service Contacts
+                const servicesSnapshot = await db.collection('service_contacts')
+                    .where('communityId', '==', communityId)
+                    .get();
+                document.getElementById('statServices').textContent = servicesSnapshot.size;
+                
+            } catch (error) {
+                console.error('Error loading stats:', error);
+            }
+        }
+
+        // Tab Switching
+        function switchTab(tabName) {
+            document.querySelectorAll('.tab-btn').forEach(btn => btn.classList.remove('active'));
+            document.querySelectorAll('.tab-content').forEach(content => content.classList.remove('active'));
+            
+            event.target.classList.add('active');
+            document.getElementById('tab-' + tabName).classList.add('active');
+        }
+
+        // ========== PENDING APPROVALS ==========
+        async function loadApprovals() {
+            const container = document.getElementById('approvalsList');
+            container.innerHTML = '<p>Loading...</p>';
+            
+            try {
+                const snapshot = await db.collection('residents')
+                    .where('communityId', '==', communityId)
+                    .where('isApproved', '==', false)
+                    .get();
+                
+                if (snapshot.empty) {
+                    container.innerHTML = '<div class="empty-state">No pending approvals</div>';
+                    return;
+                }
+                
+                let html = '';
+                snapshot.forEach(doc => {
+                    const data = doc.data();
+                    html += `
+                        <div class="card">
+                            <h3>${data.name}</h3>
+                            <p><strong>Email:</strong> ${data.email}</p>
+                            <p><strong>Phone:</strong> ${data.phone}</p>
+                            <p><strong>Unit:</strong> ${data.unitNumber}</p>
+                            <div class="action-buttons">
+                                <button class="btn btn-success" onclick="approveUser('${doc.id}', '${data.userId}')">✅ Approve</button>
+                                <button class="btn btn-danger" onclick="rejectUser('${doc.id}', '${data.userId}')">❌ Reject</button>
+                            </div>
+                        </div>
+                    `;
+                });
+                
+                container.innerHTML = html;
+            } catch (error) {
+                console.error('Error loading approvals:', error);
+                container.innerHTML = '<div class="empty-state">Error loading approvals</div>';
+            }
+        }
+
+        async function approveUser(residentId, userId) {
+            if (!confirm('Approve this resident?')) return;
+            
+            try {
+                await db.collection('residents').doc(residentId).update({ isApproved: true });
+                await db.collection('users').doc(userId).update({ isApproved: true });
+                
+                alert('✅ Resident approved!');
+                loadApprovals();
+                loadStats();
+                loadResidents();
+            } catch (error) {
+                console.error('Error approving:', error);
+                alert('Error approving resident');
+            }
+        }
+
+        async function rejectUser(residentId, userId) {
+            if (!confirm('Reject and delete this resident? This cannot be undone.')) return;
+            
+            try {
+                await db.collection('residents').doc(residentId).delete();
+                await db.collection('users').doc(userId).delete();
+                
+                alert('❌ Resident rejected and deleted');
+                loadApprovals();
+                loadStats();
+                loadResidents();
+            } catch (error) {
+                console.error('Error rejecting:', error);
+                alert('Error rejecting resident');
+            }
+        }
+
+        // ========== RESIDENTS MANAGEMENT ==========
+        async function loadResidents() {
+            const container = document.getElementById('residentsList');
+            container.innerHTML = '<p>Loading...</p>';
+            
+            try {
+                const snapshot = await db.collection('residents')
+                    .where('communityId', '==', communityId)
+                    .get();
+                
+                allResidents = [];
+                snapshot.forEach(doc => allResidents.push({ id: doc.id, ...doc.data() }));
+                
+                // Sort by name alphabetically
+                allResidents.sort((a, b) => {
+                    const nameA = (a.name || '').toLowerCase();
+                    const nameB = (b.name || '').toLowerCase();
+                    return nameA.localeCompare(nameB);
+                });
+                
+                renderResidents(allResidents);
+            } catch (error) {
+                console.error('Error loading residents:', error);
+                container.innerHTML = '<div class="empty-state">Error loading residents: ' + error.message + '</div>';
+            }
+        }
+
+        function renderResidents(residents) {
+            const container = document.getElementById('residentsList');
+            
+            if (residents.length === 0) {
+                container.innerHTML = '<div class="empty-state">No residents found</div>';
+                return;
+            }
+            
+            let html = '';
+            residents.forEach(resident => {
+                const approvalBadge = resident.isApproved !== false 
+                    ? '<span class="badge badge-success">✅ Approved</span>'
+                    : '<span class="badge badge-warning">⏳ Pending</span>';
+                
+                html += `
+                    <div class="card">
+                        <div style="display: flex; justify-content: space-between; align-items: start;">
+                            <div>
+                                <h3>${resident.name} ${approvalBadge}</h3>
+                                <p><strong>Unit:</strong> ${resident.unitNumber} | <strong>Email:</strong> ${resident.email}</p>
+                                <p><strong>Phone:</strong> ${resident.phone}</p>
+                            </div>
+                            <div class="action-buttons">
+                                <button class="btn btn-info" onclick="editResident('${resident.id}')">✏️ Edit</button>
+                                <button class="btn btn-danger" onclick="deleteResident('${resident.id}', '${resident.userId}')">🗑️ Delete</button>
+                            </div>
+                        </div>
+                    </div>
+                `;
+            });
+            
+            container.innerHTML = html;
+        }
+
+        function filterResidents() {
+            const searchTerm = document.getElementById('residentSearch').value.toLowerCase();
+            const filtered = allResidents.filter(r => 
+                r.name.toLowerCase().includes(searchTerm) ||
+                r.unitNumber.toLowerCase().includes(searchTerm) ||
+                r.email.toLowerCase().includes(searchTerm)
+            );
+            renderResidents(filtered);
+        }
+
+        function toggleResidentForm() {
+            const form = document.getElementById('residentFormContainer');
+            form.classList.toggle('show');
+            if (!form.classList.contains('show')) {
+                cancelResidentForm();
+            }
+        }
+
+        function cancelResidentForm() {
+            document.getElementById('residentFormContainer').classList.remove('show');
+            document.getElementById('residentFormTitle').textContent = 'Add New Resident';
+            document.getElementById('editResidentId').value = '';
+            document.getElementById('editResidentUserId').value = '';
+            document.getElementById('residentName').value = '';
+            document.getElementById('residentEmail').value = '';
+            document.getElementById('residentPhone').value = '';
+            document.getElementById('residentUnit').value = '';
+            document.getElementById('residentPassword').value = '';
+        }
+
+        async function editResident(residentId) {
+            const resident = allResidents.find(r => r.id === residentId);
+            if (!resident) return;
+            
+            document.getElementById('residentFormTitle').textContent = 'Edit Resident';
+            document.getElementById('editResidentId').value = residentId;
+            document.getElementById('editResidentUserId').value = resident.userId;
+            document.getElementById('residentName').value = resident.name;
+            document.getElementById('residentEmail').value = resident.email;
+            document.getElementById('residentPhone').value = resident.phone;
+            document.getElementById('residentUnit').value = resident.unitNumber;
+            document.getElementById('residentPassword').value = '';
+            
+            document.getElementById('residentFormContainer').classList.add('show');
+            document.getElementById('residentName').focus();
+        }
+
+        async function saveResident() {
+            const name = document.getElementById('residentName').value.trim();
+            const email = document.getElementById('residentEmail').value.trim();
+            const phone = document.getElementById('residentPhone').value.trim();
+            const unit = document.getElementById('residentUnit').value.trim();
+            const password = document.getElementById('residentPassword').value;
+            const editId = document.getElementById('editResidentId').value;
+            const editUserId = document.getElementById('editResidentUserId').value;
+            
+            if (!name || !email || !phone || !unit) {
+                alert('Please fill all required fields');
+                return;
+            }
+            
+            try {
+                if (editId) {
+                    // Update existing resident
+                    await db.collection('residents').doc(editId).update({
+                        name, email, phone, unitNumber: unit
+                    });
+                    await db.collection('users').doc(editUserId).update({
+                        name, email, phone, unitNumber: unit
+                    });
+                    
+                    alert('✅ Resident updated!');
+                } else {
+                    // Add new resident
+                    if (!password || password.length < 6) {
+                        alert('Password must be at least 6 characters');
+                        return;
+                    }
+                    
+                    // Create Firebase Auth account
+                    const userCredential = await auth.createUserWithEmailAndPassword(email, password);
+                    const userId = userCredential.user.uid;
+                    
+                    // Create user document
+                    await db.collection('users').doc(userId).set({
+                        communityId,
+                        email, name, phone,
+                        unitNumber: unit,
+                        role: 'resident',
+                        isApproved: true,
+                        termsAccepted: true,
+                        termsAcceptedAt: firebase.firestore.FieldValue.serverTimestamp(),
+                        createdAt: firebase.firestore.FieldValue.serverTimestamp()
+                    });
+                    
+                    // Create resident document
+                    await db.collection('residents').add({
+                        communityId, userId,
+                        name, email, phone,
+                        unitNumber: unit,
+                        isApproved: true,
+                        moveInDate: firebase.firestore.FieldValue.serverTimestamp(),
+                        familyMembers: [],
+                        vehicles: [],
+                        pets: [],
+                        emergencyContacts: [],
+                        privacySettings: {
+                            showPhone: true,
+                            showEmail: true,
+                            showInDirectory: true
+                        }
+                    });
+                    
+                    alert('✅ Resident added successfully!');
+                }
+                
+                cancelResidentForm();
+                loadResidents();
+                loadStats();
+                
+            } catch (error) {
+                console.error('Error saving resident:', error);
+                alert('Error: ' + error.message);
+            }
+        }
+
+        async function deleteResident(residentId, userId) {
+            if (!confirm('Delete this resident? This will remove their account and all data. This cannot be undone.')) return;
+            
+            try {
+                await db.collection('residents').doc(residentId).delete();
+                if (userId) {
+                    await db.collection('users').doc(userId).delete();
+                }
+                
+                alert('✅ Resident deleted');
+                loadResidents();
+                loadStats();
+            } catch (error) {
+                console.error('Error deleting resident:', error);
+                alert('Error deleting resident: ' + error.message);
+            }
+        }
+
+        // ========== TICKETS MANAGEMENT ==========
+        async function loadTickets() {
+            const container = document.getElementById('ticketsList');
+            container.innerHTML = '<p>Loading...</p>';
+            
+            try {
+                const snapshot = await db.collection('tickets')
+                    .where('communityId', '==', communityId)
+                    .get();
+                
+                allTickets = [];
+                snapshot.forEach(doc => allTickets.push({ id: doc.id, ...doc.data() }));
+                
+                // Sort in JavaScript instead of Firestore (newest first)
+                allTickets.sort((a, b) => {
+                    const timeA = a.createdAt ? a.createdAt.toDate().getTime() : 0;
+                    const timeB = b.createdAt ? b.createdAt.toDate().getTime() : 0;
+                    return timeB - timeA; // Descending (newest first)
+                });
+                
+                renderTickets(allTickets);
+            } catch (error) {
+                console.error('Error loading tickets:', error);
+                container.innerHTML = '<div class="empty-state">Error loading tickets: ' + error.message + '</div>';
+            }
+        }
+
+        function renderTickets(tickets) {
+            const container = document.getElementById('ticketsList');
+            
+            // Apply status filter
+            let filtered = tickets;
+            if (currentTicketStatusFilter !== 'all') {
+                filtered = tickets.filter(t => t.status === currentTicketStatusFilter);
+            }
+            
+            if (filtered.length === 0) {
+                container.innerHTML = '<div class="empty-state">No tickets found</div>';
+                return;
+            }
+            
+            let html = '';
+            filtered.forEach(ticket => {
+                const priorityColors = {
+                    urgent: '#dc3545',
+                    high: '#ffc107',
+                    medium: '#17a2b8',
+                    low: '#6c757d'
+                };
+                
+                const statusBadges = {
+                    open: '<span class="badge badge-warning">Open</span>',
+                    'in-progress': '<span class="badge badge-info">In Progress</span>',
+                    resolved: '<span class="badge badge-success">Resolved</span>'
+                };
+                
+                const date = ticket.createdAt ? ticket.createdAt.toDate().toLocaleDateString() : 'N/A';
+                
+                html += `
+                    <div class="card">
+                        <div style="display: flex; justify-content: space-between; align-items: start;">
+                            <div style="flex: 1;">
+                                <h3>${ticket.title} ${statusBadges[ticket.status] || ''}</h3>
+                                <p><strong>Category:</strong> ${ticket.category} | <strong>Priority:</strong> <span style="color: ${priorityColors[ticket.priority]}">${ticket.priority.toUpperCase()}</span></p>
+                                <p><strong>Description:</strong> ${ticket.description}</p>
+                                <p><strong>Location:</strong> ${ticket.location || 'Not specified'}</p>
+                                <p><strong>Reporter:</strong> ${ticket.reporterName} (Unit ${ticket.unitNumber}) | <strong>Date:</strong> ${date}</p>
+                            </div>
+                            <div class="action-buttons">
+                                ${ticket.status !== 'resolved' ? `<button class="btn btn-success" onclick="updateTicketStatus('${ticket.id}', 'resolved')">✅ Resolve</button>` : ''}
+                                ${ticket.status === 'open' ? `<button class="btn btn-info" onclick="updateTicketStatus('${ticket.id}', 'in-progress')">🔧 In Progress</button>` : ''}
+                                <button class="btn btn-danger" onclick="deleteTicket('${ticket.id}')">🗑️ Delete</button>
+                            </div>
+                        </div>
+                    </div>
+                `;
+            });
+            
+            container.innerHTML = html;
+        }
+
+        function filterTickets() {
+            const searchTerm = document.getElementById('ticketSearch').value.toLowerCase();
+            const filtered = allTickets.filter(t => 
+                t.title.toLowerCase().includes(searchTerm) ||
+                t.category.toLowerCase().includes(searchTerm) ||
+                t.reporterName.toLowerCase().includes(searchTerm)
+            );
+            renderTickets(filtered);
+        }
+
+        function filterTicketsByStatus(status) {
+            currentTicketStatusFilter = status;
+            renderTickets(allTickets);
+        }
+
+        async function updateTicketStatus(ticketId, newStatus) {
+            try {
+                await db.collection('tickets').doc(ticketId).update({
+                    status: newStatus,
+                    updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+                });
+                
+                alert(`✅ Ticket marked as ${newStatus}`);
+                loadTickets();
+                loadStats();
+            } catch (error) {
+                console.error('Error updating ticket:', error);
+                alert('Error updating ticket');
+            }
+        }
+
+        async function deleteTicket(ticketId) {
+            if (!confirm('Delete this ticket?')) return;
+            
+            try {
+                await db.collection('tickets').doc(ticketId).delete();
+                alert('✅ Ticket deleted');
+                loadTickets();
+                loadStats();
+            } catch (error) {
+                console.error('Error deleting ticket:', error);
+                alert('Error deleting ticket');
+            }
+        }
+
+        // ========== SERVICE CONTACTS MANAGEMENT ==========
+        async function loadServiceContacts() {
+            const container = document.getElementById('servicesList');
+            container.innerHTML = '<p>Loading...</p>';
+            
+            try {
+                const snapshot = await db.collection('service_contacts')
+                    .where('communityId', '==', communityId)
+                    .get();
+                
+                allServices = [];
+                snapshot.forEach(doc => allServices.push({ id: doc.id, ...doc.data() }));
+                
+                renderServices(allServices);
+            } catch (error) {
+                console.error('Error loading services:', error);
+                container.innerHTML = '<div class="empty-state">Error loading service contacts</div>';
+            }
+        }
+
+        function renderServices(services) {
+            const container = document.getElementById('servicesList');
+            
+            if (services.length === 0) {
+                container.innerHTML = '<div class="empty-state">No service contacts found</div>';
+                return;
+            }
+            
+            const categoryIcons = {
+                'Plumber': '🔧',
+                'Electrician': '⚡',
+                'Landscaping': '🌳',
+                'Pest Control': '🐛',
+                'Security': '🔒',
+                'Cleaning': '🧹',
+                'HVAC': '❄️',
+                'General': '🛠️'
+            };
+            
+            let html = '';
+            services.forEach(service => {
+                html += `
+                    <div class="card">
+                        <div style="display: flex; justify-content: space-between; align-items: start;">
+                            <div>
+                                <h3>${categoryIcons[service.category] || '🛠️'} ${service.name}</h3>
+                                <p><strong>Category:</strong> ${service.category}</p>
+                                <p><strong>Phone:</strong> ${service.phone}</p>
+                                ${service.email ? `<p><strong>Email:</strong> ${service.email}</p>` : ''}
+                                ${service.notes ? `<p><strong>Notes:</strong> ${service.notes}</p>` : ''}
+                            </div>
+                            <div class="action-buttons">
+                                <button class="btn btn-info" onclick="editService('${service.id}')">✏️ Edit</button>
+                                <button class="btn btn-danger" onclick="deleteService('${service.id}')">🗑️ Delete</button>
+                            </div>
+                        </div>
+                    </div>
+                `;
+            });
+            
+            container.innerHTML = html;
+        }
+
+        function filterServices() {
+            const searchTerm = document.getElementById('serviceSearch').value.toLowerCase();
+            const filtered = allServices.filter(s => 
+                s.name.toLowerCase().includes(searchTerm) ||
+                s.category.toLowerCase().includes(searchTerm) ||
+                s.phone.toLowerCase().includes(searchTerm)
+            );
+            renderServices(filtered);
+        }
+
+        function toggleServiceForm() {
+            const form = document.getElementById('serviceFormContainer');
+            form.classList.toggle('show');
+            if (!form.classList.contains('show')) {
+                cancelServiceForm();
+            }
+        }
+
+        function cancelServiceForm() {
+            document.getElementById('serviceFormContainer').classList.remove('show');
+            document.getElementById('serviceFormTitle').textContent = 'Add New Service Contact';
+            document.getElementById('editServiceId').value = '';
+            document.getElementById('serviceName').value = '';
+            document.getElementById('serviceCategory').value = '';
+            document.getElementById('servicePhone').value = '';
+            document.getElementById('serviceEmail').value = '';
+            document.getElementById('serviceNotes').value = '';
+        }
+
+        function editService(serviceId) {
+            const service = allServices.find(s => s.id === serviceId);
+            if (!service) return;
+            
+            document.getElementById('serviceFormTitle').textContent = 'Edit Service Contact';
+            document.getElementById('editServiceId').value = serviceId;
+            document.getElementById('serviceName').value = service.name;
+            document.getElementById('serviceCategory').value = service.category;
+            document.getElementById('servicePhone').value = service.phone;
+            document.getElementById('serviceEmail').value = service.email || '';
+            document.getElementById('serviceNotes').value = service.notes || '';
+            
+            document.getElementById('serviceFormContainer').classList.add('show');
+            document.getElementById('serviceName').focus();
+        }
+
+        async function saveServiceContact() {
+            const name = document.getElementById('serviceName').value.trim();
+            const category = document.getElementById('serviceCategory').value;
+            const phone = document.getElementById('servicePhone').value.trim();
+            const email = document.getElementById('serviceEmail').value.trim();
+            const notes = document.getElementById('serviceNotes').value.trim();
+            const editId = document.getElementById('editServiceId').value;
+            
+            if (!name || !category || !phone) {
+                alert('Please fill all required fields');
+                return;
+            }
+            
+            try {
+                const data = {
+                    communityId,
+                    name, category, phone,
+                    email: email || null,
+                    notes: notes || null
+                };
+                
+                if (editId) {
+                    await db.collection('service_contacts').doc(editId).update(data);
+                    alert('✅ Service contact updated!');
+                } else {
+                    await db.collection('service_contacts').add({
+                        ...data,
+                        createdAt: firebase.firestore.FieldValue.serverTimestamp()
+                    });
+                    alert('✅ Service contact added!');
+                }
+                
+                cancelServiceForm();
+                loadServiceContacts();
+                loadStats();
+                
+            } catch (error) {
+                console.error('Error saving service contact:', error);
+                alert('Error: ' + error.message);
+            }
+        }
+
+        async function deleteService(serviceId) {
+            if (!confirm('Delete this service contact?')) return;
+            
+            try {
+                await db.collection('service_contacts').doc(serviceId).delete();
+                alert('✅ Service contact deleted');
+                loadServiceContacts();
+                loadStats();
+            } catch (error) {
+                console.error('Error deleting service:', error);
+                alert('Error deleting service contact');
+            }
+        }
+
+        // ========== MANUAL NOTIFICATIONS ==========
+        async function sendManualNotification() {
+            const title = document.getElementById('notifTitle').value.trim();
+            const message = document.getElementById('notifMessage').value.trim();
+            
+            if (!title || !message) {
+                alert('Please fill in both title and message');
+                return;
+            }
+            
+            if (!confirm(`Send notification to all residents?\n\nTitle: ${title}\nMessage: ${message}`)) {
+                return;
+            }
+            
+            try {
+                // Get all users with notifications enabled
+                const usersSnapshot = await db.collection('users')
+                    .where('communityId', '==', communityId)
+                    .where('notificationsEnabled', '==', true)
+                    .get();
+                
+                if (usersSnapshot.empty) {
+                    alert('No users have notifications enabled');
+                    return;
+                }
+                
+                // Collect FCM tokens
+                const tokens = [];
+                usersSnapshot.forEach(doc => {
+                    const data = doc.data();
+                    if (data.fcmToken) {
+                        tokens.push(data.fcmToken);
+                    }
+                });
+                
+                if (tokens.length === 0) {
+                    alert('No valid FCM tokens found');
+                    return;
+                }
+                
+                alert(`Sending to ${tokens.length} users...\n\nNote: This requires Cloud Function to actually send. For now, this creates an announcement which will trigger the notification.`);
+                
+                // Create announcement (which triggers Cloud Function)
+                await db.collection('announcements').add({
+                    communityId,
+                    title,
+                    content: message,
+                    createdBy: currentUser.uid,
+                    createdByName: document.getElementById('adminName').textContent,
+                    createdAt: firebase.firestore.FieldValue.serverTimestamp()
+                });
+                
+                alert('✅ Notification sent! (via announcement creation)');
+                document.getElementById('notifTitle').value = '';
+                document.getElementById('notifMessage').value = '';
+                
+            } catch (error) {
+                console.error('Error sending notification:', error);
+                alert('Error: ' + error.message);
+            }
+        }
+
+        // Sign Out
+        async function signOut() {
+            if (confirm('Sign out?')) {
+                await auth.signOut();
+                window.location.href = 'index.html';
+            }
+        }
+    </script>
+</body>
+</html>
