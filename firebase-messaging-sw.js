@@ -16,19 +16,22 @@ firebase.initializeApp({
 
 const messaging = firebase.messaging();
 
-// Handle background messages
+// Handle background messages (data-only)
 messaging.onBackgroundMessage((payload) => {
     console.log('[firebase-messaging-sw.js] Received background message:', payload);
     
-    const notificationTitle = payload.notification.title || 'Umbrella';
+    // Extract data from payload
+    const notificationTitle = payload.notification?.title || payload.data?.title || 'Umbrella';
+    const notificationBody = payload.notification?.body || payload.data?.body || 'New announcement';
+    
     const notificationOptions = {
-        body: payload.notification.body || 'New announcement',
-        icon: '/icon-192.png',
-        badge: '/icon-72.png',
+        body: notificationBody,
+        // Removed icon and badge to avoid 404 errors
         tag: 'announcement',
         requireInteraction: false,
         data: {
-            url: payload.data?.url || '/'
+            url: payload.data?.click_action || self.location.origin,
+            type: payload.data?.type
         }
     };
     
@@ -41,8 +44,19 @@ self.addEventListener('notificationclick', (event) => {
     
     event.notification.close();
     
-    // Open the app
+    // Open the app at the correct URL
     event.waitUntil(
-        clients.openWindow(event.notification.data?.url || '/')
+        clients.matchAll({ type: 'window', includeUncontrolled: true }).then(windowClients => {
+            // Check if app is already open
+            for (let client of windowClients) {
+                if (client.url.includes(self.location.origin) && 'focus' in client) {
+                    return client.focus();
+                }
+            }
+            // If not open, open new window with full URL
+            if (clients.openWindow) {
+                return clients.openWindow(self.location.origin);
+            }
+        })
     );
 });
