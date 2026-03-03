@@ -243,34 +243,36 @@
             <!-- Add/Edit Resident Form -->
             <div class="form-container" id="residentFormContainer">
                 <h3 id="residentFormTitle">Add New Resident</h3>
-                <input type="hidden" id="editResidentId">
-                <input type="hidden" id="editResidentUserId">
-                
-                <div class="input-group">
-                    <label>Full Name *</label>
-                    <input type="text" id="residentName" placeholder="John Doe" required>
-                </div>
-                <div class="input-group">
-                    <label>Email *</label>
-                    <input type="email" id="residentEmail" placeholder="john@example.com" required>
-                </div>
-                <div class="input-group">
-                    <label>Phone *</label>
-                    <input type="tel" id="residentPhone" placeholder="555-1234" required>
-                </div>
-                <div class="input-group">
-                    <label>Unit Number *</label>
-                    <input type="text" id="residentUnit" placeholder="101" required>
-                </div>
-                <div class="input-group">
-                    <label>Password (for new residents only)</label>
-                    <input type="password" id="residentPassword" placeholder="Leave empty when editing" minlength="6">
-                </div>
-                
-                <div style="display: flex; gap: 10px;">
-                    <button class="btn btn-success" onclick="saveResident()">💾 Save Resident</button>
-                    <button class="btn btn-secondary" onclick="cancelResidentForm()">Cancel</button>
-                </div>
+                <form onsubmit="saveResident(); return false;">
+                    <input type="hidden" id="editResidentId">
+                    <input type="hidden" id="editResidentUserId">
+                    
+                    <div class="input-group">
+                        <label>Full Name *</label>
+                        <input type="text" id="residentName" placeholder="John Doe" required>
+                    </div>
+                    <div class="input-group">
+                        <label>Email *</label>
+                        <input type="email" id="residentEmail" placeholder="john@example.com" required>
+                    </div>
+                    <div class="input-group">
+                        <label>Phone *</label>
+                        <input type="tel" id="residentPhone" placeholder="555-1234" required>
+                    </div>
+                    <div class="input-group">
+                        <label>Unit Number *</label>
+                        <input type="text" id="residentUnit" placeholder="101" required>
+                    </div>
+                    <div class="input-group">
+                        <label>Password (for new residents only)</label>
+                        <input type="password" id="residentPassword" placeholder="Leave empty when editing" minlength="6" autocomplete="new-password">
+                    </div>
+                    
+                    <div style="display: flex; gap: 10px;">
+                        <button type="submit" class="btn btn-success">💾 Save Resident</button>
+                        <button type="button" class="btn btn-secondary" onclick="cancelResidentForm()">Cancel</button>
+                    </div>
+                </form>
             </div>
             
             <input type="text" class="search-box" id="residentSearch" placeholder="🔍 Search residents by name, unit, or email..." onkeyup="filterResidents()">
@@ -567,17 +569,18 @@
                 
                 allResidents = [];
                 snapshot.forEach(doc => allResidents.push({ id: doc.id, ...doc.data() }));
-
-		allResidents.sort((a, b) => {
- 		const nameA = (a.name || '').toLowerCase();
- 	        const nameB = (b.name || '').toLowerCase();
-	        return nameA.localeCompare(nameB);
-	    });
+                
+                // Sort by name alphabetically
+                allResidents.sort((a, b) => {
+                    const nameA = (a.name || '').toLowerCase();
+                    const nameB = (b.name || '').toLowerCase();
+                    return nameA.localeCompare(nameB);
+                });
                 
                 renderResidents(allResidents);
             } catch (error) {
                 console.error('Error loading residents:', error);
-                container.innerHTML = '<div class="empty-state">Error loading residents</div>';
+                container.innerHTML = '<div class="empty-state">Error loading residents: ' + error.message + '</div>';
             }
         }
 
@@ -769,20 +772,20 @@
                     .where('communityId', '==', communityId)
                     .get();
                 
-                            
                 allTickets = [];
                 snapshot.forEach(doc => allTickets.push({ id: doc.id, ...doc.data() }));
-
-		allTickets.sort((a, b) => {
-		const timeA = a.createdAt ? a.createdAt.toDate().getTime() : 0;
-                const timeB = b.createdAt ? b.createdAt.toDate().getTime() : 0;
-	        return timeB - timeA;
-	       });
+                
+                // Sort in JavaScript instead of Firestore (newest first)
+                allTickets.sort((a, b) => {
+                    const timeA = a.createdAt ? a.createdAt.toDate().getTime() : 0;
+                    const timeB = b.createdAt ? b.createdAt.toDate().getTime() : 0;
+                    return timeB - timeA; // Descending (newest first)
+                });
                 
                 renderTickets(allTickets);
             } catch (error) {
                 console.error('Error loading tickets:', error);
-                container.innerHTML = '<div class="empty-state">Error loading tickets</div>';
+                container.innerHTML = '<div class="empty-state">Error loading tickets: ' + error.message + '</div>';
             }
         }
 
