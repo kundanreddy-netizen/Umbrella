@@ -1537,54 +1537,50 @@
                     console.log('✅ Firebase Messaging ready');
                     
                     // Set up the onMessage listener for foreground messages
+                    // Only ONE handler - handles toast + data refresh
                     messaging.onMessage((payload) => {
-                        console.log('📬 Message received in foreground:', payload);
+                        console.log('[FCM] Foreground message received:', payload);
                         
-                        // Show notification
-                        const notificationTitle = payload.notification.title;
-                        const notificationOptions = {
-                            body: payload.notification.body,
-                            icon: '/icon-192.png',
-                            badge: '/icon-72.png'
-                        };
+                        const title = payload.notification?.title || payload.data?.title || 'New update';
+                        const body = payload.notification?.body || payload.data?.body || '';
                         
-                        // Service worker handles notification display - don't create duplicate!
-                        // if (Notification.permission === 'granted') {
-                        //     new Notification(notificationTitle, notificationOptions);
-                        // }
-                        
-                        // Refresh announcements
-                        if (currentTab === 'announcements') {
+                        // Refresh data based on notification type
+                        if (payload.data?.type) {
+                            refreshDataBasedOnNotificationType(payload.data.type);
+                        } else if (currentTab === 'announcements') {
                             loadAnnouncements();
                         }
                         
-                        // Refresh relevant data based on notification type
-                        if (payload.data?.type) {
-                            refreshDataBasedOnNotificationType(payload.data.type);
-                        }
+                        // Show in-app toast (no system notification - FCM handles background)
+                        // Remove any existing toast first to avoid stacking
+                        const existingToast = document.getElementById('fcm-toast');
+                        if (existingToast) existingToast.remove();
                         
-                        // Optionally show a subtle toast notification instead
                         const toast = document.createElement('div');
+                        toast.id = 'fcm-toast';
                         toast.style.cssText = `
                             position: fixed;
-                            bottom: 20px;
-                            right: 20px;
-                            background: #667eea;
+                            bottom: 80px;
+                            left: 50%;
+                            transform: translateX(-50%);
+                            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
                             color: white;
-                            padding: 15px 20px;
-                            border-radius: 10px;
-                            box-shadow: 0 4px 15px rgba(0,0,0,0.2);
+                            padding: 14px 24px;
+                            border-radius: 12px;
+                            box-shadow: 0 4px 20px rgba(102, 126, 234, 0.4);
                             z-index: 9999;
-                            font-weight: 600;
-                            animation: slideIn 0.3s ease;
+                            max-width: 90%;
+                            text-align: center;
+                            transition: opacity 0.3s ease, transform 0.3s ease;
                         `;
-                        toast.textContent = payload.notification?.title || 'New update';
+                        toast.innerHTML = '<strong>' + title + '</strong>' + (body ? '<br><span style="font-size:13px;opacity:0.9">' + body + '</span>' : '');
                         document.body.appendChild(toast);
                         
                         setTimeout(() => {
-                            toast.style.animation = 'slideOut 0.3s ease';
+                            toast.style.opacity = '0';
+                            toast.style.transform = 'translateX(-50%) translateY(10px)';
                             setTimeout(() => toast.remove(), 300);
-                        }, 3000);
+                        }, 4000);
                     });
                 })
                 .catch((error) => {
@@ -3955,39 +3951,6 @@
             document.getElementById('profileModal').classList.remove('show');
         }
 
-        // ========== PUSH NOTIFICATIONS FUNCTIONS ==========
-
-        async function initializePushNotifications() {
-            console.log('🔔 Initializing push notifications...');
-            
-            try {
-                // Check if browser supports notifications
-                if (!('Notification' in window)) {
-                    console.log('❌ This browser does not support notifications');
-                    return;
-                }
-
-                // Register service worker
-                if ('serviceWorker' in navigator) {
-                     const registration = await navigator.serviceWorker.register('/firebase-messaging-sw.js');
-                     console.log('✅ Service Worker registered');
-                     
-                     // Wait for service worker to be ready
-                    await navigator.serviceWorker.ready;
-                    
-                    // Check if user has notifications enabled in their settings
-                    const userDoc = await db.collection('users').doc(currentUser.uid).get();
-                    const userData = userDoc.data();
-                    
-                    if (userData.notificationsEnabled === true && Notification.permission === 'granted') {
-                        await getAndStoreFCMToken();
-                    }
-                }
-            } catch (error) {
-                console.error('❌ Error initializing push notifications:', error);
-            }
-        }
-
         async function toggleNotificationsSetting() {
     try {
         console.log('🔔 Toggling notifications...');
@@ -4030,24 +3993,6 @@
     }
 }
 
-        // Handle foreground messages
-        messaging.onMessage((payload) => {
-            console.log('📬 Foreground message received:', payload);
-            
-            const notificationTitle = payload.notification.title;
-            const notificationOptions = {
-                body: payload.notification.body,
-                icon: payload.notification.icon || '/icon-192.png',
-                badge: '/icon-72.png',
-                tag: 'announcement',
-                requireInteraction: false
-            };
-            
-            // Service worker handles notification display - don't create duplicate!
-            // if (Notification.permission === 'granted') {
-            //     new Notification(notificationTitle, notificationOptions);
-            // }
-        });
 
         function viewTerms() {
             closeProfile();
