@@ -16,32 +16,8 @@ firebase.initializeApp({
 
 const messaging = firebase.messaging();
 
-console.log('[SW] Firebase Messaging Service Worker loaded');
+console.log('[SW] Firebase Messaging Service Worker loaded - Announcements only');
 
-// FCM auto-displays notifications when the message contains a notification key.
-// We do NOT add a custom push handler to avoid duplicate notifications.
-// The Cloud Function sends notification + data payload, so FCM handles display.
-
-// Handle notification click - open or focus the app
-self.addEventListener('notificationclick', (event) => {
-    console.log('[SW] Notification clicked');
-    event.notification.close();
-
-    const targetUrl = event.notification.data?.FCM_MSG?.data?.link
-        || event.notification.data?.link
-        || 'https://kundanreddy-netizen.github.io/Umbrella/';
-
-    event.waitUntil(
-        clients.matchAll({ type: 'window', includeUncontrolled: true })
-            .then((clientList) => {
-                // If app is already open in a tab, focus it
-                for (const client of clientList) {
-                    if (client.url.includes('/Umbrella') && 'focus' in client) {
-                        return client.focus();
-                    }
-                }
-                // Otherwise open a new tab
-                return clients.openWindow(targetUrl);
-            })
-    );
-});
+// Firebase automatically handles notification display when message contains 'notification' payload
+// Firebase automatically handles click when webpush.fcmOptions.link is set
+// We don't need to do anything else!
