@@ -2385,10 +2385,10 @@
                     const date = data.createdAt ? data.createdAt.toDate().toLocaleDateString() : 'Recent';
                     
                     html += `
-                        <div class="card">
+                        <div class="card" onclick="viewAnnouncement('${doc.id}')" style="cursor: pointer;">
                             <div class="card-title">${data.title || 'Announcement'}</div>
                             <div class="card-subtitle">${date} • ${data.author || 'Admin'}</div>
-                            <div class="card-content">${data.message || ''}</div>
+                            <div class="card-content" style="display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden;">${data.message || data.content || ''}</div>
                             ${data.category ? `<span class="badge badge-${data.category}">${data.category}</span>` : ''}
                         </div>
                     `;
@@ -2725,10 +2725,10 @@
                     const date = data.createdAt ? data.createdAt.toDate().toLocaleDateString() : 'Recent';
                     
                     html += `
-                        <div class="card">
+                        <div class="card" onclick="viewTicket('${data.id}')" style="cursor: pointer;">
                             <div class="card-title">${data.title || 'Support Ticket'}</div>
                             <div class="card-subtitle">${date} • ${data.category || 'General'}</div>
-                            <div class="card-content">${data.description || ''}</div>
+                            <div class="card-content" style="display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden;">${data.description || ''}</div>
                             <span class="badge badge-${data.status || 'open'}">${data.status || 'open'}</span>
                         </div>
                     `;
@@ -3387,6 +3387,194 @@
 
         function closeMarketplaceModal() {
             document.getElementById('marketplaceModal').classList.remove('show');
+        }
+
+        // ========== DETAIL VIEW: ANNOUNCEMENTS ==========
+        async function viewAnnouncement(announcementId) {
+            try {
+                const doc = await db.collection('announcements').doc(announcementId).get();
+                if (!doc.exists) { alert('Announcement not found'); return; }
+                const data = doc.data();
+                const date = data.createdAt ? data.createdAt.toDate().toLocaleString() : 'Unknown';
+                const isAdmin = userData.role === 'admin';
+
+                let html = `
+                    <div style="margin-bottom: 25px;">
+                        <h3 style="font-size: 22px; margin-bottom: 10px; color: #333;">📢 ${data.title || 'Announcement'}</h3>
+                        <div style="font-size: 13px; color: #999; margin-bottom: 15px;">📅 ${date} • 👤 ${data.author || data.createdByName || 'Admin'}</div>
+                        ${data.category ? `<span class="badge" style="background: #e3f2fd; color: #1976d2; font-size: 13px; margin-bottom: 15px; display: inline-block;">${data.category}</span>` : ''}
+                        <div style="padding: 15px; background: #f8f9fa; border-radius: 8px; line-height: 1.8; white-space: pre-wrap;">${data.message || data.content || 'No content'}</div>
+                        ${isAdmin ? `
+                            <button class="btn" style="width: 100%; margin-top: 15px; background: #f44336;" onclick="if(confirm('Delete this announcement?')) { db.collection('announcements').doc('${announcementId}').delete().then(() => { closeMarketplaceModal(); loadAnnouncements(); }); }">
+                                🗑️ Delete Announcement
+                            </button>
+                        ` : ''}
+                    </div>
+                `;
+                document.getElementById('marketplaceModalBody').innerHTML = html;
+                document.getElementById('marketplaceModal').classList.add('show');
+            } catch (error) {
+                console.error('Error loading announcement:', error);
+                alert('Error: ' + error.message);
+            }
+        }
+
+        // ========== DETAIL VIEW: TICKETS ==========
+        async function viewTicket(ticketId) {
+            try {
+                const doc = await db.collection('tickets').doc(ticketId).get();
+                if (!doc.exists) { alert('Ticket not found'); return; }
+                const data = doc.data();
+                const date = data.createdAt ? data.createdAt.toDate().toLocaleString() : 'Unknown';
+                const isOwner = data.residentId === currentUser.uid;
+                const statusColors = { open: '#2196F3', 'in-progress': '#FF9800', resolved: '#4CAF50', closed: '#9E9E9E' };
+                const statusColor = statusColors[data.status] || '#2196F3';
+
+                let html = `
+                    <div style="margin-bottom: 25px;">
+                        <h3 style="font-size: 22px; margin-bottom: 10px; color: #333;">🔧 ${data.title || 'Support Ticket'}</h3>
+                        <div style="display: flex; gap: 10px; align-items: center; margin-bottom: 15px;">
+                            <span style="background: ${statusColor}; color: white; padding: 4px 14px; border-radius: 12px; font-size: 13px; font-weight: 600; text-transform: uppercase;">${data.status || 'open'}</span>
+                            <span style="font-size: 13px; color: #999;">📅 ${date}</span>
+                        </div>
+                        ${data.category ? `<span class="badge" style="background: #e3f2fd; color: #1976d2; font-size: 13px; margin-bottom: 15px; display: inline-block;">${data.category}</span>` : ''}
+
+                        <div style="padding: 15px; background: #f8f9fa; border-radius: 8px; margin-bottom: 15px;">
+                            <div style="font-weight: 600; margin-bottom: 8px;">Description:</div>
+                            <div style="line-height: 1.6; white-space: pre-wrap;">${data.description || 'No description'}</div>
+                        </div>
+
+                        ${data.adminResponse ? `
+                            <div style="padding: 15px; background: #e8f5e9; border-radius: 8px; border-left: 4px solid #4CAF50; margin-bottom: 15px;">
+                                <div style="font-weight: 600; margin-bottom: 8px; color: #2E7D32;">💬 Admin Response:</div>
+                                <div style="line-height: 1.6;">${data.adminResponse}</div>
+                                ${data.respondedAt ? `<div style="font-size: 12px; color: #999; margin-top: 8px;">${data.respondedAt.toDate().toLocaleString()}</div>` : ''}
+                            </div>
+                        ` : `
+                            <div style="padding: 15px; background: #fff3e0; border-radius: 8px; border-left: 4px solid #FF9800; margin-bottom: 15px;">
+                                <div style="color: #E65100;">⏳ Awaiting admin response</div>
+                            </div>
+                        `}
+
+                        ${isOwner && data.status !== 'closed' ? `
+                            <button class="btn" style="width: 100%; margin-top: 15px; background: #f44336;" onclick="if(confirm('Delete this ticket?')) { db.collection('tickets').doc('${ticketId}').delete().then(() => { closeMarketplaceModal(); loadTickets(); }); }">
+                                🗑️ Delete Ticket
+                            </button>
+                        ` : ''}
+                    </div>
+                `;
+                document.getElementById('marketplaceModalBody').innerHTML = html;
+                document.getElementById('marketplaceModal').classList.add('show');
+            } catch (error) {
+                console.error('Error loading ticket:', error);
+                alert('Error: ' + error.message);
+            }
+        }
+
+        // ========== DETAIL VIEW: SECURITY ALERTS ==========
+        async function viewSecurityAlert(alertId) {
+            try {
+                const doc = await db.collection('security_alerts').doc(alertId).get();
+                if (!doc.exists) { alert('Alert not found'); return; }
+                const data = doc.data();
+                const dateStr = data.incidentDateTime ? data.incidentDateTime.toDate().toLocaleString() : 'Unknown';
+                const posted = data.createdAt ? data.createdAt.toDate().toLocaleString() : 'Unknown';
+                const isOwner = data.reportedBy === currentUser.uid;
+                const typeLabels = { suspicious_activity: '👀 Suspicious Activity', theft: '🚔 Theft', vandalism: '🔨 Vandalism', noise: '🔊 Noise Disturbance', safety_hazard: '⚠️ Safety Hazard', other: '📝 Other' };
+
+                let html = `
+                    <div style="margin-bottom: 25px;">
+                        <h3 style="font-size: 22px; margin-bottom: 10px; color: #333;">🚨 ${data.title || 'Security Alert'}</h3>
+                        <span style="background: #ffebee; color: #c62828; padding: 4px 14px; border-radius: 12px; font-size: 13px; font-weight: 600; display: inline-block; margin-bottom: 15px;">${typeLabels[data.type] || '🚨 Alert'}</span>
+
+                        <div style="padding: 15px; background: #fff3e0; border-radius: 8px; margin-bottom: 15px;">
+                            <div style="font-size: 16px; font-weight: 600; color: #e65100;">📅 ${dateStr}</div>
+                            <div style="margin-top: 5px;">📍 ${data.location || 'Location not specified'}</div>
+                        </div>
+
+                        <div style="padding: 15px; background: #f8f9fa; border-radius: 8px; margin-bottom: 15px;">
+                            <div style="font-weight: 600; margin-bottom: 8px;">Description:</div>
+                            <div style="line-height: 1.6; white-space: pre-wrap;">${data.description || 'No description'}</div>
+                        </div>
+
+                        <div style="padding: 15px; background: #e8f4f8; border-radius: 8px; margin-bottom: 15px;">
+                            <div style="font-weight: 600; margin-bottom: 8px;">Reported by:</div>
+                            <div>👤 ${data.reportedByName || 'Unknown'} • Unit ${data.unitNumber || 'N/A'}</div>
+                            <div style="font-size: 12px; color: #999; margin-top: 5px;">Posted: ${posted}</div>
+                        </div>
+
+                        ${isOwner ? `
+                            <button class="btn" style="width: 100%; margin-top: 15px; background: #f44336;" onclick="if(confirm('Delete this alert?')) { db.collection('security_alerts').doc('${alertId}').delete().then(() => { closeMarketplaceModal(); loadSecurityAlerts(); }); }">
+                                🗑️ Delete Alert
+                            </button>
+                        ` : ''}
+                    </div>
+                `;
+                document.getElementById('marketplaceModalBody').innerHTML = html;
+                document.getElementById('marketplaceModal').classList.add('show');
+            } catch (error) {
+                console.error('Error loading security alert:', error);
+                alert('Error: ' + error.message);
+            }
+        }
+
+        // ========== DETAIL VIEW: LOST & FOUND ==========
+        async function viewLostFoundItem(itemId) {
+            try {
+                const doc = await db.collection('lost_and_found').doc(itemId).get();
+                if (!doc.exists) { alert('Item not found'); return; }
+                const data = doc.data();
+                const dateStr = data.date ? data.date.toDate().toLocaleDateString() : 'Date unknown';
+                const posted = data.createdAt ? data.createdAt.toDate().toLocaleString() : 'Unknown';
+                const isOwner = data.postedBy === currentUser.uid;
+                const categoryIcons = { pet: '🐕', keys: '🔑', wallet: '👛', phone: '📱', 'package': '📦', clothing: '👕', jewelry: '💍', other: '📦' };
+                const typeBadge = data.type === 'lost'
+                    ? '<span style="background:#dc3545;color:white;padding:6px 16px;border-radius:12px;font-size:13px;font-weight:600;">❌ LOST</span>'
+                    : '<span style="background:#28a745;color:white;padding:6px 16px;border-radius:12px;font-size:13px;font-weight:600;">✅ FOUND</span>';
+
+                let html = `
+                    <div style="margin-bottom: 25px;">
+                        <div style="display:flex;justify-content:space-between;align-items:start;margin-bottom:15px;">
+                            <h3 style="font-size: 22px; color: #333;">${(categoryIcons[data.category] || '📦')} ${data.title || 'Item'}</h3>
+                            ${typeBadge}
+                        </div>
+
+                        <div style="padding: 15px; background: #e3f2fd; border-radius: 8px; margin-bottom: 15px;">
+                            <div style="font-size: 16px; font-weight: 600; color: #1976d2;">📅 ${dateStr}</div>
+                            <div style="margin-top: 5px;">📍 ${data.location || 'Location not specified'}</div>
+                        </div>
+
+                        <div style="padding: 15px; background: #f8f9fa; border-radius: 8px; margin-bottom: 15px;">
+                            <div style="font-weight: 600; margin-bottom: 8px;">Description:</div>
+                            <div style="line-height: 1.6; white-space: pre-wrap;">${data.description || 'No description'}</div>
+                        </div>
+
+                        <div style="padding: 15px; background: #e8f4f8; border-radius: 8px; margin-bottom: 15px;">
+                            <div style="font-weight: 600; margin-bottom: 8px;">Contact Information:</div>
+                            <div>👤 ${data.postedByName || 'Unknown'} • Unit ${data.unitNumber || 'N/A'}</div>
+                            <div style="margin-top: 8px; font-size: 16px;">📞 ${data.contact || 'Not provided'}</div>
+                            <div style="font-size: 12px; color: #999; margin-top: 5px;">Posted: ${posted}</div>
+                        </div>
+
+                        ${data.contact ? `
+                            <button class="btn" style="width: 100%; margin-bottom: 10px;" onclick="copyToClipboard('${data.contact}'); alert('✅ Contact info copied!');">
+                                📋 Copy Contact Info
+                            </button>
+                        ` : ''}
+
+                        ${isOwner ? `
+                            <button class="btn" style="width: 100%; background: #f44336;" onclick="if(confirm('Delete this item?')) { db.collection('lost_and_found').doc('${itemId}').delete().then(() => { closeMarketplaceModal(); loadLostAndFound(); }); }">
+                                🗑️ Delete Post
+                            </button>
+                        ` : ''}
+                    </div>
+                `;
+                document.getElementById('marketplaceModalBody').innerHTML = html;
+                document.getElementById('marketplaceModal').classList.add('show');
+            } catch (error) {
+                console.error('Error loading item:', error);
+                alert('Error: ' + error.message);
+            }
         }
 
         function copySellerContact(phone, email, sellerName) {
@@ -4547,7 +4735,7 @@
                 items.forEach(data => {
                     const dateStr = data.incidentDateTime ? data.incidentDateTime.toDate().toLocaleString() : 'Unknown';
                     const posted = data.createdAt ? data.createdAt.toDate().toLocaleDateString() : 'Recently';
-                    html += '<div class="card"><div class="card-title">' + (typeIcons[data.type] || '🚨') + ' ' + data.title + '</div><div class="card-subtitle">📅 ' + dateStr + ' • 📍 ' + data.location + '</div><div class="card-content" style="margin-top: 10px;">' + data.description + '</div><div style="margin-top: 12px; padding-top: 12px; border-top: 1px solid #f0f0f0; font-size: 13px; color: #666;">👤 ' + data.reportedByName + ' • Unit ' + data.unitNumber + ' • Posted ' + posted + '</div></div>';
+                    html += '<div class="card" onclick="viewSecurityAlert(\'' + data.id + '\')" style="cursor: pointer;"><div class="card-title">' + (typeIcons[data.type] || '🚨') + ' ' + data.title + '</div><div class="card-subtitle">📅 ' + dateStr + ' • 📍 ' + data.location + '</div><div class="card-content" style="margin-top: 10px;display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden;">' + data.description + '</div><div style="margin-top: 12px; padding-top: 12px; border-top: 1px solid #f0f0f0; font-size: 13px; color: #666;">👤 ' + data.reportedByName + ' • Unit ' + data.unitNumber + ' • Posted ' + posted + '</div></div>';
                 });
                 container.innerHTML = html;
             } catch (error) {
@@ -4616,7 +4804,7 @@
                 items.forEach(data => {
                     const typeBadge = data.type === 'lost' ? '<span style="background:#dc3545;color:white;padding:4px 12px;border-radius:12px;font-size:12px;font-weight:600;">❌ LOST</span>' : '<span style="background:#28a745;color:white;padding:4px 12px;border-radius:12px;font-size:12px;font-weight:600;">✅ FOUND</span>';
                     const dateStr = data.date ? data.date.toDate().toLocaleDateString() : 'Date unknown';
-                    html += '<div class="card"><div style="display:flex;justify-content:space-between;align-items:start;margin-bottom:10px;"><div class="card-title">' + (categoryIcons[data.category] || '📦') + ' ' + data.title + '</div>' + typeBadge + '</div><div class="card-subtitle">📅 ' + dateStr + ' • 📍 ' + data.location + '</div><div class="card-content" style="margin-top: 10px;">' + data.description + '</div><div style="margin-top: 12px; padding-top: 12px; border-top: 1px solid #f0f0f0; font-size: 13px; color: #666;">👤 ' + data.postedByName + ' • Unit ' + data.unitNumber + '<br>📞 Contact: ' + data.contact + '</div></div>';
+                    html += '<div class="card" onclick="viewLostFoundItem(\'' + data.id + '\')" style="cursor: pointer;"><div style="display:flex;justify-content:space-between;align-items:start;margin-bottom:10px;"><div class="card-title">' + (categoryIcons[data.category] || '📦') + ' ' + data.title + '</div>' + typeBadge + '</div><div class="card-subtitle">📅 ' + dateStr + ' • 📍 ' + data.location + '</div><div class="card-content" style="margin-top: 10px;display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden;">' + data.description + '</div><div style="margin-top: 12px; padding-top: 12px; border-top: 1px solid #f0f0f0; font-size: 13px; color: #666;">👤 ' + data.postedByName + ' • Unit ' + data.unitNumber + '</div></div>';
                 });
                 container.innerHTML = html;
             } catch (error) {
