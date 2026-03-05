@@ -18,6 +18,38 @@ const messaging = firebase.messaging();
 
 console.log('[SW] Firebase Messaging Service Worker loaded - Announcements only');
 
-// Firebase automatically handles notification display when message contains 'notification' payload
-// Firebase automatically handles click when webpush.fcmOptions.link is set
-// We don't need to do anything else!
+// Firebase automatically handles notification display when message contains notification payload.
+// We do NOT add a custom push handler to avoid duplicate notifications.
+
+// Handle notification click - open announcement popup in the app
+self.addEventListener('notificationclick', (event) => {
+    console.log('[SW] Notification clicked');
+    event.notification.close();
+
+    // Extract announcementId from the FCM data payload
+    const fcmData = event.notification.data?.FCM_MSG?.data || {};
+    const announcementId = fcmData.announcementId || '';
+    const baseUrl = 'https://kundanreddy-netizen.github.io/Umbrella/';
+    const targetUrl = announcementId ? baseUrl + '?announcementId=' + announcementId : baseUrl;
+
+    event.waitUntil(
+        clients.matchAll({ type: 'window', includeUncontrolled: true })
+            .then((clientList) => {
+                // If the app is already open in a tab, focus it and tell it to open the announcement
+                for (const client of clientList) {
+                    if (client.url.includes('/Umbrella') && 'focus' in client) {
+                        // Send message to the page to open the announcement popup
+                        if (announcementId) {
+                            client.postMessage({
+                                type: 'OPEN_ANNOUNCEMENT',
+                                announcementId: announcementId
+                            });
+                        }
+                        return client.focus();
+                    }
+                }
+                // App not open - open it with the announcementId as URL parameter
+                return clients.openWindow(targetUrl);
+            })
+    );
+});
