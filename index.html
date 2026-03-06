@@ -1116,6 +1116,28 @@
         .toggle-switch.active::after {
             transform: translateX(22px);
         }
+        /* 3-Dot Post Menu */
+        .post-menu-wrapper { position: relative; display: inline-block; }
+        .post-menu-btn {
+            background: none; border: none; font-size: 22px; cursor: pointer;
+            padding: 6px 10px; border-radius: 50%; color: #555; line-height: 1;
+            font-weight: 900; letter-spacing: 1px; transition: background 0.2s;
+        }
+        .post-menu-btn:hover { background: rgba(0,0,0,0.08); color: #222; }
+        .post-menu-dropdown {
+            display: none; position: absolute; right: 0; top: 100%;
+            background: white; border-radius: 12px; box-shadow: 0 4px 20px rgba(0,0,0,0.15);
+            min-width: 160px; z-index: 1000; overflow: hidden;
+        }
+        .post-menu-dropdown.show { display: block; }
+        .post-menu-item {
+            display: flex; align-items: center; gap: 10px; padding: 12px 16px;
+            font-size: 14px; color: #333; cursor: pointer; border: none;
+            background: none; width: 100%; text-align: left; transition: background 0.15s;
+        }
+        .post-menu-item:hover { background: #f5f5f5; }
+        .post-menu-item.danger { color: #dc3545; }
+        .card-header { display: flex; justify-content: space-between; align-items: flex-start; }
     </style>
 </head>
 <body>
@@ -1599,6 +1621,39 @@
                     console.error('❌ Service Worker registration failed:', error);
                 });
         }
+
+        // ========================================
+        // APP RESUME HANDLER
+        // ========================================
+        // When the app returns to foreground (e.g. after tapping a notification),
+        // refresh all data and check for deep links.
+        let lastVisibilityChange = 0;
+        document.addEventListener('visibilitychange', () => {
+            if (document.visibilityState === 'visible' && currentUser) {
+                const now = Date.now();
+                // Throttle: only refresh if at least 3 seconds since last refresh
+                if (now - lastVisibilityChange > 3000) {
+                    lastVisibilityChange = now;
+                    console.log('📱 App resumed - refreshing data...');
+                    loadAllData();
+                    
+                    // Check if URL has announcementId (from notification deep link)
+                    const urlParams = new URLSearchParams(window.location.search);
+                    const announcementId = urlParams.get('announcementId');
+                    if (announcementId) {
+                        console.log('📢 Deep link found on resume:', announcementId);
+                        setTimeout(() => {
+                            viewAnnouncement(announcementId);
+                        }, 1000);
+                        // Clean URL
+                        if (window.history.replaceState) {
+                            window.history.replaceState({}, document.title, 
+                                window.location.origin + window.location.pathname);
+                        }
+                    }
+                }
+            }
+        });
 
         // Request notification permission
         // ========================================
@@ -2240,6 +2295,85 @@
             }, 500);
         }
 
+        // ========== 3-DOT POST MENU ==========
+        let activeMenu = null;
+        
+        function togglePostMenu(event, menuId) {
+            event.stopPropagation();
+            const menu = document.getElementById(menuId);
+            if (activeMenu && activeMenu !== menu) activeMenu.classList.remove('show');
+            menu.classList.toggle('show');
+            activeMenu = menu.classList.contains('show') ? menu : null;
+        }
+        
+        document.addEventListener('click', () => {
+            if (activeMenu) { activeMenu.classList.remove('show'); activeMenu = null; }
+        });
+        
+        function postMenuHtml(id, type, isOwner, isAdm) {
+            if (!isOwner && !isAdm) return '';
+            const mid = 'pm-' + type + '-' + id;
+            let items = '';
+            if (isOwner) items += '<button class="post-menu-item" onclick="event.stopPropagation(); editPost(\'' + type + '\',\'' + id + '\')">✏️ Edit</button>';
+            items += '<button class="post-menu-item danger" onclick="event.stopPropagation(); deletePost(\'' + type + '\',\'' + id + '\')">🗑️ Delete</button>';
+            return '<div class="post-menu-wrapper"><button class="post-menu-btn" onclick="togglePostMenu(event,\'' + mid + '\')">⋮</button><div class="post-menu-dropdown" id="' + mid + '">' + items + '</div></div>';
+        }
+        
+        async function deletePost(type, id) {
+            if (!confirm('Delete this post? This cannot be undone.')) return;
+            if (activeMenu) { activeMenu.classList.remove('show'); activeMenu = null; }
+            try {
+                const colMap = { visitor: 'visitors', ticket: 'tickets', security: 'security_alerts', lostfound: 'lost_and_found', announcement: 'announcements', marketplace: 'marketplace', communityshare: 'communityshare', event: 'events' };
+                const col = colMap[type];
+                if (col) {
+                    await db.collection(col).doc(id).delete();
+                    alert('✅ Deleted');
+                }
+                const refreshMap = { visitor: loadVisitors, ticket: loadTickets, marketplace: loadMarketplace, communityshare: loadCommunityShare, event: loadEvents, security: loadSecurityAlerts, lostfound: loadLostAndFound, announcement: loadAnnouncements };
+                if (refreshMap[type]) refreshMap[type]();
+            } catch (error) {
+                console.error('Error deleting:', error);
+                alert('Error: ' + error.message);
+            }
+        }
+        
+        function editPost(type, id) {
+            if (activeMenu) { activeMenu.classList.remove('show'); activeMenu = null; }
+            const viewMap = {
+                visitor: () => editVisitorInline(id),
+                ticket: () => viewTicket(id),
+                marketplace: () => viewMarketplaceItem(id),
+                communityshare: () => viewCommunityShareItem(id),
+                event: () => viewEvent(id),
+                security: () => viewSecurityAlert(id),
+                lostfound: () => viewLostFoundItem(id),
+                announcement: () => viewAnnouncement(id)
+            };
+            if (viewMap[type]) viewMap[type]();
+        }
+        
+        async function editVisitorInline(id) {
+            try {
+                const doc = await db.collection('visitors').doc(id).get();
+                if (!doc.exists) { alert('Visitor not found'); return; }
+                const data = doc.data();
+                const newName = prompt('Visitor Name:', data.visitorName || '');
+                if (newName === null) return;
+                const newPhone = prompt('Visitor Phone:', data.visitorPhone || '');
+                if (newPhone === null) return;
+                const newVehicle = prompt('Vehicle Number:', data.vehicleNumber || '');
+                if (newVehicle === null) return;
+                const newPurpose = prompt('Purpose:', data.purpose || '');
+                if (newPurpose === null) return;
+                await db.collection('visitors').doc(id).update({
+                    visitorName: newName, visitorPhone: newPhone, vehicleNumber: newVehicle, purpose: newPurpose,
+                    updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+                });
+                alert('✅ Visitor updated');
+                loadVisitors();
+            } catch (error) { console.error('Error:', error); alert('Error: ' + error.message); }
+        }
+
         function toggleUserMenu() {
             document.getElementById('dropdownMenu').classList.toggle('show');
         }
@@ -2431,11 +2565,17 @@
                 snapshot.forEach(doc => {
                     const data = doc.data();
                     const date = data.createdAt ? data.createdAt.toDate().toLocaleDateString() : 'Recent';
+                    const isAdm = userData.role === 'admin';
                     
                     html += `
                         <div class="card" onclick="viewAnnouncement('${doc.id}')" style="cursor: pointer;">
-                            <div class="card-title">${data.title || 'Announcement'}</div>
-                            <div class="card-subtitle">${date} • ${data.author || 'Admin'}</div>
+                            <div class="card-header">
+                                <div style="flex:1;">
+                                    <div class="card-title">${data.title || 'Announcement'}</div>
+                                    <div class="card-subtitle">${date} • ${data.author || data.createdByName || 'Admin'}</div>
+                                </div>
+                                ${postMenuHtml(doc.id, 'announcement', isAdm, isAdm)}
+                            </div>
                             <div class="card-content" style="display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden;">${data.message || data.content || ''}</div>
                             ${data.category ? `<span class="badge badge-${data.category}">${data.category}</span>` : ''}
                         </div>
@@ -2710,8 +2850,13 @@
                     
                     html += `
                         <div class="card" onclick="viewVisitorQR('${data.id}', '${data.visitorName || 'Visitor'}', '${data.qrCode || ''}', '${date}')">
-                            <div class="card-title">${data.visitorName || 'Visitor'}</div>
-                            <div class="card-subtitle">Visit: ${date}</div>
+                            <div class="card-header">
+                                <div style="flex:1;">
+                                    <div class="card-title">${data.visitorName || 'Visitor'}</div>
+                                    <div class="card-subtitle">Visit: ${date}</div>
+                                </div>
+                                ${postMenuHtml(data.id, 'visitor', isOwner, userData.role === 'admin')}
+                            </div>
                             ${!isOwner ? `<div style="font-size: 12px; color: #999; margin-top: 5px;">👤 ${data.residentName || 'Unknown'} • Unit ${data.residentUnit || 'N/A'}</div>` : ''}
                             <div class="card-content">
                                 ${data.visitorPhone ? `<div><strong>Phone:</strong> ${data.visitorPhone}</div>` : ''}
@@ -2771,11 +2916,17 @@
                 let html = '';
                 tickets.forEach(data => {
                     const date = data.createdAt ? data.createdAt.toDate().toLocaleDateString() : 'Recent';
+                    const isOwner = data.residentId === currentUser.uid || data.createdBy === currentUser.uid;
                     
                     html += `
                         <div class="card" onclick="viewTicket('${data.id}')" style="cursor: pointer;">
-                            <div class="card-title">${data.title || 'Support Ticket'}</div>
-                            <div class="card-subtitle">${date} • ${data.category || 'General'}</div>
+                            <div class="card-header">
+                                <div style="flex:1;">
+                                    <div class="card-title">${data.title || 'Support Ticket'}</div>
+                                    <div class="card-subtitle">${date} • ${data.category || 'General'}</div>
+                                </div>
+                                ${postMenuHtml(data.id, 'ticket', isOwner, userData.role === 'admin')}
+                            </div>
                             <div class="card-content" style="display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden;">${data.description || ''}</div>
                             <span class="badge badge-${data.status || 'open'}">${data.status || 'open'}</span>
                         </div>
@@ -2874,9 +3025,14 @@
                 
                 html += `
                     <div class="card" onclick="viewMarketplaceItem('${data.id}')" style="cursor: pointer;">
-                        <div class="card-title">${data.title || 'Item for Sale'}</div>
-                        <div class="card-subtitle">
-                            <strong style="color: #667eea; font-size: 18px;">$${data.price || '0'}</strong>
+                        <div class="card-header">
+                            <div style="flex:1;">
+                                <div class="card-title">${data.title || 'Item for Sale'}</div>
+                                <div class="card-subtitle">
+                                    <strong style="color: #667eea; font-size: 18px;">$${data.price || '0'}</strong>
+                                </div>
+                            </div>
+                            ${postMenuHtml(data.id, 'marketplace', isOwner, userData.role === 'admin')}
                         </div>
                         <div class="card-content" style="margin-top: 10px;">
                             ${data.description || 'No description'}
@@ -3736,13 +3892,17 @@
                     const typeLabel = data.type === 'need' ? 'Need to Borrow' : 'Available to Lend';
                     const typeBg = data.type === 'need' ? '#fff3e0' : '#e8f5e9';
                     const typeColor = data.type === 'need' ? '#e65100' : '#2e7d32';
+                    const isOwner = data.ownerId === currentUser.uid;
                     
                     html += `
                         <div class="card" onclick="viewCommunityShareItem('${data.id}')" style="cursor: pointer;">
-                            <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 8px;">
-                                <span style="background: ${typeBg}; color: ${typeColor}; padding: 4px 10px; border-radius: 12px; font-size: 11px; font-weight: 600;">
-                                    ${typeIcon} ${typeLabel}
-                                </span>
+                            <div class="card-header">
+                                <div style="display: flex; align-items: center; gap: 8px;">
+                                    <span style="background: ${typeBg}; color: ${typeColor}; padding: 4px 10px; border-radius: 12px; font-size: 11px; font-weight: 600;">
+                                        ${typeIcon} ${typeLabel}
+                                    </span>
+                                </div>
+                                ${postMenuHtml(data.id, 'communityshare', isOwner, userData.role === 'admin')}
                             </div>
                             <div class="card-title">${data.title || 'Item'}</div>
                             <div class="card-content" style="margin-top: 10px;">
@@ -4520,7 +4680,10 @@
                     const timeStr = eventDate ? eventDate.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'}) : '';
                     const rsvpCount = data.rsvps ? data.rsvps.length : 0;
                     const commentCount = data.comments ? data.comments.length : 0;
-                    html += '<div class="card" onclick="viewEvent(\'' + data.id + '\')" style="cursor: pointer;' + (isPast ? ' opacity: 0.6;' : '') + '"><div class="card-title">' + (data.title || 'Event') + '</div><div class="card-subtitle">📅 ' + dateStr + (timeStr ? ' • ⏰ ' + timeStr : '') + '</div><div class="card-content" style="margin-top: 10px;">' + (data.description || '') + (data.location ? '<div style="margin-top: 8px;"><strong>📍</strong> ' + data.location + '</div>' : '') + '</div><div style="margin-top: 12px; padding-top: 12px; border-top: 1px solid #f0f0f0; font-size: 13px; color: #666;">👤 ' + (data.organizerName || 'Unknown') + ' • Unit ' + (data.unitNumber || 'N/A') + (rsvpCount > 0 ? ' • ✅ ' + rsvpCount + ' RSVP' + (rsvpCount > 1 ? 's' : '') : '') + (commentCount > 0 ? ' • 💬 ' + commentCount + ' comment' + (commentCount > 1 ? 's' : '') : '') + '</div></div>';
+                    const isOrganizer = data.organizerId === currentUser.uid;
+                    const isAdm = userData.role === 'admin';
+                    
+                    html += '<div class="card" onclick="viewEvent(\'' + data.id + '\')" style="cursor:pointer;' + (isPast ? 'opacity:0.6;' : '') + '"><div class="card-header"><div style="flex:1;"><div class="card-title">' + (data.title || 'Event') + '</div><div class="card-subtitle">📅 ' + dateStr + (timeStr ? ' • ⏰ ' + timeStr : '') + '</div></div>' + postMenuHtml(data.id, 'event', isOrganizer, isAdm) + '</div><div class="card-content" style="margin-top:10px;">' + (data.description || '') + (data.location ? '<div style="margin-top:8px;"><strong>📍</strong> ' + data.location + '</div>' : '') + '</div><div style="margin-top:12px;padding-top:12px;border-top:1px solid #f0f0f0;font-size:13px;color:#666;">👤 ' + (data.organizerName || 'Unknown') + ' • Unit ' + (data.unitNumber || 'N/A') + (rsvpCount > 0 ? ' • ✅ ' + rsvpCount + ' RSVP' + (rsvpCount > 1 ? 's' : '') : '') + (commentCount > 0 ? ' • 💬 ' + commentCount + ' comment' + (commentCount > 1 ? 's' : '') : '') + '</div></div>';
                 });
                 container.innerHTML = html;
             } catch (error) {
@@ -4786,7 +4949,9 @@
                 items.forEach(data => {
                     const dateStr = data.incidentDateTime ? data.incidentDateTime.toDate().toLocaleString() : 'Unknown';
                     const posted = data.createdAt ? data.createdAt.toDate().toLocaleDateString() : 'Recently';
-                    html += '<div class="card" onclick="viewSecurityAlert(\'' + data.id + '\')" style="cursor: pointer;"><div class="card-title">' + (typeIcons[data.type] || '🚨') + ' ' + data.title + '</div><div class="card-subtitle">📅 ' + dateStr + ' • 📍 ' + data.location + '</div><div class="card-content" style="margin-top: 10px;display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden;">' + data.description + '</div><div style="margin-top: 12px; padding-top: 12px; border-top: 1px solid #f0f0f0; font-size: 13px; color: #666;">👤 ' + data.reportedByName + ' • Unit ' + data.unitNumber + ' • Posted ' + posted + '</div></div>';
+                    const isOwner = data.reportedBy === currentUser.uid;
+                    const isAdm = userData.role === 'admin';
+                    html += '<div class="card" onclick="viewSecurityAlert(\'' + data.id + '\')" style="cursor:pointer;"><div class="card-header"><div style="flex:1;"><div class="card-title">' + (typeIcons[data.type] || '🚨') + ' ' + data.title + '</div><div class="card-subtitle">📅 ' + dateStr + ' • 📍 ' + data.location + '</div></div>' + postMenuHtml(data.id, 'security', isOwner, isAdm) + '</div><div class="card-content" style="margin-top:10px;display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden;">' + data.description + '</div><div style="margin-top:12px;padding-top:12px;border-top:1px solid #f0f0f0;font-size:13px;color:#666;">👤 ' + data.reportedByName + ' • Unit ' + data.unitNumber + ' • Posted ' + posted + '</div></div>';
                 });
                 container.innerHTML = html;
             } catch (error) {
@@ -4855,7 +5020,9 @@
                 items.forEach(data => {
                     const typeBadge = data.type === 'lost' ? '<span style="background:#dc3545;color:white;padding:4px 12px;border-radius:12px;font-size:12px;font-weight:600;">❌ LOST</span>' : '<span style="background:#28a745;color:white;padding:4px 12px;border-radius:12px;font-size:12px;font-weight:600;">✅ FOUND</span>';
                     const dateStr = data.date ? data.date.toDate().toLocaleDateString() : 'Date unknown';
-                    html += '<div class="card" onclick="viewLostFoundItem(\'' + data.id + '\')" style="cursor: pointer;"><div style="display:flex;justify-content:space-between;align-items:start;margin-bottom:10px;"><div class="card-title">' + (categoryIcons[data.category] || '📦') + ' ' + data.title + '</div>' + typeBadge + '</div><div class="card-subtitle">📅 ' + dateStr + ' • 📍 ' + data.location + '</div><div class="card-content" style="margin-top: 10px;display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden;">' + data.description + '</div><div style="margin-top: 12px; padding-top: 12px; border-top: 1px solid #f0f0f0; font-size: 13px; color: #666;">👤 ' + data.postedByName + ' • Unit ' + data.unitNumber + '</div></div>';
+                    const isOwner = data.postedBy === currentUser.uid;
+                    const isAdm = userData.role === 'admin';
+                    html += '<div class="card" onclick="viewLostFoundItem(\'' + data.id + '\')" style="cursor:pointer;"><div class="card-header"><div style="flex:1;"><div style="display:flex;justify-content:space-between;align-items:start;margin-bottom:10px;"><div class="card-title">' + (categoryIcons[data.category] || '📦') + ' ' + data.title + '</div>' + typeBadge + '</div><div class="card-subtitle">📅 ' + dateStr + ' • 📍 ' + data.location + '</div></div>' + postMenuHtml(data.id, 'lostfound', isOwner, isAdm) + '</div><div class="card-content" style="margin-top:10px;display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden;">' + data.description + '</div><div style="margin-top:12px;padding-top:12px;border-top:1px solid #f0f0f0;font-size:13px;color:#666;">👤 ' + data.postedByName + ' • Unit ' + data.unitNumber + '</div></div>';
                 });
                 container.innerHTML = html;
             } catch (error) {
