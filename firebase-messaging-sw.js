@@ -16,8 +16,53 @@ firebase.initializeApp({
 
 const messaging = firebase.messaging();
 
-console.log('[SW] Firebase Messaging Service Worker loaded - Announcements only');
+console.log('[SW] Firebase Messaging Service Worker loaded - v3');
 
-// Firebase automatically handles notification display when message contains 'notification' payload
-// Firebase automatically handles click when webpush.fcmOptions.link is set
-// We don't need to do anything else!
+// Firebase auto-displays notifications from the notification payload.
+// We only handle the CLICK - no custom push handler, no duplicate risk.
+
+self.addEventListener('notificationclick', (event) => {
+    console.log('[SW] Notification clicked');
+    event.notification.close();
+
+    // FCM stores our data payload under notification.data.FCM_MSG.data
+    let announcementId = '';
+    try {
+        const nd = event.notification.data || {};
+        announcementId = (nd.FCM_MSG && nd.FCM_MSG.data && nd.FCM_MSG.data.announcementId) || '';
+        console.log('[SW] announcementId:', announcementId);
+    } catch (e) {
+        console.error('[SW] Error reading data:', e);
+    }
+
+    const baseUrl = 'https://kundanreddy-netizen.github.io/Umbrella/';
+
+    event.waitUntil(
+        clients.matchAll({ type: 'window', includeUncontrolled: true })
+            .then(function(clientList) {
+                console.log('[SW] Open clients:', clientList.length);
+
+                // If app is already open, message it to show the announcement
+                for (var i = 0; i < clientList.length; i++) {
+                    var client = clientList[i];
+                    if (client.url.indexOf('/Umbrella') !== -1) {
+                        console.log('[SW] Messaging existing tab');
+                        if (announcementId) {
+                            client.postMessage({
+                                type: 'OPEN_ANNOUNCEMENT',
+                                announcementId: announcementId
+                            });
+                        }
+                        return client.focus();
+                    }
+                }
+
+                // App not open - open with deep link
+                var url = announcementId 
+                    ? baseUrl + '?announcementId=' + announcementId 
+                    : baseUrl;
+                console.log('[SW] Opening:', url);
+                return clients.openWindow(url);
+            })
+    );
+});
