@@ -4168,7 +4168,10 @@
                 }
                 
                 // Find resident document
-                const residentQuery = await db.collection('residents').where('userId', '==', currentUser.uid).get();
+                const residentQuery = await db.collection('residents')
+                    .where('userId', '==', currentUser.uid)
+                    .where('communityId', '==', userData.communityId)
+                    .get();
                 
                 if (residentQuery.empty) {
                     alert('Resident profile not found');
