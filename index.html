@@ -14,7 +14,7 @@
     <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-storage-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-analytics-compat.js"></script>
-    <!-- REMOVED: Firebase Messaging - Notifications Disabled -->
+    <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-messaging-compat.js"></script>
     
     <!-- QR Code Library -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
@@ -1116,66 +1116,6 @@
         .toggle-switch.active::after {
             transform: translateX(22px);
         }
-        /* 3-Dot Post Menu */
-        .post-menu-wrapper {
-            position: relative;
-            display: inline-block;
-        }
-        .post-menu-btn {
-            background: none;
-            border: none;
-            font-size: 20px;
-            cursor: pointer;
-            padding: 4px 8px;
-            border-radius: 50%;
-            color: #999;
-            line-height: 1;
-            transition: background 0.2s;
-        }
-        .post-menu-btn:hover {
-            background: rgba(0,0,0,0.05);
-            color: #333;
-        }
-        .post-menu-dropdown {
-            display: none;
-            position: absolute;
-            right: 0;
-            top: 100%;
-            background: white;
-            border-radius: 12px;
-            box-shadow: 0 4px 20px rgba(0,0,0,0.15);
-            min-width: 160px;
-            z-index: 1000;
-            overflow: hidden;
-        }
-        .post-menu-dropdown.show {
-            display: block;
-        }
-        .post-menu-item {
-            display: flex;
-            align-items: center;
-            gap: 10px;
-            padding: 12px 16px;
-            font-size: 14px;
-            color: #333;
-            cursor: pointer;
-            border: none;
-            background: none;
-            width: 100%;
-            text-align: left;
-            transition: background 0.15s;
-        }
-        .post-menu-item:hover {
-            background: #f5f5f5;
-        }
-        .post-menu-item.danger {
-            color: #dc3545;
-        }
-        .card-header {
-            display: flex;
-            justify-content: space-between;
-            align-items: flex-start;
-        }
     </style>
 </head>
 <body>
@@ -1570,64 +1510,89 @@
         const db = firebase.firestore();
         const storage = firebase.storage();
         const analytics = firebase.analytics();
-        // DISABLED: let messaging; // Push notifications disabled
-        // DISABLED: let swRegistration; // Push notifications disabled
+        const messaging = firebase.messaging();
+        
+        // VAPID Key for FCM (Get from Firebase Console → Project Settings → Cloud Messaging → Web Push Certificates)
+        const VAPID_KEY = 'YOUR_VAPID_KEY_HERE'; // TODO: Replace with your actual VAPID key
 
         // Current user
         let currentUser = null;
+        let fcmToken = null; // Store FCM token
         let allMarketplaceItems = []; // Store all items for filtering
         let allDirectoryResidents = []; // Store all residents for filtering
         let currentCategory = 'all'; // Current filter category
         let userData = null;
-        let userCommunityId = null; // NEW: Track user's community ID // NEW: Separate object for user data
+        let userCommunityId = null; // Track user's community ID
         let currentTab = 'announcements';
-        // DISABLED: let messagingToken = null; // Push notifications disabled
+        let messagingToken = null; // FCM token
+        let swRegistration = null; // Service worker registration
         let termsAcceptanceContext = 'existing'; // 'signup' or 'existing'
 
-        // DISABLED: Register service worker and setup push notifications
+        // Register service worker and setup push notifications
         if ('serviceWorker' in navigator) {
             navigator.serviceWorker.register('./firebase-messaging-sw.js')
                 .then((registration) => {
                     console.log('✅ Service Worker registered:', registration);
                     swRegistration = registration;
-                    // Initialize messaging
-                    messaging = firebase.messaging();
-                    console.log('✅ Firebase Messaging initialized');
+                    console.log('✅ Firebase Messaging ready');
                     
-                    // NOW set up the onMessage listener (after messaging is ready)
+                    // Set up the onMessage listener for foreground messages
+                    // Only ONE handler - handles toast + data refresh
                     messaging.onMessage((payload) => {
-                        console.log('📬 Message received in foreground:', payload);
+                        console.log('[FCM] Foreground message received:', payload);
                         
-                        // Just refresh the data, don't show popup notification
-                        // (user is already in the app, no need for intrusive popup)
+                        const title = payload.notification?.title || payload.data?.title || 'New update';
+                        const body = payload.notification?.body || payload.data?.body || '';
                         
-                        // Refresh relevant data based on notification type
+                        // Refresh data based on notification type
                         if (payload.data?.type) {
                             refreshDataBasedOnNotificationType(payload.data.type);
+                        } else if (currentTab === 'announcements') {
+                            loadAnnouncements();
                         }
                         
-                        // Optionally show a subtle toast notification instead
+                        // Show in-app toast (no system notification - FCM handles background)
+                        // Remove any existing toast first to avoid stacking
+                        const existingToast = document.getElementById('fcm-toast');
+                        if (existingToast) existingToast.remove();
+                        
+                        const announcementId = payload.data?.announcementId || '';
+                        
                         const toast = document.createElement('div');
+                        toast.id = 'fcm-toast';
                         toast.style.cssText = `
                             position: fixed;
-                            bottom: 20px;
-                            right: 20px;
-                            background: #667eea;
+                            bottom: 80px;
+                            left: 50%;
+                            transform: translateX(-50%);
+                            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
                             color: white;
-                            padding: 15px 20px;
-                            border-radius: 10px;
-                            box-shadow: 0 4px 15px rgba(0,0,0,0.2);
+                            padding: 14px 24px;
+                            border-radius: 12px;
+                            box-shadow: 0 4px 20px rgba(102, 126, 234, 0.4);
                             z-index: 9999;
-                            font-weight: 600;
-                            animation: slideIn 0.3s ease;
+                            max-width: 90%;
+                            text-align: center;
+                            cursor: pointer;
+                            transition: opacity 0.3s ease, transform 0.3s ease;
                         `;
-                        toast.textContent = payload.notification?.title || 'New update';
+                        toast.innerHTML = '<strong>' + title + '</strong>' + (body ? '<br><span style="font-size:13px;opacity:0.9">' + body + '</span>' : '') + '<br><span style="font-size:11px;opacity:0.7;margin-top:4px;display:inline-block;">Tap to view</span>';
+                        
+                        // Click toast to open the announcement
+                        toast.addEventListener('click', () => {
+                            toast.remove();
+                            if (announcementId) {
+                                viewAnnouncement(announcementId);
+                            }
+                        });
+                        
                         document.body.appendChild(toast);
                         
                         setTimeout(() => {
-                            toast.style.animation = 'slideOut 0.3s ease';
+                            toast.style.opacity = '0';
+                            toast.style.transform = 'translateX(-50%) translateY(10px)';
                             setTimeout(() => toast.remove(), 300);
-                        }, 3000);
+                        }, 4000);
                     });
                 })
                 .catch((error) => {
@@ -1670,21 +1635,17 @@
                         
                         console.log('✅ FCM Token received:', token);
                         messagingToken = token;
+                        fcmToken = token;
                         
                         // Save token to user's document
                         if (currentUser) {
                             await db.collection('users').doc(currentUser.uid).update({
-                                notificationsEnabled: false, // DISABLED
-                                // fcmToken: token, // DISABLED
-                                notificationEnabledAt: firebase.firestore.FieldValue.serverTimestamp()
+                                notificationsEnabled: true,
+                                fcmToken: token,
+                                fcmTokenUpdatedAt: firebase.firestore.FieldValue.serverTimestamp()
                             });
                             
-                            console.log('✅ Notifications disabled');
-                        }
-                        
-                        // Subscribe to community topic
-                        if (userCommunityId) {
-                            await subscribeToTopic(token, userCommunityId);
+                            console.log('✅ FCM token saved to Firestore');
                         }
                         
                         return true;
@@ -1746,6 +1707,27 @@
                     break;
                 default:
                     loadAllData();
+            }
+        }
+        
+        // Check if the app was opened from a notification click (deep link)
+        function checkNotificationDeepLink() {
+            const urlParams = new URLSearchParams(window.location.search);
+            const announcementId = urlParams.get('announcementId');
+            
+            if (announcementId) {
+                console.log('📢 Opened from notification - loading announcement:', announcementId);
+                
+                // Wait for data to load, then open the announcement popup
+                setTimeout(() => {
+                    viewAnnouncement(announcementId);
+                }, 1500);
+                
+                // Clean up the URL so refreshing doesn't re-open the popup
+                if (window.history.replaceState) {
+                    const cleanUrl = window.location.origin + window.location.pathname;
+                    window.history.replaceState({}, document.title, cleanUrl);
+                }
             }
         }
         
@@ -1882,6 +1864,21 @@
                     if (termsAccepted) {
                         loadAllData();
                         
+                        // Check if opened from a notification click (URL has ?announcementId=)
+                        checkNotificationDeepLink();
+                        
+                        // Listen for messages from service worker (when app is already open and notification is clicked)
+                        if ('serviceWorker' in navigator) {
+                            navigator.serviceWorker.addEventListener('message', (event) => {
+                                if (event.data?.type === 'OPEN_ANNOUNCEMENT' && event.data?.announcementId) {
+                                    console.log('[SW Message] Opening announcement:', event.data.announcementId);
+                                    setTimeout(() => {
+                                        viewAnnouncement(event.data.announcementId);
+                                    }, 500);
+                                }
+                            });
+                        }
+                        
                         // Ask for notification permission
                         console.log('=== NOTIFICATION CHECK ===');
                         console.log('Notification.permission:', Notification.permission);
@@ -1889,15 +1886,40 @@
                         const hasAskedBefore = localStorage.getItem('notificationPromptShown');
                         
                         setTimeout(async () => {
-                            // If permission already granted but no token saved, generate it
+                            // If permission already granted, ALWAYS refresh the token.
+                            // Tokens can become stale when service workers are updated/re-registered.
+                            // messaging.getToken() returns the current valid token and is safe to call repeatedly.
                             if (Notification.permission === 'granted') {
-                                console.log('Permission already granted - checking if token exists...');
-                                const userDoc = await db.collection('users').doc(currentUser.uid).get();
-                                if (!userDoc.data().fcmToken) {
-                                    console.log('No token found - generating now...');
-                                    await requestNotificationPermission();
-                                } else {
-                                    console.log('Token already exists:', userDoc.data().fcmToken);
+                                console.log('Permission already granted - refreshing FCM token...');
+                                try {
+                                    if (messaging && swRegistration) {
+                                        const freshToken = await messaging.getToken({
+                                            vapidKey: 'BCBEpCo4UocKSb7RmyWt3YSMcglffvyygQZfw2pcjWTgwgU5MaYX1ZkXKVjCj0CEmzg_WRR8EHJuQapgsvnhRbg',
+                                            serviceWorkerRegistration: swRegistration
+                                        });
+                                        
+                                        if (freshToken) {
+                                            const userDoc = await db.collection('users').doc(currentUser.uid).get();
+                                            const storedToken = userDoc.data()?.fcmToken;
+                                            
+                                            if (storedToken !== freshToken) {
+                                                console.log('🔄 Token changed - updating Firestore...');
+                                                await db.collection('users').doc(currentUser.uid).update({
+                                                    fcmToken: freshToken,
+                                                    fcmTokenUpdatedAt: firebase.firestore.FieldValue.serverTimestamp()
+                                                });
+                                                console.log('✅ FCM token refreshed and saved');
+                                            } else {
+                                                console.log('✅ FCM token is current, no update needed');
+                                            }
+                                            fcmToken = freshToken;
+                                            messagingToken = freshToken;
+                                        }
+                                    } else {
+                                        console.log('⚠️ Messaging or SW not ready, will retry on next load');
+                                    }
+                                } catch (tokenError) {
+                                    console.error('Error refreshing FCM token:', tokenError);
                                 }
                             }
                             // If permission not decided yet, show prompt
@@ -2218,136 +2240,6 @@
             }, 500);
         }
 
-        // ========== 3-DOT POST MENU ==========
-        let activeMenu = null;
-        
-        function togglePostMenu(event, menuId) {
-            event.stopPropagation();
-            const menu = document.getElementById(menuId);
-            
-            // Close any other open menu
-            if (activeMenu && activeMenu !== menu) {
-                activeMenu.classList.remove('show');
-            }
-            
-            menu.classList.toggle('show');
-            activeMenu = menu.classList.contains('show') ? menu : null;
-        }
-        
-        // Close menu when clicking anywhere else
-        document.addEventListener('click', () => {
-            if (activeMenu) {
-                activeMenu.classList.remove('show');
-                activeMenu = null;
-            }
-        });
-        
-        // Build 3-dot menu HTML
-        function postMenuHtml(id, type, isOwner, isAdmin) {
-            if (!isOwner && !isAdmin) return '';
-            const menuId = 'menu-' + type + '-' + id;
-            let items = '';
-            if (isOwner) {
-                items += '<button class="post-menu-item" onclick="event.stopPropagation(); editPost(\'' + type + '\', \'' + id + '\')">✏️ Edit</button>';
-            }
-            items += '<button class="post-menu-item danger" onclick="event.stopPropagation(); deletePost(\'' + type + '\', \'' + id + '\')">🗑️ Delete</button>';
-            return '<div class="post-menu-wrapper"><button class="post-menu-btn" onclick="togglePostMenu(event, \'' + menuId + '\')">⋮</button><div class="post-menu-dropdown" id="' + menuId + '">' + items + '</div></div>';
-        }
-        
-        // Global edit/delete dispatcher
-        async function deletePost(type, id) {
-            if (!confirm('Delete this post? This cannot be undone.')) return;
-            try {
-                // Close any open menu
-                if (activeMenu) { activeMenu.classList.remove('show'); activeMenu = null; }
-                
-                if (type === 'marketplace') {
-                    await deleteMarketplaceItem(id);
-                } else if (type === 'communityshare') {
-                    await deleteCommunityShareItem(id);
-                } else if (type === 'event') {
-                    await deleteEvent(id);
-                } else {
-                    // Generic delete for visitors, tickets, security_alerts, lost_and_found
-                    const collections = {
-                        'visitor': 'visitors',
-                        'ticket': 'tickets',
-                        'security': 'security_alerts',
-                        'lostfound': 'lost_and_found'
-                    };
-                    const col = collections[type];
-                    if (col) {
-                        await db.collection(col).doc(id).delete();
-                        alert('✅ Deleted successfully');
-                    }
-                }
-                // Refresh the relevant data
-                const refreshMap = {
-                    'visitor': loadVisitors,
-                    'ticket': loadTickets,
-                    'marketplace': loadMarketplace,
-                    'communityshare': loadCommunityShare,
-                    'event': loadEvents,
-                    'security': loadSecurityAlerts,
-                    'lostfound': loadLostAndFound,
-                    'announcement': loadAnnouncements
-                };
-                if (refreshMap[type]) refreshMap[type]();
-            } catch (error) {
-                console.error('Error deleting:', error);
-                alert('Error: ' + error.message);
-            }
-        }
-        
-        function editPost(type, id) {
-            // Close any open menu
-            if (activeMenu) { activeMenu.classList.remove('show'); activeMenu = null; }
-            
-            // Open the detail view (which already has edit capability for owners)
-            const viewMap = {
-                'visitor': () => { /* visitors use QR view, open inline edit */ editVisitorInline(id); },
-                'ticket': () => viewTicket(id),
-                'marketplace': () => viewMarketplaceItem(id),
-                'communityshare': () => viewCommunityShareItem(id),
-                'event': () => viewEvent(id),
-                'security': () => viewSecurityAlert(id),
-                'lostfound': () => viewLostFoundItem(id),
-                'announcement': () => viewAnnouncement(id)
-            };
-            if (viewMap[type]) viewMap[type]();
-        }
-        
-        // Edit visitor inline (since visitors don't have a detail modal with edit)
-        async function editVisitorInline(id) {
-            try {
-                const doc = await db.collection('visitors').doc(id).get();
-                if (!doc.exists) { alert('Visitor not found'); return; }
-                const data = doc.data();
-                
-                const newName = prompt('Visitor Name:', data.visitorName || '');
-                if (newName === null) return;
-                const newPhone = prompt('Visitor Phone:', data.visitorPhone || '');
-                if (newPhone === null) return;
-                const newVehicle = prompt('Vehicle Number:', data.vehicleNumber || '');
-                if (newVehicle === null) return;
-                const newPurpose = prompt('Purpose:', data.purpose || '');
-                if (newPurpose === null) return;
-                
-                await db.collection('visitors').doc(id).update({
-                    visitorName: newName,
-                    visitorPhone: newPhone,
-                    vehicleNumber: newVehicle,
-                    purpose: newPurpose,
-                    updatedAt: firebase.firestore.FieldValue.serverTimestamp()
-                });
-                alert('✅ Visitor updated');
-                loadVisitors();
-            } catch (error) {
-                console.error('Error editing visitor:', error);
-                alert('Error: ' + error.message);
-            }
-        }
-
         function toggleUserMenu() {
             document.getElementById('dropdownMenu').classList.toggle('show');
         }
@@ -2539,18 +2431,12 @@
                 snapshot.forEach(doc => {
                     const data = doc.data();
                     const date = data.createdAt ? data.createdAt.toDate().toLocaleDateString() : 'Recent';
-                    const isAdmin = userData.role === 'admin';
                     
                     html += `
-                        <div class="card" onclick="viewAnnouncement('${doc.id}')" style="cursor:pointer;">
-                            <div class="card-header">
-                                <div style="flex:1;">
-                                    <div class="card-title">${data.title || 'Announcement'}</div>
-                                    <div class="card-subtitle">${date} • ${data.author || data.createdByName || 'Admin'}</div>
-                                </div>
-                                ${postMenuHtml(doc.id, 'announcement', isAdmin, isAdmin)}
-                            </div>
-                            <div class="card-content">${data.message || data.content || ''}</div>
+                        <div class="card" onclick="viewAnnouncement('${doc.id}')" style="cursor: pointer;">
+                            <div class="card-title">${data.title || 'Announcement'}</div>
+                            <div class="card-subtitle">${date} • ${data.author || 'Admin'}</div>
+                            <div class="card-content" style="display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden;">${data.message || data.content || ''}</div>
                             ${data.category ? `<span class="badge badge-${data.category}">${data.category}</span>` : ''}
                         </div>
                     `;
@@ -2824,13 +2710,8 @@
                     
                     html += `
                         <div class="card" onclick="viewVisitorQR('${data.id}', '${data.visitorName || 'Visitor'}', '${data.qrCode || ''}', '${date}')">
-                            <div class="card-header">
-                                <div style="flex:1;">
-                                    <div class="card-title">${data.visitorName || 'Visitor'}</div>
-                                    <div class="card-subtitle">Visit: ${date}</div>
-                                </div>
-                                ${postMenuHtml(data.id, 'visitor', isOwner, userData.role === 'admin')}
-                            </div>
+                            <div class="card-title">${data.visitorName || 'Visitor'}</div>
+                            <div class="card-subtitle">Visit: ${date}</div>
                             ${!isOwner ? `<div style="font-size: 12px; color: #999; margin-top: 5px;">👤 ${data.residentName || 'Unknown'} • Unit ${data.residentUnit || 'N/A'}</div>` : ''}
                             <div class="card-content">
                                 ${data.visitorPhone ? `<div><strong>Phone:</strong> ${data.visitorPhone}</div>` : ''}
@@ -2890,18 +2771,12 @@
                 let html = '';
                 tickets.forEach(data => {
                     const date = data.createdAt ? data.createdAt.toDate().toLocaleDateString() : 'Recent';
-                    const isOwner = data.residentId === currentUser.uid || data.createdBy === currentUser.uid;
                     
                     html += `
-                        <div class="card" onclick="viewTicket('${data.id}')" style="cursor:pointer;">
-                            <div class="card-header">
-                                <div style="flex:1;">
-                                    <div class="card-title">${data.title || 'Support Ticket'}</div>
-                                    <div class="card-subtitle">${date} • ${data.category || 'General'}</div>
-                                </div>
-                                ${postMenuHtml(data.id, 'ticket', isOwner, userData.role === 'admin')}
-                            </div>
-                            <div class="card-content">${data.description || ''}</div>
+                        <div class="card" onclick="viewTicket('${data.id}')" style="cursor: pointer;">
+                            <div class="card-title">${data.title || 'Support Ticket'}</div>
+                            <div class="card-subtitle">${date} • ${data.category || 'General'}</div>
+                            <div class="card-content" style="display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden;">${data.description || ''}</div>
                             <span class="badge badge-${data.status || 'open'}">${data.status || 'open'}</span>
                         </div>
                     `;
@@ -2999,14 +2874,9 @@
                 
                 html += `
                     <div class="card" onclick="viewMarketplaceItem('${data.id}')" style="cursor: pointer;">
-                        <div class="card-header">
-                            <div style="flex:1;">
-                                <div class="card-title">${data.title || 'Item for Sale'}</div>
-                                <div class="card-subtitle">
-                                    <strong style="color: #667eea; font-size: 18px;">$${data.price || '0'}</strong>
-                                </div>
-                            </div>
-                            ${postMenuHtml(data.id, 'marketplace', isOwner, userData.role === 'admin')}
+                        <div class="card-title">${data.title || 'Item for Sale'}</div>
+                        <div class="card-subtitle">
+                            <strong style="color: #667eea; font-size: 18px;">$${data.price || '0'}</strong>
                         </div>
                         <div class="card-content" style="margin-top: 10px;">
                             ${data.description || 'No description'}
@@ -3567,7 +3437,7 @@
             document.getElementById('marketplaceModal').classList.remove('show');
         }
 
-        // ========== VIEW: ANNOUNCEMENTS ==========
+        // ========== DETAIL VIEW: ANNOUNCEMENTS ==========
         async function viewAnnouncement(announcementId) {
             try {
                 const doc = await db.collection('announcements').doc(announcementId).get();
@@ -3575,106 +3445,182 @@
                 const data = doc.data();
                 const date = data.createdAt ? data.createdAt.toDate().toLocaleString() : 'Unknown';
                 const isAdmin = userData.role === 'admin';
-                
-                let html = '<div style="margin-bottom:25px;">';
-                html += '<h3 style="font-size:22px;margin-bottom:10px;color:#333;">📢 ' + (data.title || 'Announcement') + '</h3>';
-                html += '<div style="font-size:13px;color:#999;margin-bottom:15px;">📅 ' + date + ' • 👤 ' + (data.author || data.createdByName || 'Admin') + '</div>';
-                if (data.category) html += '<span class="badge" style="background:#e3f2fd;color:#1976d2;font-size:13px;margin-bottom:15px;display:inline-block;">' + data.category + '</span>';
-                html += '<div style="padding:15px;background:#f8f9fa;border-radius:8px;line-height:1.8;white-space:pre-wrap;">' + (data.message || data.content || 'No content') + '</div>';
-                if (isAdmin) {
-                    html += '<button class="btn" style="width:100%;margin-top:15px;background:#f44336;color:white;" onclick="if(confirm(\'Delete?\')) { db.collection(\'announcements\').doc(\'' + announcementId + '\').delete().then(() => { closeMarketplaceModal(); loadAnnouncements(); }); }">🗑️ Delete</button>';
-                }
-                html += '</div>';
+
+                let html = `
+                    <div style="margin-bottom: 25px;">
+                        <h3 style="font-size: 22px; margin-bottom: 10px; color: #333;">📢 ${data.title || 'Announcement'}</h3>
+                        <div style="font-size: 13px; color: #999; margin-bottom: 15px;">📅 ${date} • 👤 ${data.author || data.createdByName || 'Admin'}</div>
+                        ${data.category ? `<span class="badge" style="background: #e3f2fd; color: #1976d2; font-size: 13px; margin-bottom: 15px; display: inline-block;">${data.category}</span>` : ''}
+                        <div style="padding: 15px; background: #f8f9fa; border-radius: 8px; line-height: 1.8; white-space: pre-wrap;">${data.message || data.content || 'No content'}</div>
+                        ${isAdmin ? `
+                            <button class="btn" style="width: 100%; margin-top: 15px; background: #f44336;" onclick="if(confirm('Delete this announcement?')) { db.collection('announcements').doc('${announcementId}').delete().then(() => { closeMarketplaceModal(); loadAnnouncements(); }); }">
+                                🗑️ Delete Announcement
+                            </button>
+                        ` : ''}
+                    </div>
+                `;
                 document.getElementById('marketplaceModalBody').innerHTML = html;
                 document.getElementById('marketplaceModal').classList.add('show');
             } catch (error) {
-                console.error('Error:', error);
+                console.error('Error loading announcement:', error);
                 alert('Error: ' + error.message);
             }
         }
 
-        // ========== VIEW: TICKETS ==========
+        // ========== DETAIL VIEW: TICKETS ==========
         async function viewTicket(ticketId) {
             try {
                 const doc = await db.collection('tickets').doc(ticketId).get();
                 if (!doc.exists) { alert('Ticket not found'); return; }
                 const data = doc.data();
                 const date = data.createdAt ? data.createdAt.toDate().toLocaleString() : 'Unknown';
-                const isOwner = data.residentId === currentUser.uid || data.createdBy === currentUser.uid;
-                const isAdm = userData.role === 'admin';
+                const isOwner = data.residentId === currentUser.uid;
                 const statusColors = { open: '#2196F3', 'in-progress': '#FF9800', resolved: '#4CAF50', closed: '#9E9E9E' };
-                
-                let html = '<div style="margin-bottom:25px;">';
-                html += '<h3 style="font-size:22px;margin-bottom:10px;color:#333;">🔧 ' + (data.title || 'Ticket') + '</h3>';
-                html += '<div style="font-size:13px;color:#999;margin-bottom:15px;">📅 ' + date + ' • ' + (data.category || 'General') + '</div>';
-                html += '<span style="background:' + (statusColors[data.status] || '#999') + ';color:white;padding:4px 12px;border-radius:12px;font-size:12px;font-weight:600;">' + (data.status || 'open') + '</span>';
-                html += '<div style="padding:15px;background:#f8f9fa;border-radius:8px;line-height:1.8;margin-top:15px;white-space:pre-wrap;">' + (data.description || 'No description') + '</div>';
-                if (data.imageUrl) html += '<div style="margin-top:15px;"><img src="' + data.imageUrl + '" style="max-width:100%;border-radius:8px;" /></div>';
-                if (isOwner || isAdm) {
-                    html += '<button class="btn" style="width:100%;margin-top:15px;background:#f44336;color:white;" onclick="if(confirm(\'Delete?\')) { db.collection(\'tickets\').doc(\'' + ticketId + '\').delete().then(() => { closeMarketplaceModal(); loadTickets(); }); }">🗑️ Delete</button>';
-                }
-                html += '</div>';
+                const statusColor = statusColors[data.status] || '#2196F3';
+
+                let html = `
+                    <div style="margin-bottom: 25px;">
+                        <h3 style="font-size: 22px; margin-bottom: 10px; color: #333;">🔧 ${data.title || 'Support Ticket'}</h3>
+                        <div style="display: flex; gap: 10px; align-items: center; margin-bottom: 15px;">
+                            <span style="background: ${statusColor}; color: white; padding: 4px 14px; border-radius: 12px; font-size: 13px; font-weight: 600; text-transform: uppercase;">${data.status || 'open'}</span>
+                            <span style="font-size: 13px; color: #999;">📅 ${date}</span>
+                        </div>
+                        ${data.category ? `<span class="badge" style="background: #e3f2fd; color: #1976d2; font-size: 13px; margin-bottom: 15px; display: inline-block;">${data.category}</span>` : ''}
+
+                        <div style="padding: 15px; background: #f8f9fa; border-radius: 8px; margin-bottom: 15px;">
+                            <div style="font-weight: 600; margin-bottom: 8px;">Description:</div>
+                            <div style="line-height: 1.6; white-space: pre-wrap;">${data.description || 'No description'}</div>
+                        </div>
+
+                        ${data.adminResponse ? `
+                            <div style="padding: 15px; background: #e8f5e9; border-radius: 8px; border-left: 4px solid #4CAF50; margin-bottom: 15px;">
+                                <div style="font-weight: 600; margin-bottom: 8px; color: #2E7D32;">💬 Admin Response:</div>
+                                <div style="line-height: 1.6;">${data.adminResponse}</div>
+                                ${data.respondedAt ? `<div style="font-size: 12px; color: #999; margin-top: 8px;">${data.respondedAt.toDate().toLocaleString()}</div>` : ''}
+                            </div>
+                        ` : `
+                            <div style="padding: 15px; background: #fff3e0; border-radius: 8px; border-left: 4px solid #FF9800; margin-bottom: 15px;">
+                                <div style="color: #E65100;">⏳ Awaiting admin response</div>
+                            </div>
+                        `}
+
+                        ${isOwner && data.status !== 'closed' ? `
+                            <button class="btn" style="width: 100%; margin-top: 15px; background: #f44336;" onclick="if(confirm('Delete this ticket?')) { db.collection('tickets').doc('${ticketId}').delete().then(() => { closeMarketplaceModal(); loadTickets(); }); }">
+                                🗑️ Delete Ticket
+                            </button>
+                        ` : ''}
+                    </div>
+                `;
                 document.getElementById('marketplaceModalBody').innerHTML = html;
                 document.getElementById('marketplaceModal').classList.add('show');
             } catch (error) {
-                console.error('Error:', error);
+                console.error('Error loading ticket:', error);
                 alert('Error: ' + error.message);
             }
         }
 
-        // ========== VIEW: SECURITY ALERTS ==========
+        // ========== DETAIL VIEW: SECURITY ALERTS ==========
         async function viewSecurityAlert(alertId) {
             try {
                 const doc = await db.collection('security_alerts').doc(alertId).get();
                 if (!doc.exists) { alert('Alert not found'); return; }
                 const data = doc.data();
-                const date = data.incidentDateTime ? data.incidentDateTime.toDate().toLocaleString() : 'Unknown';
+                const dateStr = data.incidentDateTime ? data.incidentDateTime.toDate().toLocaleString() : 'Unknown';
                 const posted = data.createdAt ? data.createdAt.toDate().toLocaleString() : 'Unknown';
                 const isOwner = data.reportedBy === currentUser.uid;
-                const isAdm = userData.role === 'admin';
-                
-                let html = '<div style="margin-bottom:25px;">';
-                html += '<h3 style="font-size:22px;margin-bottom:10px;color:#333;">🚨 ' + (data.title || 'Alert') + '</h3>';
-                html += '<div style="font-size:13px;color:#999;margin-bottom:15px;">📅 ' + date + ' • 📍 ' + (data.location || 'Unknown') + '</div>';
-                html += '<div style="padding:15px;background:#f8f9fa;border-radius:8px;line-height:1.8;white-space:pre-wrap;">' + (data.description || '') + '</div>';
-                html += '<div style="margin-top:15px;padding:15px;background:#e8f4f8;border-radius:8px;"><strong>Reported by:</strong> ' + (data.reportedByName || 'Unknown') + ' • Unit ' + (data.unitNumber || 'N/A') + '<br><strong>Posted:</strong> ' + posted + '</div>';
-                if (isOwner || isAdm) {
-                    html += '<button class="btn" style="width:100%;margin-top:15px;background:#f44336;color:white;" onclick="if(confirm(\'Delete?\')) { db.collection(\'security_alerts\').doc(\'' + alertId + '\').delete().then(() => { closeMarketplaceModal(); loadSecurityAlerts(); }); }">🗑️ Delete</button>';
-                }
-                html += '</div>';
+                const typeLabels = { suspicious_activity: '👀 Suspicious Activity', theft: '🚔 Theft', vandalism: '🔨 Vandalism', noise: '🔊 Noise Disturbance', safety_hazard: '⚠️ Safety Hazard', other: '📝 Other' };
+
+                let html = `
+                    <div style="margin-bottom: 25px;">
+                        <h3 style="font-size: 22px; margin-bottom: 10px; color: #333;">🚨 ${data.title || 'Security Alert'}</h3>
+                        <span style="background: #ffebee; color: #c62828; padding: 4px 14px; border-radius: 12px; font-size: 13px; font-weight: 600; display: inline-block; margin-bottom: 15px;">${typeLabels[data.type] || '🚨 Alert'}</span>
+
+                        <div style="padding: 15px; background: #fff3e0; border-radius: 8px; margin-bottom: 15px;">
+                            <div style="font-size: 16px; font-weight: 600; color: #e65100;">📅 ${dateStr}</div>
+                            <div style="margin-top: 5px;">📍 ${data.location || 'Location not specified'}</div>
+                        </div>
+
+                        <div style="padding: 15px; background: #f8f9fa; border-radius: 8px; margin-bottom: 15px;">
+                            <div style="font-weight: 600; margin-bottom: 8px;">Description:</div>
+                            <div style="line-height: 1.6; white-space: pre-wrap;">${data.description || 'No description'}</div>
+                        </div>
+
+                        <div style="padding: 15px; background: #e8f4f8; border-radius: 8px; margin-bottom: 15px;">
+                            <div style="font-weight: 600; margin-bottom: 8px;">Reported by:</div>
+                            <div>👤 ${data.reportedByName || 'Unknown'} • Unit ${data.unitNumber || 'N/A'}</div>
+                            <div style="font-size: 12px; color: #999; margin-top: 5px;">Posted: ${posted}</div>
+                        </div>
+
+                        ${isOwner ? `
+                            <button class="btn" style="width: 100%; margin-top: 15px; background: #f44336;" onclick="if(confirm('Delete this alert?')) { db.collection('security_alerts').doc('${alertId}').delete().then(() => { closeMarketplaceModal(); loadSecurityAlerts(); }); }">
+                                🗑️ Delete Alert
+                            </button>
+                        ` : ''}
+                    </div>
+                `;
                 document.getElementById('marketplaceModalBody').innerHTML = html;
                 document.getElementById('marketplaceModal').classList.add('show');
             } catch (error) {
-                console.error('Error:', error);
+                console.error('Error loading security alert:', error);
                 alert('Error: ' + error.message);
             }
         }
 
-        // ========== VIEW: LOST & FOUND ==========
+        // ========== DETAIL VIEW: LOST & FOUND ==========
         async function viewLostFoundItem(itemId) {
             try {
                 const doc = await db.collection('lost_and_found').doc(itemId).get();
                 if (!doc.exists) { alert('Item not found'); return; }
                 const data = doc.data();
-                const dateStr = data.date ? data.date.toDate().toLocaleDateString() : 'Unknown';
+                const dateStr = data.date ? data.date.toDate().toLocaleDateString() : 'Date unknown';
                 const posted = data.createdAt ? data.createdAt.toDate().toLocaleString() : 'Unknown';
                 const isOwner = data.postedBy === currentUser.uid;
-                const isAdm = userData.role === 'admin';
-                const typeBadge = data.type === 'lost' ? '<span style="background:#dc3545;color:white;padding:4px 12px;border-radius:12px;font-size:12px;font-weight:600;">❌ LOST</span>' : '<span style="background:#28a745;color:white;padding:4px 12px;border-radius:12px;font-size:12px;font-weight:600;">✅ FOUND</span>';
-                
-                let html = '<div style="margin-bottom:25px;">';
-                html += '<div style="display:flex;justify-content:space-between;align-items:start;margin-bottom:15px;"><h3 style="font-size:22px;color:#333;">' + (data.title || 'Item') + '</h3>' + typeBadge + '</div>';
-                html += '<div style="font-size:13px;color:#999;margin-bottom:15px;">📅 ' + dateStr + ' • 📍 ' + (data.location || 'Unknown') + '</div>';
-                html += '<div style="padding:15px;background:#f8f9fa;border-radius:8px;line-height:1.8;white-space:pre-wrap;">' + (data.description || '') + '</div>';
-                html += '<div style="margin-top:15px;padding:15px;background:#e8f4f8;border-radius:8px;"><strong>Posted by:</strong> ' + (data.postedByName || 'Unknown') + ' • Unit ' + (data.unitNumber || 'N/A') + '<br><strong>Contact:</strong> ' + (data.contact || 'Not provided') + '<br><strong>Posted:</strong> ' + posted + '</div>';
-                if (isOwner || isAdm) {
-                    html += '<button class="btn" style="width:100%;margin-top:15px;background:#f44336;color:white;" onclick="if(confirm(\'Delete?\')) { db.collection(\'lost_and_found\').doc(\'' + itemId + '\').delete().then(() => { closeMarketplaceModal(); loadLostAndFound(); }); }">🗑️ Delete</button>';
-                }
-                html += '</div>';
+                const categoryIcons = { pet: '🐕', keys: '🔑', wallet: '👛', phone: '📱', 'package': '📦', clothing: '👕', jewelry: '💍', other: '📦' };
+                const typeBadge = data.type === 'lost'
+                    ? '<span style="background:#dc3545;color:white;padding:6px 16px;border-radius:12px;font-size:13px;font-weight:600;">❌ LOST</span>'
+                    : '<span style="background:#28a745;color:white;padding:6px 16px;border-radius:12px;font-size:13px;font-weight:600;">✅ FOUND</span>';
+
+                let html = `
+                    <div style="margin-bottom: 25px;">
+                        <div style="display:flex;justify-content:space-between;align-items:start;margin-bottom:15px;">
+                            <h3 style="font-size: 22px; color: #333;">${(categoryIcons[data.category] || '📦')} ${data.title || 'Item'}</h3>
+                            ${typeBadge}
+                        </div>
+
+                        <div style="padding: 15px; background: #e3f2fd; border-radius: 8px; margin-bottom: 15px;">
+                            <div style="font-size: 16px; font-weight: 600; color: #1976d2;">📅 ${dateStr}</div>
+                            <div style="margin-top: 5px;">📍 ${data.location || 'Location not specified'}</div>
+                        </div>
+
+                        <div style="padding: 15px; background: #f8f9fa; border-radius: 8px; margin-bottom: 15px;">
+                            <div style="font-weight: 600; margin-bottom: 8px;">Description:</div>
+                            <div style="line-height: 1.6; white-space: pre-wrap;">${data.description || 'No description'}</div>
+                        </div>
+
+                        <div style="padding: 15px; background: #e8f4f8; border-radius: 8px; margin-bottom: 15px;">
+                            <div style="font-weight: 600; margin-bottom: 8px;">Contact Information:</div>
+                            <div>👤 ${data.postedByName || 'Unknown'} • Unit ${data.unitNumber || 'N/A'}</div>
+                            <div style="margin-top: 8px; font-size: 16px;">📞 ${data.contact || 'Not provided'}</div>
+                            <div style="font-size: 12px; color: #999; margin-top: 5px;">Posted: ${posted}</div>
+                        </div>
+
+                        ${data.contact ? `
+                            <button class="btn" style="width: 100%; margin-bottom: 10px;" onclick="copyToClipboard('${data.contact}'); alert('✅ Contact info copied!');">
+                                📋 Copy Contact Info
+                            </button>
+                        ` : ''}
+
+                        ${isOwner ? `
+                            <button class="btn" style="width: 100%; background: #f44336;" onclick="if(confirm('Delete this item?')) { db.collection('lost_and_found').doc('${itemId}').delete().then(() => { closeMarketplaceModal(); loadLostAndFound(); }); }">
+                                🗑️ Delete Post
+                            </button>
+                        ` : ''}
+                    </div>
+                `;
                 document.getElementById('marketplaceModalBody').innerHTML = html;
                 document.getElementById('marketplaceModal').classList.add('show');
             } catch (error) {
-                console.error('Error:', error);
+                console.error('Error loading item:', error);
                 alert('Error: ' + error.message);
             }
         }
@@ -3790,17 +3736,13 @@
                     const typeLabel = data.type === 'need' ? 'Need to Borrow' : 'Available to Lend';
                     const typeBg = data.type === 'need' ? '#fff3e0' : '#e8f5e9';
                     const typeColor = data.type === 'need' ? '#e65100' : '#2e7d32';
-                    const isOwner = data.ownerId === currentUser.uid;
                     
                     html += `
                         <div class="card" onclick="viewCommunityShareItem('${data.id}')" style="cursor: pointer;">
-                            <div class="card-header">
-                                <div style="display: flex; align-items: center; gap: 8px;">
-                                    <span style="background: ${typeBg}; color: ${typeColor}; padding: 4px 10px; border-radius: 12px; font-size: 11px; font-weight: 600;">
-                                        ${typeIcon} ${typeLabel}
-                                    </span>
-                                </div>
-                                ${postMenuHtml(data.id, 'communityshare', isOwner, userData.role === 'admin')}
+                            <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 8px;">
+                                <span style="background: ${typeBg}; color: ${typeColor}; padding: 4px 10px; border-radius: 12px; font-size: 11px; font-weight: 600;">
+                                    ${typeIcon} ${typeLabel}
+                                </span>
                             </div>
                             <div class="card-title">${data.title || 'Item'}</div>
                             <div class="card-content" style="margin-top: 10px;">
@@ -4121,6 +4063,22 @@
                 updateToggle('togglePhone', privacySettings.showPhone !== false);
                 updateToggle('toggleEmail', privacySettings.showEmail !== false);
                 
+                // Update notification settings
+                const notificationsEnabled = userDataFromDb.notificationsEnabled || false;
+                updateToggle('toggleNotifications', notificationsEnabled);
+                
+                if (notificationsEnabled && Notification.permission === 'granted') {
+                    document.getElementById('notificationStatus').textContent = '✅ Notifications enabled! You will receive announcements.';
+                    document.getElementById('notificationStatus').style.color = '#28a745';
+                } else if (Notification.permission === 'denied') {
+                    document.getElementById('notificationStatus').textContent = '❌ Notifications blocked. Please enable in browser settings.';
+                    document.getElementById('notificationStatus').style.color = '#dc3545';
+                    updateToggle('toggleNotifications', false);
+                } else {
+                    document.getElementById('notificationStatus').textContent = 'Enable to receive push notifications when admins post announcements';
+                    document.getElementById('notificationStatus').style.color = '#666';
+                }
+                
                 // Load activity summary
                 await loadActivitySummary();
                 
@@ -4192,8 +4150,28 @@
 
         async function togglePrivacySetting(setting) {
             try {
+                console.log('🔧 Toggling privacy setting:', setting);
+                console.log('👤 Current user:', currentUser.uid);
+                
+                // Check user's approval status first
+                const userDoc = await db.collection('users').doc(currentUser.uid).get();
+                const userData = userDoc.data();
+                console.log('📋 User data:', {
+                    isApproved: userData.isApproved,
+                    termsAccepted: userData.termsAccepted,
+                    communityId: userData.communityId
+                });
+                
+                if (!userData.isApproved) {
+                    alert('⚠️ Your account is pending admin approval. Privacy settings can only be changed after approval.');
+                    return;
+                }
+                
                 // Find resident document
-                const residentQuery = await db.collection('residents').where('userId', '==', currentUser.uid).get();
+                const residentQuery = await db.collection('residents')
+                    .where('userId', '==', currentUser.uid)
+                    .where('communityId', '==', userData.communityId)
+                    .get();
                 
                 if (residentQuery.empty) {
                     alert('Resident profile not found');
@@ -4202,15 +4180,20 @@
                 
                 const residentDoc = residentQuery.docs[0];
                 const residentData = residentDoc.data();
+                console.log('🏠 Resident data:', residentData);
+                
                 const privacySettings = residentData.privacySettings || {};
                 
                 // Toggle the setting
                 privacySettings[setting] = !privacySettings[setting];
+                console.log('💾 Updating privacy settings:', privacySettings);
                 
                 // Update in Firestore
                 await db.collection('residents').doc(residentDoc.id).update({
                     privacySettings: privacySettings
                 });
+                
+                console.log('✅ Privacy setting updated successfully');
                 
                 // Update UI
                 const toggleMap = {
@@ -4221,14 +4204,59 @@
                 updateToggle(toggleMap[setting], privacySettings[setting]);
                 
             } catch (error) {
-                console.error('Error updating privacy setting:', error);
-                alert('Error updating setting: ' + error.message);
+                console.error('❌ Error updating privacy setting:', error);
+                console.error('Error code:', error.code);
+                console.error('Error message:', error.message);
+                alert('Error updating setting: ' + error.message + '\n\nPlease check console for details.');
             }
         }
 
         function closeProfile() {
             document.getElementById('profileModal').classList.remove('show');
         }
+
+        async function toggleNotificationsSetting() {
+    try {
+        console.log('🔔 Toggling notifications...');
+        
+        const userDoc = await db.collection('users').doc(currentUser.uid).get();
+        const userData = userDoc.data();
+        const currentSetting = userData.notificationsEnabled || false;
+        
+        if (!currentSetting) {
+            // Enabling notifications - use the existing requestNotificationPermission function
+            console.log('📱 Requesting notification permission...');
+            const success = await requestNotificationPermission();
+            
+            if (success) {
+                updateToggle('toggleNotifications', true);
+                document.getElementById('notificationStatus').textContent = '✅ Notifications enabled! You will receive announcements.';
+                document.getElementById('notificationStatus').style.color = '#28a745';
+            } else if (Notification.permission === 'denied') {
+                document.getElementById('notificationStatus').textContent = '❌ Notifications blocked. Please enable in browser settings.';
+                document.getElementById('notificationStatus').style.color = '#dc3545';
+                updateToggle('toggleNotifications', false);
+            } else {
+                updateToggle('toggleNotifications', false);
+            }
+        } else {
+            // Disabling notifications
+            await db.collection('users').doc(currentUser.uid).update({
+                notificationsEnabled: false,
+                fcmToken: firebase.firestore.FieldValue.delete()
+            });
+            
+            updateToggle('toggleNotifications', false);
+            document.getElementById('notificationStatus').textContent = '🔕 Notifications disabled.';
+            document.getElementById('notificationStatus').style.color = '#666';
+        }
+        
+    } catch (error) {
+        console.error('❌ Error toggling notifications:', error);
+        alert('Error updating notification settings: ' + error.message);
+    }
+}
+
 
         function viewTerms() {
             closeProfile();
@@ -4492,29 +4520,7 @@
                     const timeStr = eventDate ? eventDate.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'}) : '';
                     const rsvpCount = data.rsvps ? data.rsvps.length : 0;
                     const commentCount = data.comments ? data.comments.length : 0;
-                    const isOrganizer = data.organizerId === currentUser.uid;
-                    const isAdm = userData.role === 'admin';
-                    
-                    html += `
-                        <div class="card" onclick="viewEvent('${data.id}')" style="cursor:pointer;${isPast ? ' opacity:0.6;' : ''}">
-                            <div class="card-header">
-                                <div style="flex:1;">
-                                    <div class="card-title">${data.title || 'Event'}</div>
-                                    <div class="card-subtitle">📅 ${dateStr}${timeStr ? ' • ⏰ ' + timeStr : ''}</div>
-                                </div>
-                                ${postMenuHtml(data.id, 'event', isOrganizer, isAdm)}
-                            </div>
-                            <div class="card-content" style="margin-top:10px;">
-                                ${data.description || ''}
-                                ${data.location ? '<div style="margin-top:8px;"><strong>📍</strong> ' + data.location + '</div>' : ''}
-                            </div>
-                            <div style="margin-top:12px;padding-top:12px;border-top:1px solid #f0f0f0;font-size:13px;color:#666;">
-                                👤 ${data.organizerName || 'Unknown'} • Unit ${data.unitNumber || 'N/A'}
-                                ${rsvpCount > 0 ? ' • ✅ ' + rsvpCount + ' RSVP' + (rsvpCount > 1 ? 's' : '') : ''}
-                                ${commentCount > 0 ? ' • 💬 ' + commentCount + ' comment' + (commentCount > 1 ? 's' : '') : ''}
-                            </div>
-                        </div>
-                    `;
+                    html += '<div class="card" onclick="viewEvent(\'' + data.id + '\')" style="cursor: pointer;' + (isPast ? ' opacity: 0.6;' : '') + '"><div class="card-title">' + (data.title || 'Event') + '</div><div class="card-subtitle">📅 ' + dateStr + (timeStr ? ' • ⏰ ' + timeStr : '') + '</div><div class="card-content" style="margin-top: 10px;">' + (data.description || '') + (data.location ? '<div style="margin-top: 8px;"><strong>📍</strong> ' + data.location + '</div>' : '') + '</div><div style="margin-top: 12px; padding-top: 12px; border-top: 1px solid #f0f0f0; font-size: 13px; color: #666;">👤 ' + (data.organizerName || 'Unknown') + ' • Unit ' + (data.unitNumber || 'N/A') + (rsvpCount > 0 ? ' • ✅ ' + rsvpCount + ' RSVP' + (rsvpCount > 1 ? 's' : '') : '') + (commentCount > 0 ? ' • 💬 ' + commentCount + ' comment' + (commentCount > 1 ? 's' : '') : '') + '</div></div>';
                 });
                 container.innerHTML = html;
             } catch (error) {
@@ -4780,23 +4786,7 @@
                 items.forEach(data => {
                     const dateStr = data.incidentDateTime ? data.incidentDateTime.toDate().toLocaleString() : 'Unknown';
                     const posted = data.createdAt ? data.createdAt.toDate().toLocaleDateString() : 'Recently';
-                    const isOwner = data.reportedBy === currentUser.uid;
-                    const isAdm = userData.role === 'admin';
-                    html += `
-                        <div class="card" onclick="viewSecurityAlert('${data.id}')" style="cursor:pointer;">
-                            <div class="card-header">
-                                <div style="flex:1;">
-                                    <div class="card-title">${(typeIcons[data.type] || '🚨')} ${data.title}</div>
-                                    <div class="card-subtitle">📅 ${dateStr} • 📍 ${data.location}</div>
-                                </div>
-                                ${postMenuHtml(data.id, 'security', isOwner, isAdm)}
-                            </div>
-                            <div class="card-content" style="margin-top:10px;">${data.description}</div>
-                            <div style="margin-top:12px;padding-top:12px;border-top:1px solid #f0f0f0;font-size:13px;color:#666;">
-                                👤 ${data.reportedByName} • Unit ${data.unitNumber} • Posted ${posted}
-                            </div>
-                        </div>
-                    `;
+                    html += '<div class="card" onclick="viewSecurityAlert(\'' + data.id + '\')" style="cursor: pointer;"><div class="card-title">' + (typeIcons[data.type] || '🚨') + ' ' + data.title + '</div><div class="card-subtitle">📅 ' + dateStr + ' • 📍 ' + data.location + '</div><div class="card-content" style="margin-top: 10px;display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden;">' + data.description + '</div><div style="margin-top: 12px; padding-top: 12px; border-top: 1px solid #f0f0f0; font-size: 13px; color: #666;">👤 ' + data.reportedByName + ' • Unit ' + data.unitNumber + ' • Posted ' + posted + '</div></div>';
                 });
                 container.innerHTML = html;
             } catch (error) {
@@ -4865,26 +4855,7 @@
                 items.forEach(data => {
                     const typeBadge = data.type === 'lost' ? '<span style="background:#dc3545;color:white;padding:4px 12px;border-radius:12px;font-size:12px;font-weight:600;">❌ LOST</span>' : '<span style="background:#28a745;color:white;padding:4px 12px;border-radius:12px;font-size:12px;font-weight:600;">✅ FOUND</span>';
                     const dateStr = data.date ? data.date.toDate().toLocaleDateString() : 'Date unknown';
-                    const isOwner = data.postedBy === currentUser.uid;
-                    const isAdm = userData.role === 'admin';
-                    html += `
-                        <div class="card" onclick="viewLostFoundItem('${data.id}')" style="cursor:pointer;">
-                            <div class="card-header">
-                                <div style="flex:1;">
-                                    <div style="display:flex;justify-content:space-between;align-items:start;margin-bottom:10px;">
-                                        <div class="card-title">${(categoryIcons[data.category] || '📦')} ${data.title}</div>
-                                        ${typeBadge}
-                                    </div>
-                                    <div class="card-subtitle">📅 ${dateStr} • 📍 ${data.location}</div>
-                                </div>
-                                ${postMenuHtml(data.id, 'lostfound', isOwner, isAdm)}
-                            </div>
-                            <div class="card-content" style="margin-top:10px;">${data.description}</div>
-                            <div style="margin-top:12px;padding-top:12px;border-top:1px solid #f0f0f0;font-size:13px;color:#666;">
-                                👤 ${data.postedByName} • Unit ${data.unitNumber}<br>📞 Contact: ${data.contact}
-                            </div>
-                        </div>
-                    `;
+                    html += '<div class="card" onclick="viewLostFoundItem(\'' + data.id + '\')" style="cursor: pointer;"><div style="display:flex;justify-content:space-between;align-items:start;margin-bottom:10px;"><div class="card-title">' + (categoryIcons[data.category] || '📦') + ' ' + data.title + '</div>' + typeBadge + '</div><div class="card-subtitle">📅 ' + dateStr + ' • 📍 ' + data.location + '</div><div class="card-content" style="margin-top: 10px;display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden;">' + data.description + '</div><div style="margin-top: 12px; padding-top: 12px; border-top: 1px solid #f0f0f0; font-size: 13px; color: #666;">👤 ' + data.postedByName + ' • Unit ' + data.unitNumber + '</div></div>';
                 });
                 container.innerHTML = html;
             } catch (error) {
@@ -5101,6 +5072,18 @@
                         <label>Show email address</label>
                         <div class="toggle-switch" id="toggleEmail" onclick="togglePrivacySetting('showEmail')"></div>
                     </div>
+                </div>
+
+                <!-- Notification Settings -->
+                <div class="profile-section">
+                    <h3>🔔 Notification Settings</h3>
+                    <div class="privacy-toggle">
+                        <label>Receive announcement notifications</label>
+                        <div class="toggle-switch" id="toggleNotifications" onclick="toggleNotificationsSetting()"></div>
+                    </div>
+                    <p style="font-size: 12px; color: #666; margin-top: 10px;" id="notificationStatus">
+                        Enable to receive push notifications when admins post announcements
+                    </p>
                 </div>
 
                 <!-- Account Information -->
