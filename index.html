@@ -1556,6 +1556,8 @@
                         const existingToast = document.getElementById('fcm-toast');
                         if (existingToast) existingToast.remove();
                         
+                        const announcementId = payload.data?.announcementId || '';
+                        
                         const toast = document.createElement('div');
                         toast.id = 'fcm-toast';
                         toast.style.cssText = `
@@ -1571,9 +1573,19 @@
                             z-index: 9999;
                             max-width: 90%;
                             text-align: center;
+                            cursor: pointer;
                             transition: opacity 0.3s ease, transform 0.3s ease;
                         `;
-                        toast.innerHTML = '<strong>' + title + '</strong>' + (body ? '<br><span style="font-size:13px;opacity:0.9">' + body + '</span>' : '');
+                        toast.innerHTML = '<strong>' + title + '</strong>' + (body ? '<br><span style="font-size:13px;opacity:0.9">' + body + '</span>' : '') + '<br><span style="font-size:11px;opacity:0.7;margin-top:4px;display:inline-block;">Tap to view</span>';
+                        
+                        // Click toast to open the announcement
+                        toast.addEventListener('click', () => {
+                            toast.remove();
+                            if (announcementId) {
+                                viewAnnouncement(announcementId);
+                            }
+                        });
+                        
                         document.body.appendChild(toast);
                         
                         setTimeout(() => {
@@ -1695,6 +1707,27 @@
                     break;
                 default:
                     loadAllData();
+            }
+        }
+        
+        // Check if the app was opened from a notification click (deep link)
+        function checkNotificationDeepLink() {
+            const urlParams = new URLSearchParams(window.location.search);
+            const announcementId = urlParams.get('announcementId');
+            
+            if (announcementId) {
+                console.log('📢 Opened from notification - loading announcement:', announcementId);
+                
+                // Wait for data to load, then open the announcement popup
+                setTimeout(() => {
+                    viewAnnouncement(announcementId);
+                }, 1500);
+                
+                // Clean up the URL so refreshing doesn't re-open the popup
+                if (window.history.replaceState) {
+                    const cleanUrl = window.location.origin + window.location.pathname;
+                    window.history.replaceState({}, document.title, cleanUrl);
+                }
             }
         }
         
@@ -1830,6 +1863,21 @@
                     
                     if (termsAccepted) {
                         loadAllData();
+                        
+                        // Check if opened from a notification click (URL has ?announcementId=)
+                        checkNotificationDeepLink();
+                        
+                        // Listen for messages from service worker (when app is already open and notification is clicked)
+                        if ('serviceWorker' in navigator) {
+                            navigator.serviceWorker.addEventListener('message', (event) => {
+                                if (event.data?.type === 'OPEN_ANNOUNCEMENT' && event.data?.announcementId) {
+                                    console.log('[SW Message] Opening announcement:', event.data.announcementId);
+                                    setTimeout(() => {
+                                        viewAnnouncement(event.data.announcementId);
+                                    }, 500);
+                                }
+                            });
+                        }
                         
                         // Ask for notification permission
                         console.log('=== NOTIFICATION CHECK ===');
