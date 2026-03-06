@@ -224,7 +224,7 @@
             <button class="tab-btn" onclick="switchTab('residents')">Residents</button>
             <button class="tab-btn" onclick="switchTab('tickets')">Tickets</button>
             <button class="tab-btn" onclick="switchTab('services')">Service Contacts</button>
-            <button class="tab-btn" onclick="switchTab('notifications')">📢 Send Notification</button>
+            <button class="tab-btn" onclick="switchTab('notifications')">📢 Announcements</button>
         </div>
 
         <!-- Tab: Pending Approvals -->
@@ -352,27 +352,41 @@
             <div id="servicesList"></div>
         </div>
 
-        <!-- Tab: Send Notification -->
+        <!-- Tab: Announcements -->
         <div class="tab-content" id="tab-notifications">
-            <h2>📢 Send Push Notification</h2>
-            <p style="color: #666; margin-bottom: 20px;">Send a notification to all residents who have enabled notifications.</p>
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+                <h2 style="margin: 0;">📢 Announcements</h2>
+                <button class="btn btn-primary" onclick="toggleAnnouncementForm()">➕ New Announcement</button>
+            </div>
             
-            <div class="notification-form">
+            <!-- Create/Edit Announcement Form -->
+            <div class="form-container" id="announcementFormContainer">
+                <h3 id="announcementFormTitle">Create New Announcement</h3>
+                <input type="hidden" id="editAnnouncementId">
+                
                 <div class="input-group">
-                    <label>Notification Title *</label>
+                    <label>Announcement Title *</label>
                     <input type="text" id="notifTitle" placeholder="Important Update" required>
                 </div>
                 <div class="input-group">
-                    <label>Notification Message *</label>
-                    <textarea id="notifMessage" placeholder="Your message here..." required></textarea>
+                    <label>Announcement Message *</label>
+                    <textarea id="notifMessage" placeholder="Your message here..." required style="min-height: 100px;"></textarea>
                 </div>
                 
-                <button class="btn btn-primary" onclick="sendManualNotification()">📤 Send Notification</button>
+                <div style="display: flex; gap: 10px;">
+                    <button class="btn btn-success" id="announcementSaveBtn" onclick="saveAnnouncement()">📤 Send Announcement</button>
+                    <button class="btn btn-secondary" onclick="cancelAnnouncementForm()">Cancel</button>
+                </div>
                 
-                <div style="margin-top: 20px; padding: 15px; background: #fff3cd; border-radius: 8px;">
-                    <strong>ℹ️ Note:</strong> This will send a push notification to all residents who have enabled notifications in their settings.
+                <div style="margin-top: 15px; padding: 12px; background: #fff3cd; border-radius: 8px; font-size: 13px;" id="announcementNote">
+                    <strong>ℹ️ Note:</strong> Creating a new announcement will send a push notification to all residents who have enabled notifications.
                 </div>
             </div>
+            
+            <!-- Search -->
+            <input type="text" class="search-box" id="announcementSearch" placeholder="🔍 Search announcements by title or content..." onkeyup="filterAnnouncements()">
+            
+            <div id="announcementsList"></div>
         </div>
     </div>
 
@@ -426,6 +440,7 @@
             loadResidents();
             loadTickets();
             loadServiceContacts();
+            loadAnnouncements();
         });
 
         async function loadCommunityName() {
@@ -1052,64 +1067,168 @@
             }
         }
 
-        // ========== MANUAL NOTIFICATIONS ==========
-        async function sendManualNotification() {
+        // ========== ANNOUNCEMENTS MANAGEMENT ==========
+        let allAnnouncements = [];
+        
+        async function loadAnnouncements() {
+            const container = document.getElementById('announcementsList');
+            container.innerHTML = '<p>Loading...</p>';
+            
+            try {
+                const snapshot = await db.collection('announcements')
+                    .where('communityId', '==', communityId)
+                    .get();
+                
+                allAnnouncements = [];
+                snapshot.forEach(doc => allAnnouncements.push({ id: doc.id, ...doc.data() }));
+                
+                // Sort by date descending (newest first)
+                allAnnouncements.sort((a, b) => {
+                    const dateA = a.createdAt ? a.createdAt.toDate() : new Date(0);
+                    const dateB = b.createdAt ? b.createdAt.toDate() : new Date(0);
+                    return dateB - dateA;
+                });
+                
+                renderAnnouncements(allAnnouncements);
+            } catch (error) {
+                console.error('Error loading announcements:', error);
+                container.innerHTML = '<div class="empty-state">Error loading announcements: ' + error.message + '</div>';
+            }
+        }
+        
+        function renderAnnouncements(announcements) {
+            const container = document.getElementById('announcementsList');
+            
+            if (announcements.length === 0) {
+                container.innerHTML = '<div class="empty-state">No announcements yet</div>';
+                return;
+            }
+            
+            let html = '';
+            announcements.forEach(ann => {
+                const date = ann.createdAt ? ann.createdAt.toDate().toLocaleString() : 'Unknown';
+                const content = ann.content || ann.message || '';
+                const preview = content.length > 150 ? content.substring(0, 150) + '...' : content;
+                
+                html += `
+                    <div class="card">
+                        <h3 style="margin-bottom: 8px; color: #333;">${ann.title || 'Untitled'}</h3>
+                        <p style="color: #666; font-size: 13px; margin-bottom: 8px;">📅 ${date} • 👤 ${ann.createdByName || 'Admin'}</p>
+                        <p style="color: #555; margin-bottom: 12px; line-height: 1.5;">${preview}</p>
+                        <div class="action-buttons">
+                            <button class="btn btn-info" onclick="editAnnouncement('${ann.id}')">✏️ Edit</button>
+                            <button class="btn btn-danger" onclick="deleteAnnouncement('${ann.id}', '${(ann.title || '').replace(/'/g, "\\'")}')">🗑️ Delete</button>
+                        </div>
+                    </div>
+                `;
+            });
+            
+            container.innerHTML = html;
+        }
+        
+        function filterAnnouncements() {
+            const query = document.getElementById('announcementSearch').value.toLowerCase();
+            const filtered = allAnnouncements.filter(ann => {
+                const title = (ann.title || '').toLowerCase();
+                const content = (ann.content || ann.message || '').toLowerCase();
+                const author = (ann.createdByName || '').toLowerCase();
+                return title.includes(query) || content.includes(query) || author.includes(query);
+            });
+            renderAnnouncements(filtered);
+        }
+        
+        function toggleAnnouncementForm() {
+            const container = document.getElementById('announcementFormContainer');
+            container.style.display = container.style.display === 'block' ? 'none' : 'block';
+            // Reset to create mode
+            document.getElementById('announcementFormTitle').textContent = 'Create New Announcement';
+            document.getElementById('editAnnouncementId').value = '';
+            document.getElementById('notifTitle').value = '';
+            document.getElementById('notifMessage').value = '';
+            document.getElementById('announcementSaveBtn').textContent = '📤 Send Announcement';
+            document.getElementById('announcementNote').style.display = 'block';
+        }
+        
+        function cancelAnnouncementForm() {
+            document.getElementById('announcementFormContainer').style.display = 'none';
+            document.getElementById('editAnnouncementId').value = '';
+            document.getElementById('notifTitle').value = '';
+            document.getElementById('notifMessage').value = '';
+        }
+        
+        function editAnnouncement(announcementId) {
+            const ann = allAnnouncements.find(a => a.id === announcementId);
+            if (!ann) { alert('Announcement not found'); return; }
+            
+            document.getElementById('announcementFormContainer').style.display = 'block';
+            document.getElementById('announcementFormTitle').textContent = 'Edit Announcement';
+            document.getElementById('editAnnouncementId').value = announcementId;
+            document.getElementById('notifTitle').value = ann.title || '';
+            document.getElementById('notifMessage').value = ann.content || ann.message || '';
+            document.getElementById('announcementSaveBtn').textContent = '💾 Update Announcement';
+            document.getElementById('announcementNote').style.display = 'none';
+            
+            // Scroll to form
+            document.getElementById('announcementFormContainer').scrollIntoView({ behavior: 'smooth' });
+        }
+        
+        async function saveAnnouncement() {
             const title = document.getElementById('notifTitle').value.trim();
             const message = document.getElementById('notifMessage').value.trim();
+            const editId = document.getElementById('editAnnouncementId').value;
             
             if (!title || !message) {
                 alert('Please fill in both title and message');
                 return;
             }
             
-            if (!confirm(`Send notification to all residents?\n\nTitle: ${title}\nMessage: ${message}`)) {
-                return;
-            }
-            
             try {
-                // Get all users with notifications enabled
-                const usersSnapshot = await db.collection('users')
-                    .where('communityId', '==', communityId)
-                    .where('notificationsEnabled', '==', true)
-                    .get();
-                
-                if (usersSnapshot.empty) {
-                    alert('No users have notifications enabled');
-                    return;
+                if (editId) {
+                    // UPDATE existing announcement
+                    if (!confirm('Update this announcement?')) return;
+                    
+                    await db.collection('announcements').doc(editId).update({
+                        title,
+                        content: message,
+                        updatedAt: firebase.firestore.FieldValue.serverTimestamp(),
+                        updatedBy: currentUser.uid
+                    });
+                    
+                    alert('✅ Announcement updated!');
+                } else {
+                    // CREATE new announcement (triggers push notification via Cloud Function)
+                    if (!confirm(`Send announcement to all residents?\n\nTitle: ${title}\nMessage: ${message}`)) return;
+                    
+                    await db.collection('announcements').add({
+                        communityId,
+                        title,
+                        content: message,
+                        createdBy: currentUser.uid,
+                        createdByName: document.getElementById('adminName').textContent,
+                        createdAt: firebase.firestore.FieldValue.serverTimestamp()
+                    });
+                    
+                    alert('✅ Announcement sent! Push notifications will be delivered to residents.');
                 }
                 
-                // Collect FCM tokens
-                const tokens = [];
-                usersSnapshot.forEach(doc => {
-                    const data = doc.data();
-                    if (data.fcmToken) {
-                        tokens.push(data.fcmToken);
-                    }
-                });
-                
-                if (tokens.length === 0) {
-                    alert('No valid FCM tokens found');
-                    return;
-                }
-                
-                alert(`Sending to ${tokens.length} users...\n\nNote: This requires Cloud Function to actually send. For now, this creates an announcement which will trigger the notification.`);
-                
-                // Create announcement (which triggers Cloud Function)
-                await db.collection('announcements').add({
-                    communityId,
-                    title,
-                    content: message,
-                    createdBy: currentUser.uid,
-                    createdByName: document.getElementById('adminName').textContent,
-                    createdAt: firebase.firestore.FieldValue.serverTimestamp()
-                });
-                
-                alert('✅ Notification sent! (via announcement creation)');
-                document.getElementById('notifTitle').value = '';
-                document.getElementById('notifMessage').value = '';
+                cancelAnnouncementForm();
+                loadAnnouncements();
                 
             } catch (error) {
-                console.error('Error sending notification:', error);
+                console.error('Error saving announcement:', error);
+                alert('Error: ' + error.message);
+            }
+        }
+        
+        async function deleteAnnouncement(announcementId, title) {
+            if (!confirm(`Delete this announcement?\n\n"${title}"\n\nThis cannot be undone.`)) return;
+            
+            try {
+                await db.collection('announcements').doc(announcementId).delete();
+                alert('✅ Announcement deleted');
+                loadAnnouncements();
+            } catch (error) {
+                console.error('Error deleting announcement:', error);
                 alert('Error: ' + error.message);
             }
         }
