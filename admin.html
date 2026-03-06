@@ -183,6 +183,20 @@
             gap: 5px;
             flex-wrap: wrap;
         }
+        .tab-badge {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            background: #dc3545;
+            color: white;
+            font-size: 11px;
+            font-weight: 700;
+            min-width: 20px;
+            height: 20px;
+            padding: 0 6px;
+            border-radius: 10px;
+            margin-left: 6px;
+        }
     </style>
 </head>
 <body>
@@ -220,7 +234,7 @@
 
         <!-- Tabs -->
         <div class="tabs">
-            <button class="tab-btn active" onclick="switchTab('approvals')">Pending Approvals</button>
+            <button class="tab-btn active" onclick="switchTab('approvals')">Pending Approvals<span class="tab-badge" id="approvalBadge" style="display:none;">0</span></button>
             <button class="tab-btn" onclick="switchTab('residents')">Residents</button>
             <button class="tab-btn" onclick="switchTab('tickets')">Tickets</button>
             <button class="tab-btn" onclick="switchTab('services')">Service Contacts</button>
@@ -511,21 +525,31 @@
                 
                 if (snapshot.empty) {
                     container.innerHTML = '<div class="empty-state">No pending approvals</div>';
+                    document.getElementById('approvalBadge').style.display = 'none';
                     return;
                 }
+                
+                // Update tab badge
+                const badge = document.getElementById('approvalBadge');
+                badge.textContent = snapshot.size;
+                badge.style.display = 'inline-flex';
                 
                 let html = '';
                 snapshot.forEach(doc => {
                     const data = doc.data();
                     html += `
                         <div class="card">
-                            <h3>${data.name}</h3>
-                            <p><strong>Email:</strong> ${data.email}</p>
-                            <p><strong>Phone:</strong> ${data.phone}</p>
-                            <p><strong>Unit:</strong> ${data.unitNumber}</p>
-                            <div class="action-buttons">
-                                <button class="btn btn-success" onclick="approveUser('${doc.id}', '${data.userId}')">✅ Approve</button>
-                                <button class="btn btn-danger" onclick="rejectUser('${doc.id}', '${data.userId}')">❌ Reject</button>
+                            <div style="display: flex; justify-content: space-between; align-items: start;">
+                                <div>
+                                    <h3>${data.name}</h3>
+                                    <p><strong>Email:</strong> ${data.email}</p>
+                                    <p><strong>Phone:</strong> ${data.phone}</p>
+                                    <p><strong>Unit:</strong> ${data.unitNumber}</p>
+                                </div>
+                                <div class="action-buttons" style="flex-shrink: 0;">
+                                    <button class="btn btn-success" onclick="approveUser('${doc.id}', '${data.userId}')">✅ Approve</button>
+                                    <button class="btn btn-danger" onclick="rejectUser('${doc.id}', '${data.userId}')">❌ Reject</button>
+                                </div>
                             </div>
                         </div>
                     `;
@@ -1112,12 +1136,16 @@
                 
                 html += `
                     <div class="card">
-                        <h3 style="margin-bottom: 8px; color: #333;">${ann.title || 'Untitled'}</h3>
-                        <p style="color: #666; font-size: 13px; margin-bottom: 8px;">📅 ${date} • 👤 ${ann.createdByName || 'Admin'}</p>
-                        <p style="color: #555; margin-bottom: 12px; line-height: 1.5;">${preview}</p>
-                        <div class="action-buttons">
-                            <button class="btn btn-info" onclick="editAnnouncement('${ann.id}')">✏️ Edit</button>
-                            <button class="btn btn-danger" onclick="deleteAnnouncement('${ann.id}', '${(ann.title || '').replace(/'/g, "\\'")}')">🗑️ Delete</button>
+                        <div style="display: flex; justify-content: space-between; align-items: start;">
+                            <div style="flex: 1; min-width: 0; margin-right: 15px;">
+                                <h3 style="margin-bottom: 8px; color: #333;">${ann.title || 'Untitled'}</h3>
+                                <p style="color: #666; font-size: 13px; margin-bottom: 8px;">📅 ${date} • 👤 ${ann.createdByName || 'Admin'}</p>
+                                <p style="color: #555; margin-bottom: 0; line-height: 1.5;">${preview}</p>
+                            </div>
+                            <div class="action-buttons" style="flex-shrink: 0;">
+                                <button class="btn btn-info" onclick="editAnnouncement('${ann.id}')">✏️ Edit</button>
+                                <button class="btn btn-danger" onclick="deleteAnnouncement('${ann.id}', '${(ann.title || '').replace(/'/g, "\\'")}')">🗑️ Delete</button>
+                            </div>
                         </div>
                     </div>
                 `;
