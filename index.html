@@ -1600,6 +1600,39 @@
                 });
         }
 
+        // ========================================
+        // APP RESUME HANDLER
+        // ========================================
+        // When the app returns to foreground (e.g. after tapping a notification),
+        // refresh all data and check for deep links.
+        let lastVisibilityChange = 0;
+        document.addEventListener('visibilitychange', () => {
+            if (document.visibilityState === 'visible' && currentUser) {
+                const now = Date.now();
+                // Throttle: only refresh if at least 3 seconds since last refresh
+                if (now - lastVisibilityChange > 3000) {
+                    lastVisibilityChange = now;
+                    console.log('📱 App resumed - refreshing data...');
+                    loadAllData();
+                    
+                    // Check if URL has announcementId (from notification deep link)
+                    const urlParams = new URLSearchParams(window.location.search);
+                    const announcementId = urlParams.get('announcementId');
+                    if (announcementId) {
+                        console.log('📢 Deep link found on resume:', announcementId);
+                        setTimeout(() => {
+                            viewAnnouncement(announcementId);
+                        }, 1000);
+                        // Clean URL
+                        if (window.history.replaceState) {
+                            window.history.replaceState({}, document.title, 
+                                window.location.origin + window.location.pathname);
+                        }
+                    }
+                }
+            }
+        });
+
         // Request notification permission
         // ========================================
         // PUSH NOTIFICATIONS SYSTEM
