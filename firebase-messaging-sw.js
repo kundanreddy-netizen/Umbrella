@@ -16,68 +16,8 @@ firebase.initializeApp({
 
 const messaging = firebase.messaging();
 
-console.log('[SW] Firebase Messaging Service Worker loaded - v2');
+console.log('[SW] Firebase Messaging Service Worker loaded - Announcements only');
 
-// Firebase automatically handles notification display when message contains notification payload.
-// We do NOT add a custom push handler to avoid duplicate notifications.
-
-// Store pending announcement ID for when the app opens
-let pendingAnnouncementId = null;
-
-// Handle notification click - open announcement popup in the app
-self.addEventListener('notificationclick', (event) => {
-    console.log('[SW] Notification clicked');
-    console.log('[SW] Notification data:', JSON.stringify(event.notification.data));
-    event.notification.close();
-
-    // Extract announcementId - FCM stores data under FCM_MSG.data
-    let announcementId = '';
-    try {
-        const notifData = event.notification.data || {};
-        // FCM puts custom data under FCM_MSG.data when using notification+data payload
-        announcementId = notifData?.FCM_MSG?.data?.announcementId 
-                      || notifData?.announcementId 
-                      || '';
-        console.log('[SW] Extracted announcementId:', announcementId);
-    } catch (e) {
-        console.error('[SW] Error extracting announcementId:', e);
-    }
-
-    const baseUrl = 'https://kundanreddy-netizen.github.io/Umbrella/';
-
-    event.waitUntil(
-        clients.matchAll({ type: 'window', includeUncontrolled: true })
-            .then((clientList) => {
-                console.log('[SW] Found', clientList.length, 'open clients');
-
-                // If the app is already open, message it to open the announcement
-                for (const client of clientList) {
-                    if (client.url.includes('/Umbrella')) {
-                        console.log('[SW] Found open Umbrella tab, sending message');
-                        if (announcementId) {
-                            client.postMessage({
-                                type: 'OPEN_ANNOUNCEMENT',
-                                announcementId: announcementId
-                            });
-                        }
-                        return client.focus();
-                    }
-                }
-
-                // App not open - open with announcementId in URL
-                const targetUrl = announcementId 
-                    ? baseUrl + '?announcementId=' + announcementId 
-                    : baseUrl;
-                console.log('[SW] Opening new window:', targetUrl);
-                return clients.openWindow(targetUrl);
-            })
-    );
-});
-
-// Respond to page asking for pending announcement
-self.addEventListener('message', (event) => {
-    if (event.data && event.data.type === 'GET_PENDING_ANNOUNCEMENT') {
-        event.ports[0].postMessage({ announcementId: pendingAnnouncementId });
-        pendingAnnouncementId = null;
-    }
-});
+// Firebase automatically handles notification display when message contains 'notification' payload
+// Firebase automatically handles click when webpush.fcmOptions.link is set
+// We don't need to do anything else!
