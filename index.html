@@ -1626,9 +1626,9 @@
         // APP RESUME HANDLER
         // ========================================
         // When the app returns to foreground (e.g. after tapping a notification),
-        // refresh all data and check for deep links.
+        // refresh all data and check for pending announcements.
         let lastVisibilityChange = 0;
-        document.addEventListener('visibilitychange', () => {
+        document.addEventListener('visibilitychange', async () => {
             if (document.visibilityState === 'visible' && currentUser) {
                 const now = Date.now();
                 // Throttle: only refresh if at least 3 seconds since last refresh
@@ -1637,19 +1637,35 @@
                     console.log('📱 App resumed - refreshing data...');
                     loadAllData();
                     
-                    // Check if URL has announcementId (from notification deep link)
+                    // METHOD 1: Check URL params (from fcmOptions.link when app was closed)
                     const urlParams = new URLSearchParams(window.location.search);
-                    const announcementId = urlParams.get('announcementId');
-                    if (announcementId) {
-                        console.log('📢 Deep link found on resume:', announcementId);
-                        setTimeout(() => {
-                            viewAnnouncement(announcementId);
-                        }, 1000);
-                        // Clean URL
+                    const urlAnnouncementId = urlParams.get('announcementId');
+                    if (urlAnnouncementId) {
+                        console.log('📢 Deep link found in URL:', urlAnnouncementId);
+                        setTimeout(() => { viewAnnouncement(urlAnnouncementId); }, 1200);
                         if (window.history.replaceState) {
                             window.history.replaceState({}, document.title, 
                                 window.location.origin + window.location.pathname);
                         }
+                        return; // Already found it, don't check cache
+                    }
+                    
+                    // METHOD 2: Check Cache API (from SW onBackgroundMessage - works on iOS)
+                    try {
+                        const cache = await caches.open('umbrella-pending');
+                        const resp = await cache.match('/__pending-notification');
+                        if (resp) {
+                            const pending = await resp.json();
+                            await cache.delete('/__pending-notification');
+                            
+                            // Only open if notification is less than 2 minutes old
+                            if (pending.announcementId && (now - pending.timestamp < 120000)) {
+                                console.log('📢 Pending notification from cache:', pending.announcementId);
+                                setTimeout(() => { viewAnnouncement(pending.announcementId); }, 1200);
+                            }
+                        }
+                    } catch (e) {
+                        console.log('Cache check skipped:', e.message);
                     }
                 }
             }

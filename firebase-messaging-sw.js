@@ -16,16 +16,43 @@ firebase.initializeApp({
 
 const messaging = firebase.messaging();
 
-console.log('[SW] Firebase Messaging Service Worker loaded - v3');
+console.log('[SW] Firebase Messaging Service Worker loaded - v4');
 
-// Firebase auto-displays notifications from the notification payload.
-// We only handle the CLICK - no custom push handler, no duplicate risk.
+// ============================================================
+// BACKGROUND MESSAGE HANDLER
+// ============================================================
+// When a push notification arrives while app is in background,
+// store the announcementId so the app can open it when resumed.
+// FCM still auto-displays the notification (we have notification key).
+// This handler does NOT call showNotification - no duplicate risk.
+
+messaging.onBackgroundMessage((payload) => {
+    console.log('[SW] Background message received:', payload);
+    
+    const announcementId = payload.data?.announcementId || '';
+    if (announcementId) {
+        // Store in Cache API - readable by the page on visibilitychange
+        caches.open('umbrella-pending').then(cache => {
+            cache.put('/__pending-notification', new Response(JSON.stringify({
+                announcementId: announcementId,
+                type: payload.data?.type || 'announcement',
+                timestamp: Date.now()
+            })));
+            console.log('[SW] Stored pending notification:', announcementId);
+        }).catch(err => console.error('[SW] Cache error:', err));
+    }
+});
+
+// ============================================================
+// NOTIFICATION CLICK HANDLER (Desktop / Android)
+// ============================================================
+// On iOS PWAs this may not fire, but the cache approach above covers that.
 
 self.addEventListener('notificationclick', (event) => {
     console.log('[SW] Notification clicked');
     event.notification.close();
 
-    // FCM stores our data payload under notification.data.FCM_MSG.data
+    // Extract announcementId from FCM data
     let announcementId = '';
     try {
         const nd = event.notification.data || {};
@@ -40,13 +67,11 @@ self.addEventListener('notificationclick', (event) => {
     event.waitUntil(
         clients.matchAll({ type: 'window', includeUncontrolled: true })
             .then(function(clientList) {
-                console.log('[SW] Open clients:', clientList.length);
-
                 // If app is already open, message it to show the announcement
                 for (var i = 0; i < clientList.length; i++) {
                     var client = clientList[i];
                     if (client.url.indexOf('/Umbrella') !== -1) {
-                        console.log('[SW] Messaging existing tab');
+                        console.log('[SW] Messaging open tab');
                         if (announcementId) {
                             client.postMessage({
                                 type: 'OPEN_ANNOUNCEMENT',
@@ -56,10 +81,9 @@ self.addEventListener('notificationclick', (event) => {
                         return client.focus();
                     }
                 }
-
                 // App not open - open with deep link
-                var url = announcementId 
-                    ? baseUrl + '?announcementId=' + announcementId 
+                var url = announcementId
+                    ? baseUrl + '?announcementId=' + announcementId
                     : baseUrl;
                 console.log('[SW] Opening:', url);
                 return clients.openWindow(url);
