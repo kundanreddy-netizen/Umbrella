@@ -2324,6 +2324,84 @@
             }, 500);
         }
 
+        // ========== SOCIAL POST HELPERS ==========
+        function timeAgo(date) {
+            if (!date) return '';
+            const now = new Date();
+            const diff = Math.floor((now - date) / 1000);
+            if (diff < 60) return 'Just now';
+            if (diff < 3600) return Math.floor(diff / 60) + ' min ago';
+            if (diff < 86400) return Math.floor(diff / 3600) + ' hr ago';
+            if (diff < 604800) return Math.floor(diff / 86400) + ' day ago';
+            return date.toLocaleDateString();
+        }
+        
+        function avatarHtml(name, size) {
+            size = size || 40;
+            const initials = (name || 'U').split(' ').map(w => w[0]).join('').toUpperCase().substring(0, 2);
+            const colors = ['#667eea','#764ba2','#f093fb','#4facfe','#43e97b','#fa709a','#fee140','#a18cd1'];
+            const ci = Math.abs((name || '').split('').reduce((a, c) => a + c.charCodeAt(0), 0)) % colors.length;
+            return '<div style="width:' + size + 'px;height:' + size + 'px;border-radius:50%;background:' + colors[ci] + ';color:white;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:' + Math.floor(size * 0.4) + 'px;flex-shrink:0;">' + initials + '</div>';
+        }
+        
+        function postHeaderHtml(name, unit, date, isOwner, deleteAction) {
+            const ago = date ? timeAgo(date instanceof Date ? date : date.toDate()) : '';
+            return '<div style="display:flex;align-items:center;gap:12px;margin-bottom:14px;">' +
+                avatarHtml(name, 40) +
+                '<div style="flex:1;min-width:0;"><div style="font-weight:700;font-size:15px;color:#333;">' + (name || 'Unknown') + '</div>' +
+                '<div style="font-size:12px;color:#999;">Unit ' + (unit || 'N/A') + (ago ? ' • ' + ago : '') + '</div></div>' +
+                (isOwner ? '<button onclick="' + deleteAction + '" style="background:none;border:none;cursor:pointer;font-size:18px;padding:6px;color:#999;" title="Delete">🗑️</button>' : '') +
+                '</div>';
+        }
+        
+        function commentsSectionHtml(comments, collection, docId, viewFnName, loadFnName) {
+            let html = '<div style="border-top:1px solid #eee;margin-top:16px;padding-top:14px;">';
+            html += '<div style="font-weight:600;font-size:14px;color:#333;margin-bottom:10px;">💬 Comments (' + comments.length + ')</div>';
+            
+            if (comments.length > 0) {
+                const sorted = [...comments].sort((a, b) => (a.timestamp ? a.timestamp.toMillis() : 0) - (b.timestamp ? b.timestamp.toMillis() : 0));
+                sorted.forEach(c => {
+                    const cDate = c.timestamp ? timeAgo(c.timestamp.toDate()) : '';
+                    html += '<div style="display:flex;gap:8px;margin-bottom:10px;">' +
+                        avatarHtml(c.userName, 28) +
+                        '<div style="flex:1;"><div style="font-size:13px;"><strong>' + (c.userName || 'Unknown') + '</strong> <span style="color:#999;font-size:11px;">' + cDate + '</span></div>' +
+                        '<div style="font-size:13px;color:#444;line-height:1.4;margin-top:2px;">' + (c.message || '') + '</div></div></div>';
+                });
+            } else {
+                html += '<div style="text-align:center;color:#bbb;font-size:13px;padding:10px 0;">No comments yet</div>';
+            }
+            
+            // Input
+            html += '<div style="display:flex;gap:8px;margin-top:10px;align-items:center;">' +
+                '<input id="commentInput" type="text" placeholder="Add your thoughts..." style="flex:1;padding:10px 14px;border:1px solid #e0e0e0;border-radius:20px;font-size:13px;outline:none;">' +
+                '<button onclick="addGenericComment(\'' + collection + '\',\'' + docId + '\',' + viewFnName + ',' + loadFnName + ')" style="background:none;border:none;cursor:pointer;font-size:20px;color:#667eea;padding:4px;">➤</button></div>';
+            html += '</div>';
+            return html;
+        }
+        
+        async function addGenericComment(collection, docId, viewFn, loadFn) {
+            const input = document.getElementById('commentInput');
+            const text = input ? input.value.trim() : '';
+            if (!text) { alert('Please write a comment'); return; }
+            try {
+                const doc = await db.collection(collection).doc(docId).get();
+                const comments = doc.data().comments || [];
+                comments.push({
+                    userId: currentUser.uid,
+                    userName: userData.displayName || 'Unknown',
+                    userUnit: userData.unitNumber || 'N/A',
+                    message: text,
+                    timestamp: firebase.firestore.Timestamp.now()
+                });
+                await db.collection(collection).doc(docId).update({ comments: comments });
+                if (viewFn) viewFn(docId);
+                if (loadFn) loadFn();
+            } catch (error) {
+                console.error('Error adding comment:', error);
+                alert('Error: ' + error.message);
+            }
+        }
+
         // ========== 3-DOT POST MENU ==========
         let activeMenu = null;
         
@@ -3522,99 +3600,23 @@
         async function viewMarketplaceItem(itemId) {
             try {
                 const doc = await db.collection('marketplace').doc(itemId).get();
-                if (!doc.exists) {
-                    alert('Item not found');
-                    return;
-                }
-
+                if (!doc.exists) { alert('Item not found'); return; }
                 const data = doc.data();
-                const date = data.createdAt ? data.createdAt.toDate().toLocaleString() : 'Unknown';
                 const isOwner = data.sellerId === currentUser.uid;
                 const comments = data.comments || [];
-
-                let html = `
-                    <div style="margin-bottom: 25px;">
-                        <h3 style="font-size: 22px; margin-bottom: 10px; color: #333;">${data.title || 'Item for Sale'}</h3>
-                        <div style="font-size: 28px; font-weight: 700; color: #667eea; margin-bottom: 15px;">$${data.price || '0'}</div>
-                        
-                        ${data.category ? `<span class="badge" style="background: #e3f2fd; color: #1976d2; font-size: 13px;">${data.category}</span>` : ''}
-                        
-                        <div style="margin-top: 15px; padding: 15px; background: #f8f9fa; border-radius: 8px;">
-                            <div style="font-weight: 600; margin-bottom: 8px;">Description:</div>
-                            <div style="line-height: 1.6;">${data.description || 'No description provided'}</div>
-                        </div>
-
-                        <div style="margin-top: 15px; padding: 15px; background: #e8f4f8; border-radius: 8px;">
-                            <div style="font-weight: 600; margin-bottom: 8px;">Seller Information:</div>
-                            <div style="line-height: 1.8;">
-                                <strong>Name:</strong> ${data.sellerName || 'Unknown'}<br>
-                                <strong>Unit:</strong> ${data.unitNumber || 'N/A'}<br>
-                                <strong>Phone:</strong> ${data.sellerPhone || 'Not provided'}<br>
-                                <strong>Email:</strong> ${data.sellerEmail || 'Not provided'}<br>
-                                <strong>Posted:</strong> ${date}
-                            </div>
-                        </div>
-
-                        ${!isOwner ? `
-                            <button class="btn" style="width: 100%; margin-top: 15px;" onclick="copySellerContact('${data.sellerPhone || ''}', '${data.sellerEmail || ''}', '${data.sellerName || 'Seller'}')">
-                                📞 Copy Contact Info
-                            </button>
-                        ` : ''}
-
-                        ${isOwner ? `
-                            <button class="btn" style="width: 100%; margin-top: 15px; background: #f44336;" onclick="if(confirm('Delete this item?')) { deleteMarketplaceItem('${itemId}'); closeMarketplaceModal(); }">
-                                🗑️ Delete Item
-                            </button>
-                        ` : ''}
-                    </div>
-
-                    <div style="border-top: 2px solid #e0e0e0; padding-top: 20px; margin-top: 20px;">
-                        <h4 style="font-size: 18px; margin-bottom: 15px; color: #333;">💬 Comments (${comments.length})</h4>
-                        
-                        <div id="commentsList" style="max-height: 300px; overflow-y: auto; margin-bottom: 15px;">
-                `;
-
-                if (comments.length === 0) {
-                    html += `<div style="text-align: center; color: #999; padding: 20px;">No comments yet. Be the first to comment!</div>`;
-                } else {
-                    comments.sort((a, b) => {
-                        const dateA = a.timestamp ? a.timestamp.toMillis() : 0;
-                        const dateB = b.timestamp ? b.timestamp.toMillis() : 0;
-                        return dateA - dateB;
-                    });
-
-                    comments.forEach(comment => {
-                        const commentDate = comment.timestamp ? comment.timestamp.toDate().toLocaleString() : 'Unknown';
-                        html += `
-                            <div style="background: #f8f9fa; padding: 12px; border-radius: 8px; margin-bottom: 10px; border-left: 3px solid #667eea;">
-                                <div style="font-weight: 600; color: #667eea; margin-bottom: 5px;">
-                                    ${comment.userName || 'Unknown'} 
-                                    <span style="font-weight: normal; color: #999; font-size: 12px;">• ${commentDate}</span>
-                                </div>
-                                <div style="color: #333; line-height: 1.5;">${comment.message || ''}</div>
-                            </div>
-                        `;
-                    });
-                }
-
-                html += `
-                        </div>
-
-                        <div class="input-group" style="margin-bottom: 0;">
-                            <textarea id="commentInput" placeholder="Write a comment..." 
-                                      style="width:100%;padding:12px;border:2px solid #e0e0e0;border-radius:8px;min-height:80px;font-family:inherit;resize:vertical;"></textarea>
-                        </div>
-                        <button class="btn" style="width: 100%; margin-top: 10px;" onclick="addMarketplaceComment('${itemId}')">
-                            💬 Post Comment
-                        </button>
-                    </div>
-                `;
-
+                const delAction = "if(confirm('Delete?')){deleteMarketplaceItem('" + itemId + "');closeMarketplaceModal();}";
+                
+                let html = postHeaderHtml(data.sellerName, data.unitNumber, data.createdAt, isOwner, delAction);
+                html += '<div style="font-size:22px;font-weight:700;color:#667eea;margin-bottom:10px;">$' + (data.price || '0') + '</div>';
+                if (data.category) html += '<span style="background:#e3f2fd;color:#1976d2;padding:3px 10px;border-radius:10px;font-size:12px;font-weight:600;display:inline-block;margin-bottom:10px;">' + data.category + '</span>';
+                html += '<div style="font-size:14px;color:#333;line-height:1.6;margin-bottom:12px;">' + (data.description || 'No description') + '</div>';
+                html += commentsSectionHtml(comments, 'marketplace', itemId, 'viewMarketplaceItem', 'loadMarketplace');
+                
                 document.getElementById('marketplaceModalBody').innerHTML = html;
                 document.getElementById('marketplaceModal').classList.add('show');
             } catch (error) {
-                console.error('Error loading item details:', error);
-                alert('Error loading item: ' + error.message);
+                console.error('Error:', error);
+                alert('Error: ' + error.message);
             }
         }
 
@@ -3628,26 +3630,18 @@
                 const doc = await db.collection('announcements').doc(announcementId).get();
                 if (!doc.exists) { alert('Announcement not found'); return; }
                 const data = doc.data();
-                const date = data.createdAt ? data.createdAt.toDate().toLocaleString() : 'Unknown';
-                const isAdmin = userData.role === 'admin';
-
-                let html = `
-                    <div style="margin-bottom: 25px;">
-                        <h3 style="font-size: 22px; margin-bottom: 10px; color: #333;">📢 ${data.title || 'Announcement'}</h3>
-                        <div style="font-size: 13px; color: #999; margin-bottom: 15px;">📅 ${date} • 👤 Admin</div>
-                        ${data.category ? `<span class="badge" style="background: #e3f2fd; color: #1976d2; font-size: 13px; margin-bottom: 15px; display: inline-block;">${data.category}</span>` : ''}
-                        <div style="padding: 15px; background: #f8f9fa; border-radius: 8px; line-height: 1.8; white-space: pre-wrap;">${data.message || data.content || 'No content'}</div>
-                        ${isAdmin ? `
-                            <button class="btn" style="width: 100%; margin-top: 15px; background: #f44336;" onclick="if(confirm('Delete this announcement?')) { db.collection('announcements').doc('${announcementId}').delete().then(() => { closeMarketplaceModal(); loadAnnouncements(); }); }">
-                                🗑️ Delete Announcement
-                            </button>
-                        ` : ''}
-                    </div>
-                `;
+                const isAdm = userData.role === 'admin';
+                const delAction = "if(confirm('Delete?')){db.collection('announcements').doc('" + announcementId + "').delete().then(()=>{closeMarketplaceModal();loadAnnouncements();});}";
+                
+                let html = postHeaderHtml('Admin', 'Community', data.createdAt, isAdm, delAction);
+                html += '<div style="font-weight:600;font-size:16px;color:#333;margin-bottom:8px;">📢 ' + (data.title || 'Announcement') + '</div>';
+                if (data.category) html += '<span style="background:#e3f2fd;color:#1976d2;padding:3px 10px;border-radius:10px;font-size:12px;font-weight:600;display:inline-block;margin-bottom:8px;">' + data.category + '</span>';
+                html += '<div style="font-size:14px;color:#333;line-height:1.6;white-space:pre-wrap;">' + (data.message || data.content || 'No content') + '</div>';
+                
                 document.getElementById('marketplaceModalBody').innerHTML = html;
                 document.getElementById('marketplaceModal').classList.add('show');
             } catch (error) {
-                console.error('Error loading announcement:', error);
+                console.error('Error:', error);
                 alert('Error: ' + error.message);
             }
         }
@@ -3658,48 +3652,31 @@
                 const doc = await db.collection('tickets').doc(ticketId).get();
                 if (!doc.exists) { alert('Ticket not found'); return; }
                 const data = doc.data();
-                const date = data.createdAt ? data.createdAt.toDate().toLocaleString() : 'Unknown';
                 const isOwner = data.residentId === currentUser.uid;
+                const comments = data.comments || [];
                 const statusColors = { open: '#2196F3', 'in-progress': '#FF9800', resolved: '#4CAF50', closed: '#9E9E9E' };
                 const statusColor = statusColors[data.status] || '#2196F3';
-
-                let html = `
-                    <div style="margin-bottom: 25px;">
-                        <h3 style="font-size: 22px; margin-bottom: 10px; color: #333;">🔧 ${data.title || 'Support Ticket'}</h3>
-                        <div style="display: flex; gap: 10px; align-items: center; margin-bottom: 15px;">
-                            <span style="background: ${statusColor}; color: white; padding: 4px 14px; border-radius: 12px; font-size: 13px; font-weight: 600; text-transform: uppercase;">${data.status || 'open'}</span>
-                            <span style="font-size: 13px; color: #999;">📅 ${date}</span>
-                        </div>
-                        ${data.category ? `<span class="badge" style="background: #e3f2fd; color: #1976d2; font-size: 13px; margin-bottom: 15px; display: inline-block;">${data.category}</span>` : ''}
-
-                        <div style="padding: 15px; background: #f8f9fa; border-radius: 8px; margin-bottom: 15px;">
-                            <div style="font-weight: 600; margin-bottom: 8px;">Description:</div>
-                            <div style="line-height: 1.6; white-space: pre-wrap;">${data.description || 'No description'}</div>
-                        </div>
-
-                        ${data.adminResponse ? `
-                            <div style="padding: 15px; background: #e8f5e9; border-radius: 8px; border-left: 4px solid #4CAF50; margin-bottom: 15px;">
-                                <div style="font-weight: 600; margin-bottom: 8px; color: #2E7D32;">💬 Admin Response:</div>
-                                <div style="line-height: 1.6;">${data.adminResponse}</div>
-                                ${data.respondedAt ? `<div style="font-size: 12px; color: #999; margin-top: 8px;">${data.respondedAt.toDate().toLocaleString()}</div>` : ''}
-                            </div>
-                        ` : `
-                            <div style="padding: 15px; background: #fff3e0; border-radius: 8px; border-left: 4px solid #FF9800; margin-bottom: 15px;">
-                                <div style="color: #E65100;">⏳ Awaiting admin response</div>
-                            </div>
-                        `}
-
-                        ${isOwner && data.status !== 'closed' ? `
-                            <button class="btn" style="width: 100%; margin-top: 15px; background: #f44336;" onclick="if(confirm('Delete this ticket?')) { db.collection('tickets').doc('${ticketId}').delete().then(() => { closeMarketplaceModal(); loadTickets(); }); }">
-                                🗑️ Delete Ticket
-                            </button>
-                        ` : ''}
-                    </div>
-                `;
+                const delAction = "if(confirm('Delete?')){db.collection('tickets').doc('" + ticketId + "').delete().then(()=>{closeMarketplaceModal();loadTickets();});}";
+                
+                let html = postHeaderHtml(data.residentName, data.unitNumber, data.createdAt, isOwner && data.status !== 'closed', delAction);
+                html += '<span style="background:' + statusColor + ';color:white;padding:3px 10px;border-radius:10px;font-size:12px;font-weight:600;text-transform:uppercase;display:inline-block;margin-bottom:8px;">' + (data.status || 'open') + '</span>';
+                if (data.category) html += ' <span style="background:#e3f2fd;color:#1976d2;padding:3px 10px;border-radius:10px;font-size:12px;font-weight:600;">' + data.category + '</span>';
+                html += '<div style="font-weight:600;font-size:16px;color:#333;margin:8px 0;">' + (data.title || 'Support Ticket') + '</div>';
+                html += '<div style="font-size:14px;color:#333;line-height:1.6;margin-bottom:12px;white-space:pre-wrap;">' + (data.description || 'No description') + '</div>';
+                
+                // Admin response section (kept)
+                if (data.adminResponse) {
+                    html += '<div style="padding:12px;background:#e8f5e9;border-radius:8px;border-left:3px solid #4CAF50;margin-bottom:12px;"><div style="font-weight:600;font-size:13px;color:#2E7D32;margin-bottom:4px;">💬 Admin Response:</div><div style="font-size:13px;line-height:1.5;">' + data.adminResponse + '</div></div>';
+                } else {
+                    html += '<div style="padding:10px;background:#fff3e0;border-radius:8px;border-left:3px solid #FF9800;margin-bottom:12px;font-size:13px;color:#E65100;">⏳ Awaiting admin response</div>';
+                }
+                
+                html += commentsSectionHtml(comments, 'tickets', ticketId, 'viewTicket', 'loadTickets');
+                
                 document.getElementById('marketplaceModalBody').innerHTML = html;
                 document.getElementById('marketplaceModal').classList.add('show');
             } catch (error) {
-                console.error('Error loading ticket:', error);
+                console.error('Error:', error);
                 alert('Error: ' + error.message);
             }
         }
@@ -3711,42 +3688,22 @@
                 if (!doc.exists) { alert('Alert not found'); return; }
                 const data = doc.data();
                 const dateStr = data.incidentDateTime ? data.incidentDateTime.toDate().toLocaleString() : 'Unknown';
-                const posted = data.createdAt ? data.createdAt.toDate().toLocaleString() : 'Unknown';
                 const isOwner = data.reportedBy === currentUser.uid;
+                const comments = data.comments || [];
                 const typeLabels = { suspicious_activity: '👀 Suspicious Activity', theft: '🚔 Theft', vandalism: '🔨 Vandalism', noise: '🔊 Noise Disturbance', safety_hazard: '⚠️ Safety Hazard', other: '📝 Other' };
-
-                let html = `
-                    <div style="margin-bottom: 25px;">
-                        <h3 style="font-size: 22px; margin-bottom: 10px; color: #333;">🚨 ${data.title || 'Security Alert'}</h3>
-                        <span style="background: #ffebee; color: #c62828; padding: 4px 14px; border-radius: 12px; font-size: 13px; font-weight: 600; display: inline-block; margin-bottom: 15px;">${typeLabels[data.type] || '🚨 Alert'}</span>
-
-                        <div style="padding: 15px; background: #fff3e0; border-radius: 8px; margin-bottom: 15px;">
-                            <div style="font-size: 16px; font-weight: 600; color: #e65100;">📅 ${dateStr}</div>
-                            <div style="margin-top: 5px;">📍 ${data.location || 'Location not specified'}</div>
-                        </div>
-
-                        <div style="padding: 15px; background: #f8f9fa; border-radius: 8px; margin-bottom: 15px;">
-                            <div style="font-weight: 600; margin-bottom: 8px;">Description:</div>
-                            <div style="line-height: 1.6; white-space: pre-wrap;">${data.description || 'No description'}</div>
-                        </div>
-
-                        <div style="padding: 15px; background: #e8f4f8; border-radius: 8px; margin-bottom: 15px;">
-                            <div style="font-weight: 600; margin-bottom: 8px;">Reported by:</div>
-                            <div>👤 ${data.reportedByName || 'Unknown'} • Unit ${data.unitNumber || 'N/A'}</div>
-                            <div style="font-size: 12px; color: #999; margin-top: 5px;">Posted: ${posted}</div>
-                        </div>
-
-                        ${isOwner ? `
-                            <button class="btn" style="width: 100%; margin-top: 15px; background: #f44336;" onclick="if(confirm('Delete this alert?')) { db.collection('security_alerts').doc('${alertId}').delete().then(() => { closeMarketplaceModal(); loadSecurityAlerts(); }); }">
-                                🗑️ Delete Alert
-                            </button>
-                        ` : ''}
-                    </div>
-                `;
+                const delAction = "if(confirm('Delete?')){db.collection('security_alerts').doc('" + alertId + "').delete().then(()=>{closeMarketplaceModal();loadSecurityAlerts();});}";
+                
+                let html = postHeaderHtml(data.reportedByName, data.unitNumber, data.createdAt, isOwner, delAction);
+                html += '<span style="background:#ffebee;color:#c62828;padding:3px 10px;border-radius:10px;font-size:12px;font-weight:600;display:inline-block;margin-bottom:10px;">' + (typeLabels[data.type] || '🚨 Alert') + '</span>';
+                html += '<div style="font-weight:600;font-size:16px;color:#333;margin-bottom:8px;">' + (data.title || 'Security Alert') + '</div>';
+                html += '<div style="font-size:13px;color:#666;margin-bottom:8px;">📅 ' + dateStr + ' • 📍 ' + (data.location || 'Unknown') + '</div>';
+                html += '<div style="font-size:14px;color:#333;line-height:1.6;margin-bottom:12px;">' + (data.description || '') + '</div>';
+                html += commentsSectionHtml(comments, 'security_alerts', alertId, 'viewSecurityAlert', 'loadSecurityAlerts');
+                
                 document.getElementById('marketplaceModalBody').innerHTML = html;
                 document.getElementById('marketplaceModal').classList.add('show');
             } catch (error) {
-                console.error('Error loading security alert:', error);
+                console.error('Error:', error);
                 alert('Error: ' + error.message);
             }
         }
@@ -3758,54 +3715,25 @@
                 if (!doc.exists) { alert('Item not found'); return; }
                 const data = doc.data();
                 const dateStr = data.date ? data.date.toDate().toLocaleDateString() : 'Date unknown';
-                const posted = data.createdAt ? data.createdAt.toDate().toLocaleString() : 'Unknown';
                 const isOwner = data.postedBy === currentUser.uid;
+                const comments = data.comments || [];
                 const categoryIcons = { pet: '🐕', keys: '🔑', wallet: '👛', phone: '📱', 'package': '📦', clothing: '👕', jewelry: '💍', other: '📦' };
                 const typeBadge = data.type === 'lost'
-                    ? '<span style="background:#dc3545;color:white;padding:6px 16px;border-radius:12px;font-size:13px;font-weight:600;">❌ LOST</span>'
-                    : '<span style="background:#28a745;color:white;padding:6px 16px;border-radius:12px;font-size:13px;font-weight:600;">✅ FOUND</span>';
-
-                let html = `
-                    <div style="margin-bottom: 25px;">
-                        <div style="display:flex;justify-content:space-between;align-items:start;margin-bottom:15px;">
-                            <h3 style="font-size: 22px; color: #333;">${(categoryIcons[data.category] || '📦')} ${data.title || 'Item'}</h3>
-                            ${typeBadge}
-                        </div>
-
-                        <div style="padding: 15px; background: #e3f2fd; border-radius: 8px; margin-bottom: 15px;">
-                            <div style="font-size: 16px; font-weight: 600; color: #1976d2;">📅 ${dateStr}</div>
-                            <div style="margin-top: 5px;">📍 ${data.location || 'Location not specified'}</div>
-                        </div>
-
-                        <div style="padding: 15px; background: #f8f9fa; border-radius: 8px; margin-bottom: 15px;">
-                            <div style="font-weight: 600; margin-bottom: 8px;">Description:</div>
-                            <div style="line-height: 1.6; white-space: pre-wrap;">${data.description || 'No description'}</div>
-                        </div>
-
-                        <div style="padding: 15px; background: #e8f4f8; border-radius: 8px; margin-bottom: 15px;">
-                            <div style="font-weight: 600; margin-bottom: 8px;">Contact Information:</div>
-                            <div>👤 ${data.postedByName || 'Unknown'} • Unit ${data.unitNumber || 'N/A'}</div>
-                            <div style="margin-top: 8px; font-size: 16px;">📞 ${data.contact || 'Not provided'}</div>
-                            <div style="font-size: 12px; color: #999; margin-top: 5px;">Posted: ${posted}</div>
-                        </div>
-
-                        ${data.contact ? `
-                            <button class="btn" style="width: 100%; margin-bottom: 10px;" onclick="copyToClipboard('${data.contact}'); alert('✅ Contact info copied!');">
-                                📋 Copy Contact Info
-                            </button>
-                        ` : ''}
-
-                        ${isOwner ? `
-                            <button class="btn" style="width: 100%; background: #f44336;" onclick="if(confirm('Delete this item?')) { db.collection('lost_and_found').doc('${itemId}').delete().then(() => { closeMarketplaceModal(); loadLostAndFound(); }); }">
-                                🗑️ Delete Post
-                            </button>
-                        ` : ''}
-                    </div>
-                `;
+                    ? '<span style="background:#dc3545;color:white;padding:3px 10px;border-radius:10px;font-size:12px;font-weight:600;">❌ LOST</span>'
+                    : '<span style="background:#28a745;color:white;padding:3px 10px;border-radius:10px;font-size:12px;font-weight:600;">✅ FOUND</span>';
+                const delAction = "if(confirm('Delete?')){db.collection('lost_and_found').doc('" + itemId + "').delete().then(()=>{closeMarketplaceModal();loadLostAndFound();});}";
+                
+                let html = postHeaderHtml(data.postedByName, data.unitNumber, data.createdAt, isOwner, delAction);
+                html += typeBadge + ' ' + (categoryIcons[data.category] || '📦');
+                html += '<div style="font-weight:600;font-size:16px;color:#333;margin:8px 0;">' + (data.title || 'Item') + '</div>';
+                html += '<div style="font-size:13px;color:#666;margin-bottom:8px;">📅 ' + dateStr + ' • 📍 ' + (data.location || 'Unknown') + '</div>';
+                html += '<div style="font-size:14px;color:#333;line-height:1.6;margin-bottom:12px;">' + (data.description || '') + '</div>';
+                html += commentsSectionHtml(comments, 'lost_and_found', itemId, 'viewLostFoundItem', 'loadLostAndFound');
+                
                 document.getElementById('marketplaceModalBody').innerHTML = html;
                 document.getElementById('marketplaceModal').classList.add('show');
             } catch (error) {
-                console.error('Error loading item:', error);
+                console.error('Error:', error);
                 alert('Error: ' + error.message);
             }
         }
@@ -3962,109 +3890,28 @@
         async function viewCommunityShareItem(itemId) {
             try {
                 const doc = await db.collection('communityshare').doc(itemId).get();
-                if (!doc.exists) {
-                    alert('Item not found');
-                    return;
-                }
-
+                if (!doc.exists) { alert('Item not found'); return; }
                 const data = doc.data();
-                const date = data.createdAt ? data.createdAt.toDate().toLocaleString() : 'Unknown';
                 const isOwner = data.ownerId === currentUser.uid;
                 const comments = data.comments || [];
                 const typeIcon = data.type === 'need' ? '🙏' : '🎁';
                 const typeLabel = data.type === 'need' ? 'Need to Borrow' : 'Available to Lend';
                 const typeBg = data.type === 'need' ? '#fff3e0' : '#e8f5e9';
                 const typeColor = data.type === 'need' ? '#e65100' : '#2e7d32';
-
-                let html = `
-                    <div style="margin-bottom: 25px;">
-                        <span style="background: ${typeBg}; color: ${typeColor}; padding: 6px 14px; border-radius: 14px; font-size: 12px; font-weight: 600; display: inline-block; margin-bottom: 15px;">
-                            ${typeIcon} ${typeLabel}
-                        </span>
-                        
-                        <h3 style="font-size: 22px; margin-bottom: 15px; color: #333;">${data.title || 'Item'}</h3>
-                        
-                        <div style="margin-top: 15px; padding: 15px; background: #f8f9fa; border-radius: 8px;">
-                            <div style="font-weight: 600; margin-bottom: 8px;">Description:</div>
-                            <div style="line-height: 1.6;">${data.description || 'No description provided'}</div>
-                        </div>
-
-                        ${data.availableUntil ? `
-                            <div style="margin-top: 15px; padding: 15px; background: #e3f2fd; border-radius: 8px;">
-                                <strong>Available Until:</strong> ${data.availableUntil.toDate().toLocaleDateString()}
-                            </div>
-                        ` : ''}
-
-                        <div style="margin-top: 15px; padding: 15px; background: #e8f4f8; border-radius: 8px;">
-                            <div style="font-weight: 600; margin-bottom: 8px;">Owner Information:</div>
-                            <div style="line-height: 1.8;">
-                                <strong>Name:</strong> ${data.ownerName || 'Unknown'}<br>
-                                <strong>Unit:</strong> ${data.unitNumber || 'N/A'}<br>
-                                <strong>Phone:</strong> ${data.ownerPhone || 'Not provided'}<br>
-                                <strong>Posted:</strong> ${date}
-                            </div>
-                        </div>
-
-                        ${!isOwner ? `
-                            <button class="btn" style="width: 100%; margin-top: 15px;" onclick="copyOwnerContact('${data.ownerPhone || ''}', '${data.ownerEmail || ''}', '${data.ownerName || 'Owner'}')">
-                                📞 Copy Contact Info
-                            </button>
-                        ` : ''}
-
-                        ${isOwner ? `
-                            <button class="btn" style="width: 100%; margin-top: 15px; background: #f44336;" onclick="if(confirm('Delete this item?')) { deleteCommunityShareItem('${itemId}'); closeMarketplaceModal(); }">
-                                🗑️ Delete Item
-                            </button>
-                        ` : ''}
-                    </div>
-
-                    <div style="border-top: 2px solid #e0e0e0; padding-top: 20px; margin-top: 20px;">
-                        <h4 style="font-size: 18px; margin-bottom: 15px; color: #333;">💬 Comments (${comments.length})</h4>
-                        
-                        <div id="commentsList" style="max-height: 300px; overflow-y: auto; margin-bottom: 15px;">
-                `;
-
-                if (comments.length === 0) {
-                    html += `<div style="text-align: center; color: #999; padding: 20px;">No comments yet. Be the first!</div>`;
-                } else {
-                    comments.sort((a, b) => {
-                        const dateA = a.timestamp ? a.timestamp.toMillis() : 0;
-                        const dateB = b.timestamp ? b.timestamp.toMillis() : 0;
-                        return dateA - dateB;
-                    });
-
-                    comments.forEach(comment => {
-                        const commentDate = comment.timestamp ? comment.timestamp.toDate().toLocaleString() : 'Unknown';
-                        html += `
-                            <div style="background: #f8f9fa; padding: 12px; border-radius: 8px; margin-bottom: 10px; border-left: 3px solid #667eea;">
-                                <div style="font-weight: 600; color: #667eea; margin-bottom: 5px;">
-                                    ${comment.userName || 'Unknown'} 
-                                    <span style="font-weight: normal; color: #999; font-size: 12px;">• ${commentDate}</span>
-                                </div>
-                                <div style="color: #333; line-height: 1.5;">${comment.message || ''}</div>
-                            </div>
-                        `;
-                    });
-                }
-
-                html += `
-                        </div>
-
-                        <div class="input-group" style="margin-bottom: 0;">
-                            <textarea id="commentInput" placeholder="Write a comment..." 
-                                      style="width:100%;padding:12px;border:2px solid #e0e0e0;border-radius:8px;min-height:80px;font-family:inherit;resize:vertical;"></textarea>
-                        </div>
-                        <button class="btn" style="width: 100%; margin-top: 10px;" onclick="addCommunityShareComment('${itemId}')">
-                            💬 Post Comment
-                        </button>
-                    </div>
-                `;
-
+                const delAction = "if(confirm('Delete?')){deleteCommunityShareItem('" + itemId + "');closeMarketplaceModal();}";
+                
+                let html = postHeaderHtml(data.ownerName, data.unitNumber, data.createdAt, isOwner, delAction);
+                html += '<span style="background:' + typeBg + ';color:' + typeColor + ';padding:3px 10px;border-radius:10px;font-size:12px;font-weight:600;display:inline-block;margin-bottom:10px;">' + typeIcon + ' ' + typeLabel + '</span>';
+                html += '<div style="font-weight:600;font-size:16px;color:#333;margin-bottom:8px;">' + (data.title || 'Item') + '</div>';
+                html += '<div style="font-size:14px;color:#333;line-height:1.6;margin-bottom:12px;">' + (data.description || 'No description') + '</div>';
+                if (data.availableUntil) html += '<div style="font-size:12px;color:#666;margin-bottom:8px;">⏰ Available until: ' + data.availableUntil.toDate().toLocaleDateString() + '</div>';
+                html += commentsSectionHtml(comments, 'communityshare', itemId, 'viewCommunityShareItem', 'loadCommunityShare');
+                
                 document.getElementById('marketplaceModalBody').innerHTML = html;
                 document.getElementById('marketplaceModal').classList.add('show');
             } catch (error) {
-                console.error('Error loading item details:', error);
-                alert('Error loading item: ' + error.message);
+                console.error('Error:', error);
+                alert('Error: ' + error.message);
             }
         }
 
@@ -4768,33 +4615,20 @@
                 const rsvps = data.rsvps || [];
                 const hasRSVPd = rsvps.some(r => r.userId === currentUser.uid);
                 const comments = data.comments || [];
+                const delAction = "if(confirm('Delete?')){deleteEvent('" + eventId + "');closeMarketplaceModal();}";
                 
-                let html = '<div style="margin-bottom: 25px;"><h3 style="font-size: 22px; margin-bottom: 15px; color: #333;">' + (data.title || 'Event') + '</h3><div style="margin-bottom: 15px; padding: 15px; background: #e3f2fd; border-radius: 8px;"><div style="font-size: 18px; font-weight: 600; color: #1976d2;">📅 ' + dateStr + (timeStr ? ' • ⏰ ' + timeStr : '') + '</div>' + (data.location ? '<div style="margin-top: 5px;">📍 ' + data.location + '</div>' : '') + '</div><div style="padding: 15px; background: #f8f9fa; border-radius: 8px; margin-bottom: 15px;"><strong>About:</strong><div style="margin-top: 8px;">' + (data.description || '') + '</div></div><div style="padding: 15px; background: #e8f4f8; border-radius: 8px; margin-bottom: 15px;"><strong>Organized by:</strong><div>' + (data.organizerName || 'Unknown') + ' • Unit ' + (data.unitNumber || 'N/A') + '</div>' + (data.organizerPhone ? '<div style="margin-top: 5px;">📞 ' + data.organizerPhone + '</div>' : '') + '</div>' + (!isOrganizer ? '<button class="btn" style="width: 100%; margin-bottom: 10px;" onclick="toggleRSVP(\'' + eventId + '\', ' + hasRSVPd + ')">' + (hasRSVPd ? '✅ You are Going!' : '✓ RSVP') + '</button>' : '') + (isOrganizer ? '<button class="btn" style="width: 100%; background: #f44336;" onclick="if(confirm(\'Delete event?\')) { deleteEvent(\'' + eventId + '\'); closeMarketplaceModal(); }">🗑️ Delete</button>' : '') + (rsvps.length > 0 ? '<div style="padding: 15px; background: #f8f9fa; border-radius: 8px; margin-top: 15px;"><strong>✅ Going (' + rsvps.length + '):</strong>' + rsvps.map(r => '<div style="padding: 5px 0;">• ' + (r.userName || 'Resident') + '</div>').join('') + '</div>' : '') + '</div>';
-
-                // Add comments section
-                html += '<div style="border-top: 2px solid #e0e0e0; padding-top: 20px; margin-top: 20px;"><h4 style="font-size: 18px; margin-bottom: 15px; color: #333;">💬 Comments (' + comments.length + ')</h4><div id="commentsList" style="max-height: 300px; overflow-y: auto; margin-bottom: 15px;">';
-
-                if (comments.length === 0) {
-                    html += '<div style="text-align: center; color: #999; padding: 20px;">No comments yet. Be the first to comment!</div>';
-                } else {
-                    comments.sort((a, b) => {
-                        const dateA = a.timestamp ? a.timestamp.toMillis() : 0;
-                        const dateB = b.timestamp ? b.timestamp.toMillis() : 0;
-                        return dateA - dateB;
-                    });
-
-                    comments.forEach(comment => {
-                        const commentDate = comment.timestamp ? comment.timestamp.toDate().toLocaleString() : 'Unknown';
-                        html += '<div style="background: #f8f9fa; padding: 12px; border-radius: 8px; margin-bottom: 10px; border-left: 3px solid #667eea;"><div style="font-weight: 600; color: #667eea; margin-bottom: 5px;">' + (comment.userName || 'Unknown') + ' <span style="font-weight: normal; color: #999; font-size: 12px;">• ' + commentDate + '</span></div><div style="color: #333; line-height: 1.5;">' + (comment.message || '') + '</div></div>';
-                    });
-                }
-
-                html += '</div><div class="input-group" style="margin-bottom: 0;"><textarea id="commentInput" placeholder="Write a comment or ask a question..." style="width:100%;padding:12px;border:2px solid #e0e0e0;border-radius:8px;min-height:80px;font-family:inherit;resize:vertical;"></textarea></div><button class="btn" style="width: 100%; margin-top: 10px;" onclick="addEventComment(\'' + eventId + '\')">💬 Post Comment</button></div>';
-
+                let html = postHeaderHtml(data.organizerName, data.unitNumber, data.createdAt, isOrganizer, delAction);
+                html += '<div style="font-weight:600;font-size:16px;color:#333;margin-bottom:8px;">' + (data.title || 'Event') + '</div>';
+                html += '<div style="padding:10px 14px;background:#e3f2fd;border-radius:8px;margin-bottom:10px;font-size:14px;"><span style="font-weight:600;color:#1976d2;">📅 ' + dateStr + (timeStr ? ' • ⏰ ' + timeStr : '') + '</span>' + (data.location ? '<br>📍 ' + data.location : '') + '</div>';
+                html += '<div style="font-size:14px;color:#333;line-height:1.6;margin-bottom:12px;">' + (data.description || '') + '</div>';
+                if (!isOrganizer) html += '<button class="btn" style="width:100%;margin-bottom:10px;" onclick="toggleRSVP(\'' + eventId + '\',' + hasRSVPd + ')">' + (hasRSVPd ? '✅ You are Going!' : '✓ RSVP') + '</button>';
+                if (rsvps.length > 0) html += '<div style="font-size:13px;color:#666;margin-bottom:8px;">✅ Going (' + rsvps.length + '): ' + rsvps.map(r => r.userName || 'Resident').join(', ') + '</div>';
+                html += commentsSectionHtml(comments, 'events', eventId, 'viewEvent', 'loadEvents');
+                
                 document.getElementById('marketplaceModalBody').innerHTML = html;
                 document.getElementById('marketplaceModal').classList.add('show');
             } catch (error) {
-                console.error('Error loading event:', error);
+                console.error('Error:', error);
                 alert('Error: ' + error.message);
             }
         }
