@@ -2601,7 +2601,7 @@
                             <div class="card-header">
                                 <div style="flex:1;">
                                     <div class="card-title">${data.title || 'Announcement'}</div>
-                                    <div class="card-subtitle">${date} • ${data.author || data.createdByName || 'Admin'}</div>
+                                    <div class="card-subtitle">${date} • 👤 Admin</div>
                                 </div>
                                 ${postMenuHtml(doc.id, 'announcement', isAdm, isAdm)}
                             </div>
@@ -3634,7 +3634,7 @@
                 let html = `
                     <div style="margin-bottom: 25px;">
                         <h3 style="font-size: 22px; margin-bottom: 10px; color: #333;">📢 ${data.title || 'Announcement'}</h3>
-                        <div style="font-size: 13px; color: #999; margin-bottom: 15px;">📅 ${date} • 👤 ${data.author || data.createdByName || 'Admin'}</div>
+                        <div style="font-size: 13px; color: #999; margin-bottom: 15px;">📅 ${date} • 👤 Admin</div>
                         ${data.category ? `<span class="badge" style="background: #e3f2fd; color: #1976d2; font-size: 13px; margin-bottom: 15px; display: inline-block;">${data.category}</span>` : ''}
                         <div style="padding: 15px; background: #f8f9fa; border-radius: 8px; line-height: 1.8; white-space: pre-wrap;">${data.message || data.content || 'No content'}</div>
                         ${isAdmin ? `
