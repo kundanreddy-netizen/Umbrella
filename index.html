@@ -1257,6 +1257,14 @@
                         </div>
                     </div>
 
+                    <div class="input-group">
+                        <label>Confirm Password</label>
+                        <div style="position: relative;">
+                            <input type="password" id="signupPasswordConfirm" placeholder="Re-enter your password" autocomplete="new-password" inputmode="text" style="padding-right: 45px;" required minlength="6">
+                            <button type="button" onclick="togglePassword('signupPasswordConfirm', this)" style="position: absolute; right: 10px; top: 50%; transform: translateY(-50%); background: none; border: none; cursor: pointer; font-size: 18px; color: #666; padding: 5px;">👁️</button>
+                        </div>
+                    </div>
+
                     <button type="submit" class="btn">Create Account</button>
 
                     <div class="toggle-auth">
@@ -2134,7 +2142,18 @@
                 // Auth state change will handle the rest
             } catch (error) {
                 console.error('Login error:', error);
-                showAuthError(error.message);
+                const code = error.code || '';
+                if (code === 'auth/invalid-credential' || code === 'auth/wrong-password' || code === 'auth/user-not-found') {
+                    showAuthError('Incorrect email or password. Please try again or use Forgot Password to reset.');
+                } else if (code === 'auth/too-many-requests') {
+                    showAuthError('Too many failed attempts. Please wait a few minutes and try again, or use Forgot Password.');
+                } else if (code === 'auth/user-disabled') {
+                    showAuthError('This account has been disabled. Please contact your community admin.');
+                } else if (code === 'auth/invalid-email') {
+                    showAuthError('Please enter a valid email address.');
+                } else {
+                    showAuthError('Sign in failed. Please check your credentials and try again.');
+                }
             }
         }
 
@@ -2157,6 +2176,12 @@
 
             if (password.length < 6) {
                 showAuthError('Password must be at least 6 characters');
+                return;
+            }
+
+            const confirmPassword = document.getElementById('signupPasswordConfirm').value;
+            if (password !== confirmPassword) {
+                showAuthError('Passwords do not match. Please re-enter.');
                 return;
             }
 
@@ -2276,7 +2301,9 @@
                     }
                 }
                 
-                showAuthError('Signup failed: ' + error.message + '. Please try again.');
+                showAuthError(error.code === 'auth/email-already-in-use' 
+                    ? 'An account with this email already exists. Please sign in or use Forgot Password.' 
+                    : 'Signup failed. Please try again.');
                 pendingSignupData = null;
             }
         }
