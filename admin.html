@@ -235,8 +235,8 @@
         <!-- Tabs -->
         <div class="tabs">
             <button class="tab-btn active" onclick="switchTab('approvals')">Pending Approvals<span class="tab-badge" id="approvalBadge" style="display:none;">0</span></button>
-            <button class="tab-btn" onclick="switchTab('residents')">Residents</button>
-            <button class="tab-btn" onclick="switchTab('tickets')">Tickets<span class="tab-badge" id="ticketBadge" style="display:none;">0</span></button>
+            <button class="tab-btn" onclick="switchTab('residents')">Residents<span class="tab-badge" id="residentsBadge" style="display:none;">0</span></button>
+            <button class="tab-btn" onclick="switchTab('tickets')">Tickets</button>
             <button class="tab-btn" onclick="switchTab('services')">Service Contacts</button>
             <button class="tab-btn" onclick="switchTab('notifications')">📢 Announcements</button>
         </div>
@@ -289,6 +289,19 @@
                 </form>
             </div>
             
+            <!-- Filter Buttons with count badges -->
+            <div style="margin-bottom: 16px; display:flex; gap:8px; flex-wrap:wrap;">
+                <button class="btn btn-primary" id="resFilterBtn-all" onclick="filterResidentsByStatus('all')">
+                    All <span class="tab-badge" id="resCount-all" style="background:#fff;color:#667eea;">0</span>
+                </button>
+                <button class="btn btn-success" id="resFilterBtn-approved" onclick="filterResidentsByStatus('approved')">
+                    Approved <span class="tab-badge" id="resCount-approved" style="background:#155724;color:#fff;">0</span>
+                </button>
+                <button class="btn btn-warning" id="resFilterBtn-pending" onclick="filterResidentsByStatus('pending')">
+                    Pending <span class="tab-badge" id="resCount-pending" style="background:#856404;color:#fff;">0</span>
+                </button>
+            </div>
+
             <input type="text" class="search-box" id="residentSearch" placeholder="🔍 Search residents by name, unit, or email..." onkeyup="filterResidents()">
             <div id="residentsList"></div>
         </div>
@@ -300,12 +313,20 @@
             <!-- Search Box -->
             <input type="text" class="search-box" id="ticketSearch" placeholder="🔍 Search tickets by title, category, or reporter..." onkeyup="filterTickets()">
             
-            <!-- Filter Buttons -->
-            <div style="margin-bottom: 20px;">
-                <button class="btn btn-primary" onclick="filterTicketsByStatus('all')">All</button>
-                <button class="btn btn-warning" onclick="filterTicketsByStatus('open')">Open</button>
-                <button class="btn btn-info" onclick="filterTicketsByStatus('in-progress')">In Progress</button>
-                <button class="btn btn-success" onclick="filterTicketsByStatus('resolved')">Resolved</button>
+            <!-- Filter Buttons with count badges -->
+            <div style="margin-bottom: 20px; display:flex; gap:8px; flex-wrap:wrap;">
+                <button class="btn btn-primary" id="filterBtn-all" onclick="filterTicketsByStatus('all')">
+                    All <span class="tab-badge" id="ticketCount-all" style="background:#fff;color:#667eea;">0</span>
+                </button>
+                <button class="btn btn-warning" id="filterBtn-open" onclick="filterTicketsByStatus('open')">
+                    Open <span class="tab-badge" id="ticketCount-open" style="background:#856404;color:#fff;">0</span>
+                </button>
+                <button class="btn btn-info" id="filterBtn-in-progress" onclick="filterTicketsByStatus('in-progress')">
+                    In Progress <span class="tab-badge" id="ticketCount-in-progress" style="background:#0c5460;color:#fff;">0</span>
+                </button>
+                <button class="btn btn-success" id="filterBtn-resolved" onclick="filterTicketsByStatus('resolved')">
+                    Resolved <span class="tab-badge" id="ticketCount-resolved" style="background:#155724;color:#fff;">0</span>
+                </button>
             </div>
             
             <div id="ticketsList"></div>
@@ -484,6 +505,12 @@
                     .where('communityId', '==', communityId)
                     .get();
                 document.getElementById('statResidents').textContent = residentsSnapshot.size;
+                // Residents badge on nav tab
+                const resBadgeNav = document.getElementById('residentsBadge');
+                if (resBadgeNav) {
+                    resBadgeNav.textContent = residentsSnapshot.size;
+                    resBadgeNav.style.display = residentsSnapshot.size > 0 ? 'inline-flex' : 'none';
+                }
                 
                 // Open Tickets
                 const ticketsSnapshot = await db.collection('tickets')
@@ -491,16 +518,6 @@
                     .where('status', 'in', ['open', 'in-progress'])
                     .get();
                 document.getElementById('statTickets').textContent = ticketsSnapshot.size;
-                // Show badge on Tickets tab when there are open tickets
-                const ticketBadge = document.getElementById('ticketBadge');
-                if (ticketBadge) {
-                    if (ticketsSnapshot.size > 0) {
-                        ticketBadge.textContent = ticketsSnapshot.size;
-                        ticketBadge.style.display = 'inline-flex';
-                    } else {
-                        ticketBadge.style.display = 'none';
-                    }
-                }
                 
                 // Service Contacts
                 const servicesSnapshot = await db.collection('service_contacts')
@@ -635,7 +652,24 @@
 
         function renderResidents(residents) {
             const container = document.getElementById('residentsList');
-            
+
+            // ── Update filter badge counts (always based on full allResidents list) ──
+            const rCounts = { all: allResidents.length, approved: 0, pending: 0 };
+            allResidents.forEach(r => {
+                if (r.isApproved === true || r.isApproved === undefined) rCounts.approved++;
+                else rCounts.pending++;
+            });
+            ['all','approved','pending'].forEach(s => {
+                const el = document.getElementById('resCount-' + s);
+                if (el) el.textContent = rCounts[s];
+            });
+            // Update nav tab badge
+            const resBadge = document.getElementById('residentsBadge');
+            if (resBadge) {
+                resBadge.textContent = rCounts.all;
+                resBadge.style.display = rCounts.all > 0 ? 'inline-flex' : 'none';
+            }
+
             if (residents.length === 0) {
                 container.innerHTML = '<div class="empty-state">No residents found</div>';
                 return;
@@ -669,12 +703,31 @@
 
         function filterResidents() {
             const searchTerm = document.getElementById('residentSearch').value.toLowerCase();
-            const filtered = allResidents.filter(r => 
-                r.name.toLowerCase().includes(searchTerm) ||
-                r.unitNumber.toLowerCase().includes(searchTerm) ||
-                r.email.toLowerCase().includes(searchTerm)
+            let base = allResidents;
+            // Apply current status filter first
+            if (currentResidentFilter && currentResidentFilter !== 'all') {
+                base = allResidents.filter(r => {
+                    const approved = r.isApproved === true || r.isApproved === undefined;
+                    return currentResidentFilter === 'approved' ? approved : !approved;
+                });
+            }
+            const filtered = base.filter(r =>
+                (r.name || '').toLowerCase().includes(searchTerm) ||
+                (r.unitNumber || '').toLowerCase().includes(searchTerm) ||
+                (r.email || '').toLowerCase().includes(searchTerm)
             );
             renderResidents(filtered);
+        }
+
+        let currentResidentFilter = 'all';
+        function filterResidentsByStatus(status) {
+            currentResidentFilter = status;
+            // Highlight active filter button
+            ['all','approved','pending'].forEach(s => {
+                const btn = document.getElementById('resFilterBtn-' + s);
+                if (btn) btn.style.opacity = s === status ? '1' : '0.6';
+            });
+            filterResidents();
         }
 
         function toggleResidentForm() {
@@ -840,11 +893,28 @@
 
         function renderTickets(tickets) {
             const container = document.getElementById('ticketsList');
-            
+
+            // ── Update filter badge counts (always based on full allTickets list) ──
+            const counts = { all: 0, open: 0, 'in-progress': 0, resolved: 0 };
+            tickets.forEach(t => {
+                counts.all++;
+                // Map 'closed' to 'resolved' since we removed closed status
+                const s = t.status === 'closed' ? 'resolved' : t.status;
+                if (counts[s] !== undefined) counts[s]++;
+            });
+            ['all', 'open', 'in-progress', 'resolved'].forEach(s => {
+                const el = document.getElementById('ticketCount-' + s);
+                if (el) el.textContent = counts[s];
+            });
+
             // Apply status filter
             let filtered = tickets;
             if (currentTicketStatusFilter !== 'all') {
-                filtered = tickets.filter(t => t.status === currentTicketStatusFilter);
+                // Treat 'closed' same as 'resolved' since we removed closed
+                filtered = tickets.filter(t => {
+                    const s = t.status === 'closed' ? 'resolved' : t.status;
+                    return s === currentTicketStatusFilter;
+                });
             }
             
             if (filtered.length === 0) {
@@ -864,8 +934,7 @@
                 const statusBadges = {
                     open: '<span class="badge badge-warning">Open</span>',
                     'in-progress': '<span class="badge badge-info">In Progress</span>',
-                    resolved: '<span class="badge badge-success">Resolved ✅</span>',
-                    closed:   '<span class="badge badge-success">Closed ✅</span>'
+                    resolved: '<span class="badge badge-success">Resolved ✅</span>'
                 };
                 
                 const date = ticket.createdAt ? ticket.createdAt.toDate().toLocaleDateString() : 'N/A';
@@ -882,9 +951,8 @@
                             </div>
                             <div class="action-buttons">
                                 <button class="btn btn-info" onclick="viewTicketAdmin('${ticket.id}')">💬 View / Comment</button>
-                                ${ticket.status !== 'resolved' && ticket.status !== 'closed' ? `<button class="btn btn-success" onclick="updateTicketStatus('${ticket.id}', 'resolved')">✅ Resolve</button>` : ''}
+                                ${ticket.status !== 'resolved' ? `<button class="btn btn-success" onclick="updateTicketStatus('${ticket.id}', 'resolved')">✅ Resolve</button>` : ''}
                                 ${ticket.status === 'open' ? `<button class="btn btn-info" onclick="updateTicketStatus('${ticket.id}', 'in-progress')">🔧 In Progress</button>` : ''}
-                                ${ticket.status !== 'closed' ? `<button class="btn" onclick="updateTicketStatus('${ticket.id}', 'closed')" style="background:#9E9E9E;color:white;">🔒 Close</button>` : ''}
                                 <button class="btn btn-danger" onclick="deleteTicket('${ticket.id}')">🗑️ Delete</button>
                             </div>
                         </div>
