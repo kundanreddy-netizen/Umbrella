@@ -4688,14 +4688,8 @@
                     createdAt: firebase.firestore.FieldValue.serverTimestamp()
                 });
 
-                // DISABLED: Send push notification to community
-                const typeLabel = type === 'offer' ? 'offering' : 'looking for';
-                await sendCommunityNotification(
-                    'community_share',
-                    `🤝 Community Share - ${shareType === 'offer' ? 'Offer' : 'Request'}`,
-                    `${userData.displayName || 'Someone'} shared: ${$title}`,
-                    { postId: csRef.id, postType: 'communityshare' }
-                );
+                // Push notification handled automatically by Cloud Function
+                // (triggers on new communityshare document)
 
                 closeModal();
                 loadCommunityShare();
