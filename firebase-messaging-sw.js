@@ -28,17 +28,21 @@ console.log('[SW] Firebase Messaging Service Worker loaded - v4');
 
 messaging.onBackgroundMessage((payload) => {
     console.log('[SW] Background message received:', payload);
-    
+
     const announcementId = payload.data?.announcementId || '';
-    if (announcementId) {
-        // Store in Cache API - readable by the page on visibilitychange
+    const postId         = payload.data?.postId         || '';
+    const postType       = payload.data?.postType       || 'announcement';
+
+    // Store whichever ID is present so the app can open it on resume
+    if (postId || announcementId) {
         caches.open('umbrella-pending').then(cache => {
             cache.put('/__pending-notification', new Response(JSON.stringify({
-                announcementId: announcementId,
-                type: payload.data?.type || 'announcement',
-                timestamp: Date.now()
+                postId:         postId,
+                postType:       postType,
+                announcementId: announcementId, // legacy fallback
+                timestamp:      Date.now()
             })));
-            console.log('[SW] Stored pending notification:', announcementId);
+            console.log('[SW] Stored pending notification:', postType, postId || announcementId);
         }).catch(err => console.error('[SW] Cache error:', err));
     }
 });
@@ -54,12 +58,17 @@ self.addEventListener('notificationclick', (event) => {
 
     // Extract announcementId from FCM data
     let announcementId = '';
+    let postId         = '';
+    let postType       = 'announcement';
     try {
         const nd = event.notification.data || {};
-        announcementId = (nd.FCM_MSG && nd.FCM_MSG.data && nd.FCM_MSG.data.announcementId) || '';
-        console.log('[SW] announcementId:', announcementId);
+        const fcmData = (nd.FCM_MSG && nd.FCM_MSG.data) ? nd.FCM_MSG.data : nd;
+        announcementId = fcmData.announcementId || '';
+        postId         = fcmData.postId         || '';
+        postType       = fcmData.postType       || 'announcement';
+        console.log('[SW] click data — postType:', postType, 'postId:', postId, 'announcementId:', announcementId);
     } catch (e) {
-        console.error('[SW] Error reading data:', e);
+        console.error('[SW] Error reading notification data:', e);
     }
 
     const baseUrl = 'https://kundanreddy-netizen.github.io/Umbrella/';
@@ -70,21 +79,21 @@ self.addEventListener('notificationclick', (event) => {
                 // If app is already open, message it to show the announcement
                 for (var i = 0; i < clientList.length; i++) {
                     var client = clientList[i];
-                    if (client.url.indexOf('/Umbrella') !== -1) {
+                    if (client.url.indexOf('/Umbrella') !== -1 ||
+                        client.url.indexOf('theumbrellaconnect') !== -1) {
                         console.log('[SW] Messaging open tab');
-                        if (announcementId) {
-                            client.postMessage({
-                                type: 'OPEN_ANNOUNCEMENT',
-                                announcementId: announcementId
-                            });
+                        if (postId) {
+                            client.postMessage({ type: 'OPEN_POST', postId: postId, postType: postType });
+                        } else if (announcementId) {
+                            client.postMessage({ type: 'OPEN_ANNOUNCEMENT', announcementId: announcementId });
                         }
                         return client.focus();
                     }
                 }
-                // App not open - open with deep link
-                var url = announcementId
-                    ? baseUrl + '?announcementId=' + announcementId
-                    : baseUrl;
+                // App not open - build deep link URL with correct params
+                var url = postId
+                    ? baseUrl + '?postId=' + postId + '&postType=' + postType
+                    : (announcementId ? baseUrl + '?announcementId=' + announcementId : baseUrl);
                 console.log('[SW] Opening:', url);
                 return clients.openWindow(url);
             })
