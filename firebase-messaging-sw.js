@@ -32,39 +32,19 @@ messaging.onBackgroundMessage((payload) => {
     const announcementId = payload.data?.announcementId || '';
     const postId         = payload.data?.postId         || '';
     const postType       = payload.data?.postType       || 'announcement';
-    const title          = payload.notification?.title  || payload.data?.title || 'The Umbrella Connect';
-    const body           = payload.notification?.body   || payload.data?.body  || 'New update in your community';
 
-    // Store in cache so app can open it on resume (iOS PWA path)
+    // Store whichever ID is present so the app can open it on resume
     if (postId || announcementId) {
         caches.open('umbrella-pending').then(cache => {
             cache.put('/__pending-notification', new Response(JSON.stringify({
                 postId:         postId,
                 postType:       postType,
-                announcementId: announcementId,
+                announcementId: announcementId, // legacy fallback
                 timestamp:      Date.now()
             })));
             console.log('[SW] Stored pending notification:', postType, postId || announcementId);
         }).catch(err => console.error('[SW] Cache error:', err));
     }
-
-    // Show custom notification with data embedded in the notification object
-    // This ensures notificationclick can always read postId/postType
-    const notificationOptions = {
-        body: body,
-        icon: '/icon-192.png',
-        badge: '/icon-72.png',
-        tag: postId || announcementId || 'umbrella-notif',
-        renotify: true,
-        data: {
-            postId:         postId,
-            postType:       postType,
-            announcementId: announcementId,
-            url:            'https://theumbrellaconnect.com/'
-        }
-    };
-
-    return self.registration.showNotification(title, notificationOptions);
 });
 
 // ============================================================
@@ -81,24 +61,17 @@ self.addEventListener('notificationclick', (event) => {
     let postId         = '';
     let postType       = 'announcement';
     try {
-        // Our custom notification puts data directly in event.notification.data
         const nd = event.notification.data || {};
-        postId         = nd.postId         || '';
-        postType       = nd.postType       || 'announcement';
-        announcementId = nd.announcementId || '';
-        // Fallback: FCM auto-notification wraps data in FCM_MSG
-        if (!postId && !announcementId) {
-            const fcmData = (nd.FCM_MSG && nd.FCM_MSG.data) ? nd.FCM_MSG.data : {};
-            postId         = fcmData.postId         || '';
-            postType       = fcmData.postType       || 'announcement';
-            announcementId = fcmData.announcementId || '';
-        }
-        console.log('[SW] click — postType:', postType, 'postId:', postId, 'announcementId:', announcementId);
+        const fcmData = (nd.FCM_MSG && nd.FCM_MSG.data) ? nd.FCM_MSG.data : nd;
+        announcementId = fcmData.announcementId || '';
+        postId         = fcmData.postId         || '';
+        postType       = fcmData.postType       || 'announcement';
+        console.log('[SW] click data — postType:', postType, 'postId:', postId, 'announcementId:', announcementId);
     } catch (e) {
         console.error('[SW] Error reading notification data:', e);
     }
 
-    const baseUrl = 'https://theumbrellaconnect.com/';
+    const baseUrl = 'https://kundanreddy-netizen.github.io/Umbrella/';
 
     event.waitUntil(
         clients.matchAll({ type: 'window', includeUncontrolled: true })
@@ -106,7 +79,8 @@ self.addEventListener('notificationclick', (event) => {
                 // If app is already open, message it to show the announcement
                 for (var i = 0; i < clientList.length; i++) {
                     var client = clientList[i];
-                    if (client.url.indexOf('theumbrellaconnect') !== -1) {
+                    if (client.url.indexOf('/Umbrella') !== -1 ||
+                        client.url.indexOf('theumbrellaconnect') !== -1) {
                         console.log('[SW] Messaging open tab');
                         if (postId) {
                             client.postMessage({ type: 'OPEN_POST', postId: postId, postType: postType });
