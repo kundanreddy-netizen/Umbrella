@@ -1858,23 +1858,47 @@
         // Open any post type by ID — used by deep links and notification clicks
         async function openPostById(postType, postId) {
             console.log('[openPostById]', postType, postId);
+            if (!postId) { console.warn('[openPostById] No postId'); return; }
             try {
-                switch(postType) {
-                    case 'announcement':   await viewAnnouncement(postId);   break;
-                    case 'marketplace':    await viewMarketplaceItem(postId); break;
-                    case 'ticket':
-                        navigateToTab('tickets');
-                        setTimeout(() => viewTicket(postId), 400);
-                        break;
-                    case 'community_share':
-                    case 'communityshare': await viewCommunityShareItem(postId); break;
-                    case 'event':          await viewEvent(postId);          break;
-                    case 'security':       await viewSecurityAlert(postId);  break;
-                    case 'lostfound':
-                    case 'lost_and_found': await viewLostFoundItem(postId);  break;
-                    default:
-                        console.warn('[openPostById] Unknown postType:', postType);
+                // Map type → tab name and view function
+                const tabMap = {
+                    'announcement':  'announcements',
+                    'marketplace':   'marketplace',
+                    'ticket':        'tickets',
+                    'community_share': 'communityshare',
+                    'communityshare':  'communityshare',
+                    'event':         'events',
+                    'security':      'security',
+                    'lostfound':     'lostandfound',
+                    'lost_and_found':'lostandfound'
+                };
+                const viewMap = {
+                    'announcement':    () => viewAnnouncement(postId),
+                    'marketplace':     () => viewMarketplaceItem(postId),
+                    'ticket':          () => viewTicket(postId),
+                    'community_share': () => viewCommunityShareItem(postId),
+                    'communityshare':  () => viewCommunityShareItem(postId),
+                    'event':           () => viewEvent(postId),
+                    'security':        () => viewSecurityAlert(postId),
+                    'lostfound':       () => viewLostFoundItem(postId),
+                    'lost_and_found':  () => viewLostFoundItem(postId)
+                };
+
+                const tab = tabMap[postType];
+                const viewFn = viewMap[postType];
+
+                if (!viewFn) {
+                    console.warn('[openPostById] Unknown postType:', postType);
+                    return;
                 }
+
+                // Switch to correct tab first, then open modal after data loads
+                if (tab) navigateToTab(tab);
+                setTimeout(async () => {
+                    try { await viewFn(); }
+                    catch(e) { console.error('[openPostById] viewFn error:', e); }
+                }, 600);
+
             } catch(e) {
                 console.error('[openPostById] Error:', e);
             }
@@ -1921,6 +1945,10 @@
                     title: title,
                     body: body,
                     data: data,
+                    // Flatten postId/postType to top-level so Cloud Function
+                    // can pass them as FCM data fields (FCM only sends strings)
+                    postId:   data.postId   || '',
+                    postType: data.postType || type,
                     createdBy: currentUser.uid,
                     createdByName: userData.displayName || userData.name,
                     createdAt: firebase.firestore.FieldValue.serverTimestamp(),
@@ -3126,6 +3154,25 @@
                 document.getElementById('dropdownMenu').classList.remove('show');
             }
         });
+
+        // Programmatic tab navigation (no event needed — used by deep links)
+        function navigateToTab(tabName) {
+            document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
+            const content = document.getElementById(tabName + 'Content');
+            if (content) content.classList.add('active');
+            document.querySelectorAll('.tab-btn').forEach(btn => {
+                btn.classList.toggle('active', btn.dataset.tab === tabName || btn.getAttribute('onclick')?.includes("'" + tabName + "'"));
+            });
+            currentTab = tabName;
+            const fab = document.getElementById('fab');
+            if (fab) {
+                if (['visitors','tickets','marketplace','communityshare','events','security','lostandfound'].includes(tabName)) {
+                    fab.classList.remove('hidden');
+                } else {
+                    fab.classList.add('hidden');
+                }
+            }
+        }
 
         function switchTab(tabName) {
             // Update buttons
