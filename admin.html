@@ -632,18 +632,29 @@
             }
             
             let html = '';
+            // Admin sees ALL residents — privacy settings do NOT filter here
             residents.forEach(resident => {
                 const approvalBadge = resident.isApproved !== false 
                     ? '<span class="badge badge-success">✅ Approved</span>'
                     : '<span class="badge badge-warning">⏳ Pending</span>';
-                
+
+                // Show privacy status so admin knows what is visible to other residents
+                const privacy = resident.privacySettings || {};
+                const hiddenFromDir = privacy.showInDirectory === false;
+                const phoneHidden   = privacy.showPhone === false;
+                const emailHidden   = privacy.showEmail === false;
+                const privacyBadge  = hiddenFromDir
+                    ? '<span class="badge" style="background:#e67e22;color:white;">👁️ Hidden from Directory</span>'
+                    : '';
+
+                // Always show full details to admin regardless of privacy settings
                 html += `
                     <div class="card">
                         <div style="display: flex; justify-content: space-between; align-items: start;">
                             <div>
-                                <h3>${resident.name} ${approvalBadge}</h3>
-                                <p><strong>Unit:</strong> ${resident.unitNumber} | <strong>Email:</strong> ${resident.email}</p>
-                                <p><strong>Phone:</strong> ${resident.phone}</p>
+                                <h3>${resident.name} ${approvalBadge} ${privacyBadge}</h3>
+                                <p><strong>Unit:</strong> ${resident.unitNumber} | <strong>Email:</strong> ${resident.email}${emailHidden ? ' <em style="color:#aaa;font-size:12px;">(hidden from residents)</em>' : ''}</p>
+                                <p><strong>Phone:</strong> ${resident.phone || 'Not provided'}${phoneHidden ? ' <em style="color:#aaa;font-size:12px;">(hidden from residents)</em>' : ''}</p>
                             </div>
                             <div class="action-buttons">
                                 <button class="btn btn-info" onclick="editResident('${resident.id}')">✏️ Edit</button>

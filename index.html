@@ -1228,7 +1228,7 @@
                 <!-- NEW: Hidden community field (currently only Covington exists) -->
                 <input type="hidden" id="signupCommunity" value="Covington">
                 
-                <form onsubmit="signup(); return false;">
+                <form onsubmit="signup(event);">
                     <div class="input-group">
                         <label>Full Name</label>
                         <input type="text" id="signupName" placeholder="John Doe" required>
@@ -1246,7 +1246,7 @@
 
                     <div class="input-group">
                         <label>Phone</label>
-                        <input type="tel" id="signupPhone" placeholder="555-1234" autocomplete="tel" required>
+                        <input type="tel" id="signupPhone" placeholder="Enter your Phone Number" autocomplete="tel" required>
                     </div>
 
                     <div class="input-group">
@@ -2166,7 +2166,10 @@
         // Store signup data temporarily
         let pendingSignupData = null;
 
-        async function signup() {
+        async function signup(event) {
+            // Prevent default form submission
+            if (event) event.preventDefault();
+
             const name = document.getElementById('signupName').value.trim();
             const email = document.getElementById('signupEmail').value.trim();
             const unit = document.getElementById('signupUnit').value.trim();
@@ -2174,7 +2177,7 @@
             const password = document.getElementById('signupPassword').value;
             const communityId = document.getElementById('signupCommunity').value;
 
-            // Validation
+            // ── Basic validation ──
             if (!name || !email || !unit || !phone || !password) {
                 showAuthError('Please fill in all fields');
                 return;
@@ -2191,8 +2194,8 @@
                 return;
             }
 
-            // NEW FLOW: Store data and show terms FIRST
-            console.log('📝 Storing signup data, showing terms...');
+            // ── Store data and show terms FIRST ──
+            console.log('📝 Email is new. Storing signup data, showing terms...');
             pendingSignupData = {
                 name: name,
                 email: email,
@@ -2202,7 +2205,7 @@
                 communityId: communityId
             };
 
-            // Show terms modal - user must accept BEFORE account is created
+            // Show terms modal — user must accept BEFORE account is created
             showTermsModal('signup');
         }
 
@@ -2296,8 +2299,8 @@
 
             } catch (error) {
                 console.error('❌ Signup error:', error);
-                
-                // If account was created but Firestore failed, try to delete auth account
+
+                // If account was created but Firestore failed, clean up
                 if (auth.currentUser) {
                     try {
                         await auth.currentUser.delete();
@@ -2306,11 +2309,27 @@
                         console.error('Could not delete auth account:', deleteError);
                     }
                 }
-                
-                showAuthError(error.code === 'auth/email-already-in-use' 
-                    ? 'An account with this email already exists. Please sign in or use Forgot Password.' 
-                    : 'Signup failed. Please try again.');
+
+                // ── Always close terms modal and return user to signup form ──
+                hideTermsModal();
                 pendingSignupData = null;
+
+                // Show the right error message on the signup form
+                if (error.code === 'auth/email-already-in-use') {
+                    showAuthError('⚠️ This email is already registered. Please sign in or use Forgot Password.');
+                } else if (error.code === 'auth/invalid-email') {
+                    showAuthError('⚠️ Please enter a valid email address.');
+                } else if (error.code === 'auth/weak-password') {
+                    showAuthError('⚠️ Password is too weak. Please use at least 6 characters.');
+                } else {
+                    showAuthError('⚠️ Signup failed: ' + (error.message || 'Please try again.'));
+                }
+
+                // Scroll error into view so user sees it
+                const errEl = document.getElementById('authError') 
+                           || document.querySelector('.auth-error')
+                           || document.querySelector('.error-message');
+                if (errEl) errEl.scrollIntoView({ behavior: 'smooth', block: 'center' });
             }
         }
 
@@ -2765,11 +2784,16 @@
                 });
                 
                 // FILTER 2: Filter residents who want to be shown in directory
-                const visibleResidents = approvedResidents.filter(r => {
-                    if (!r.privacySettings) return true;
-                    if (r.privacySettings.showInDirectory === undefined) return true;
-                    return r.privacySettings.showInDirectory === true;
-                });
+                // ── ADMIN bypasses this filter — admin sees ALL residents always ──
+                const isCurrentUserAdmin = userData && userData.role === 'admin';
+
+                const visibleResidents = isCurrentUserAdmin
+                    ? approvedResidents  // Admin sees everyone regardless of privacy setting
+                    : approvedResidents.filter(r => {
+                        if (!r.privacySettings) return true;
+                        if (r.privacySettings.showInDirectory === undefined) return true;
+                        return r.privacySettings.showInDirectory === true;
+                    });
 
                 // Sort by unit number
                 visibleResidents.sort((a, b) => (a.unitNumber || '').localeCompare(b.unitNumber || ''));
@@ -2804,12 +2828,16 @@
             }
 
             let html = '';
+            // Admin sees all contact details regardless of privacy toggles
+            const isAdminViewing = userData && userData.role === 'admin';
+
             residents.forEach(data => {
                 let details = '';
-                
-                const showPhone = !data.privacySettings || data.privacySettings.showPhone !== false;
-                const showEmail = !data.privacySettings || data.privacySettings.showEmail !== false;
-                
+
+                // Respect privacy settings for residents; admin always sees everything
+                const showPhone = isAdminViewing || !data.privacySettings || data.privacySettings.showPhone !== false;
+                const showEmail = isAdminViewing || !data.privacySettings || data.privacySettings.showEmail !== false;
+
                 if (showPhone && data.phone) {
                     details += `<div><strong>Phone:</strong> ${data.phone}</div>`;
                 }
@@ -2817,9 +2845,14 @@
                     details += `<div><strong>Email:</strong> ${data.email}</div>`;
                 }
 
+                // Admin gets a privacy status indicator
+                const hiddenBadge = isAdminViewing && data.privacySettings && data.privacySettings.showInDirectory === false
+                    ? `<span style="font-size:11px;background:#e67e22;color:white;padding:2px 8px;border-radius:10px;margin-left:6px;">Hidden from directory</span>`
+                    : '';
+
                 html += `
                     <div class="card">
-                        <div class="card-title">${data.name || 'Resident'}</div>
+                        <div class="card-title">${data.name || 'Resident'}${hiddenBadge}</div>
                         <div class="card-subtitle">Unit ${data.unitNumber || 'N/A'}</div>
                         <div class="card-content">${details || '<div style="color: #999;">Contact info hidden by resident</div>'}</div>
                     </div>
@@ -3239,7 +3272,7 @@
                     </div>
                     <div class="input-group">
                         <label>Phone Number</label>
-                        <input type="tel" id="visitorPhone" placeholder="555-1234">
+                        <input type="tel" id="visitorPhone" placeholder="Enter your Phone Number">
                     </div>
                     <div class="input-group">
                         <label>Vehicle Number</label>
@@ -5033,12 +5066,9 @@
                 }
             } catch (error) {
                 console.error('❌ Error accepting terms:', error);
-                alert('Error: ' + error.message);
-                
-                // Re-enable button
+                // completeSignup() handles its own errors — just re-enable button
                 const btn = document.getElementById('acceptTermsBtn');
-                btn.disabled = false;
-                btn.textContent = 'I Agree & Continue';
+                if (btn) { btn.disabled = false; btn.textContent = 'I Agree & Continue'; }
             }
         }
 
