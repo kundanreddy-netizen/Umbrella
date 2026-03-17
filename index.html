@@ -1621,10 +1621,14 @@
                         `;
                         toast.innerHTML = '<strong>' + title + '</strong>' + (body ? '<br><span style="font-size:13px;opacity:0.9">' + body + '</span>' : '') + '<br><span style="font-size:11px;opacity:0.7;margin-top:4px;display:inline-block;">Tap to view</span>';
                         
-                        // Click toast to open the announcement
+                        // Click toast to open the correct post
+                        const postId   = payload.data?.postId   || '';
+                        const postType = payload.data?.postType || 'announcement';
                         toast.addEventListener('click', () => {
                             toast.remove();
-                            if (announcementId) {
+                            if (postId) {
+                                openPostById(postType, postId);
+                            } else if (announcementId) {
                                 viewAnnouncement(announcementId);
                             }
                         });
@@ -1662,13 +1666,26 @@
                     const urlParams = new URLSearchParams(window.location.search);
                     const urlAnnouncementId = urlParams.get('announcementId');
                     if (urlAnnouncementId) {
-                        console.log('📢 Deep link found in URL:', urlAnnouncementId);
+                        console.log('[visibilitychange] Deep link: announcement', urlAnnouncementId);
                         setTimeout(() => { viewAnnouncement(urlAnnouncementId); }, 1200);
                         if (window.history.replaceState) {
-                            window.history.replaceState({}, document.title, 
+                            window.history.replaceState({}, document.title,
                                 window.location.origin + window.location.pathname);
                         }
-                        return; // Already found it, don't check cache
+                        return;
+                    }
+
+                    // New: postId + postType deep link
+                    const urlPostId   = urlParams.get('postId');
+                    const urlPostType = urlParams.get('postType');
+                    if (urlPostId && urlPostType) {
+                        console.log('[visibilitychange] Deep link: post', urlPostType, urlPostId);
+                        setTimeout(() => { openPostById(urlPostType, urlPostId); }, 1200);
+                        if (window.history.replaceState) {
+                            window.history.replaceState({}, document.title,
+                                window.location.origin + window.location.pathname);
+                        }
+                        return;
                     }
                     
                     // METHOD 2: Check Cache API (from SW onBackgroundMessage - works on iOS)
@@ -1680,9 +1697,14 @@
                             await cache.delete('/__pending-notification');
                             
                             // Only open if notification is less than 2 minutes old
-                            if (pending.announcementId && (now - pending.timestamp < 120000)) {
-                                console.log('📢 Pending notification from cache:', pending.announcementId);
-                                setTimeout(() => { viewAnnouncement(pending.announcementId); }, 1200);
+                            if (now - pending.timestamp < 120000) {
+                                if (pending.postId && pending.postType) {
+                                    console.log('[Cache] Post notification:', pending.postType, pending.postId);
+                                    setTimeout(() => { openPostById(pending.postType, pending.postId); }, 1200);
+                                } else if (pending.announcementId) {
+                                    console.log('[Cache] Announcement notification:', pending.announcementId);
+                                    setTimeout(() => { viewAnnouncement(pending.announcementId); }, 1200);
+                                }
                             }
                         }
                     } catch (e) {
@@ -1811,21 +1833,50 @@
         // Check if the app was opened from a notification click (deep link)
         function checkNotificationDeepLink() {
             const urlParams = new URLSearchParams(window.location.search);
+
+            // Legacy: announcementId param (admin announcements)
             const announcementId = urlParams.get('announcementId');
-            
+            // New: postId + postType params (all resident features)
+            const postId   = urlParams.get('postId');
+            const postType = urlParams.get('postType');
+
             if (announcementId) {
-                console.log('📢 Opened from notification - loading announcement:', announcementId);
-                
-                // Wait for data to load, then open the announcement popup
-                setTimeout(() => {
-                    viewAnnouncement(announcementId);
-                }, 1500);
-                
-                // Clean up the URL so refreshing doesn't re-open the popup
-                if (window.history.replaceState) {
-                    const cleanUrl = window.location.origin + window.location.pathname;
-                    window.history.replaceState({}, document.title, cleanUrl);
+                console.log('[DeepLink] Opening announcement:', announcementId);
+                setTimeout(() => { viewAnnouncement(announcementId); }, 1500);
+            } else if (postId && postType) {
+                console.log('[DeepLink] Opening post:', postType, postId);
+                setTimeout(() => { openPostById(postType, postId); }, 1500);
+            }
+
+            // Clean up URL params
+            if ((announcementId || postId) && window.history.replaceState) {
+                window.history.replaceState({}, document.title,
+                    window.location.origin + window.location.pathname);
+            }
+        }
+
+        // Open any post type by ID — used by deep links and notification clicks
+        async function openPostById(postType, postId) {
+            console.log('[openPostById]', postType, postId);
+            try {
+                switch(postType) {
+                    case 'announcement':   await viewAnnouncement(postId);   break;
+                    case 'marketplace':    await viewMarketplaceItem(postId); break;
+                    case 'ticket':
+                        navigateToTab('tickets');
+                        setTimeout(() => viewTicket(postId), 400);
+                        break;
+                    case 'community_share':
+                    case 'communityshare': await viewCommunityShareItem(postId); break;
+                    case 'event':          await viewEvent(postId);          break;
+                    case 'security':       await viewSecurityAlert(postId);  break;
+                    case 'lostfound':
+                    case 'lost_and_found': await viewLostFoundItem(postId);  break;
+                    default:
+                        console.warn('[openPostById] Unknown postType:', postType);
                 }
+            } catch(e) {
+                console.error('[openPostById] Error:', e);
             }
         }
         
@@ -1968,10 +2019,16 @@
                         // Listen for messages from service worker (when app is already open and notification is clicked)
                         if ('serviceWorker' in navigator) {
                             navigator.serviceWorker.addEventListener('message', (event) => {
+                                // Legacy: admin announcement deep link
                                 if (event.data?.type === 'OPEN_ANNOUNCEMENT' && event.data?.announcementId) {
-                                    console.log('[SW Message] Opening announcement:', event.data.announcementId);
+                                    console.log('[SW] Opening announcement:', event.data.announcementId);
+                                    setTimeout(() => { viewAnnouncement(event.data.announcementId); }, 500);
+                                }
+                                // New: any post type deep link
+                                if (event.data?.type === 'OPEN_POST' && event.data?.postId) {
+                                    console.log('[SW] Opening post:', event.data.postType, event.data.postId);
                                     setTimeout(() => {
-                                        viewAnnouncement(event.data.announcementId);
+                                        openPostById(event.data.postType || 'announcement', event.data.postId);
                                     }, 500);
                                 }
                             });
@@ -4076,7 +4133,7 @@
             }
 
             try {
-                await db.collection('tickets').add({
+                const tkRef = await db.collection('tickets').add({
                     communityId: userCommunityId, // MULTI-TENANT: Add community ID
                     residentId: currentUser.uid,
                     residentName: userData.displayName,
@@ -4092,6 +4149,12 @@
                     createdAt: firebase.firestore.FieldValue.serverTimestamp()
                 });
 
+                await sendCommunityNotification(
+                    'ticket',
+                    `🔧 New Support Ticket: ${title}`,
+                    `${userData.displayName || 'Someone'} submitted a ticket`,
+                    { postId: tkRef.id, postType: 'ticket' }
+                );
                 closeModal();
                 loadTickets();
                 alert('Ticket submitted successfully!');
@@ -4147,15 +4210,15 @@
 
                 console.log('Item Data to Save:', itemData);
                 
-                await db.collection('marketplace').add(itemData);
+                const mpRef = await db.collection('marketplace').add(itemData);
 
-                // DISABLED: Send push notification to community
-                // await sendCommunityNotification(
-                //     'marketplace',
-                //     '🏪 New Marketplace Item',
-                //     `${userData.displayName || 'Someone'} posted: ${title}`,
-                //     { itemTitle: title, category: category }
-                // );
+                // Send push notification to community
+                await sendCommunityNotification(
+                    'marketplace',
+                    '🏪 New Marketplace Listing',
+                    `${userData.displayName || 'Someone'} posted: ${title}`,
+                    { postId: mpRef.id, postType: 'marketplace', itemTitle: title, category: category }
+                );
 
                 submitBtn.disabled = false;
                 submitBtn.textContent = originalText;
@@ -4562,7 +4625,7 @@
             try {
                 const isEmail = contact.includes('@');
                 
-                await db.collection('communityshare').add({
+                const csRef = await db.collection('communityshare').add({
                     communityId: userCommunityId, // MULTI-TENANT: Add community ID
                     ownerId: currentUser.uid,
                     ownerName: userData.displayName || 'Unknown',
@@ -4580,12 +4643,12 @@
 
                 // DISABLED: Send push notification to community
                 const typeLabel = type === 'offer' ? 'offering' : 'looking for';
-                // await sendCommunityNotification(
-                //     'community_share',
-                //     `🤝 Community Share - ${type === 'offer' ? 'Offer' : 'Request'}`,
-                //     `${userData.displayName || 'Someone'} is ${typeLabel}: ${title}`,
-                //     { shareTitle: title, shareType: type }
-                // );
+                await sendCommunityNotification(
+                    'community_share',
+                    `🤝 Community Share - ${shareType === 'offer' ? 'Offer' : 'Request'}`,
+                    `${userData.displayName || 'Someone'} shared: ${$title}`,
+                    { postId: csRef.id, postType: 'communityshare' }
+                );
 
                 closeModal();
                 loadCommunityShare();
@@ -5312,15 +5375,15 @@
                 
                 console.log('Event data to save:', eventData);
                 
-                await db.collection('events').add(eventData);
+                const evRef = await db.collection('events').add(eventData);
                 
                 // DISABLED: Send push notification to community
-                // await sendCommunityNotification(
-                //     'event',
-                //     '🎉 New Community Event',
-                //     `${userData.displayName || 'Someone'} created: ${titleVal}`,
-                //     { eventTitle: titleVal, location: locVal }
-                // );
+                await sendCommunityNotification(
+                    'event',
+                    '🎉 New Community Event',
+                    `${userData.displayName || 'Someone'} created: ${titleVal}`,
+                    { postId: evRef.id, postType: 'event' }
+                );
                 
                 console.log('Event created successfully!');
                 closeModal();
@@ -5359,7 +5422,7 @@
             }
 
             try {
-                await db.collection('security_alerts').add({
+                const saRef = await db.collection('security_alerts').add({
                     communityId: userCommunityId,
                     type: type,
                     title: title,
@@ -5373,6 +5436,12 @@
                     createdAt: firebase.firestore.FieldValue.serverTimestamp()
                 });
 
+                await sendCommunityNotification(
+                    'security',
+                    `🚨 Security Alert: ${title}`,
+                    `${userData.displayName || 'Someone'} reported: ${description.substring(0, 80)}`,
+                    { postId: saRef.id, postType: 'security' }
+                );
                 closeModal();
                 loadSecurityAlerts();
                 alert('✅ Security alert reported');
@@ -5428,7 +5497,7 @@
             }
 
             try {
-                await db.collection('lost_and_found').add({
+                const lfRef = await db.collection('lost_and_found').add({
                     communityId: userCommunityId,
                     type: type,
                     category: category,
@@ -5444,6 +5513,12 @@
                     createdAt: firebase.firestore.FieldValue.serverTimestamp()
                 });
 
+                await sendCommunityNotification(
+                    'lostfound',
+                    `${type === 'lost' ? '😟 Item Lost' : '🎉 Item Found'}: ${title}`,
+                    `${userData.displayName || 'Someone'} posted in Lost & Found`,
+                    { postId: lfRef.id, postType: 'lostfound' }
+                );
                 closeModal();
                 loadLostAndFound();
                 alert('✅ Posted successfully');
