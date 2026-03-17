@@ -1228,7 +1228,7 @@
                 <!-- NEW: Hidden community field (currently only Covington exists) -->
                 <input type="hidden" id="signupCommunity" value="Covington">
                 
-                <form onsubmit="signup(event);">
+                <form onsubmit="signup(); return false;">
                     <div class="input-group">
                         <label>Full Name</label>
                         <input type="text" id="signupName" placeholder="John Doe" required>
@@ -1246,7 +1246,7 @@
 
                     <div class="input-group">
                         <label>Phone</label>
-                        <input type="tel" id="signupPhone" placeholder="Enter your Phone Number" autocomplete="tel" required>
+                        <input type="tel" id="signupPhone" placeholder="555-1234" autocomplete="tel" required>
                     </div>
 
                     <div class="input-group">
@@ -2166,10 +2166,7 @@
         // Store signup data temporarily
         let pendingSignupData = null;
 
-        async function signup(event) {
-            // Prevent default form submission
-            if (event) event.preventDefault();
-
+        async function signup() {
             const name = document.getElementById('signupName').value.trim();
             const email = document.getElementById('signupEmail').value.trim();
             const unit = document.getElementById('signupUnit').value.trim();
@@ -2177,7 +2174,7 @@
             const password = document.getElementById('signupPassword').value;
             const communityId = document.getElementById('signupCommunity').value;
 
-            // ── Basic validation ──
+            // Validation
             if (!name || !email || !unit || !phone || !password) {
                 showAuthError('Please fill in all fields');
                 return;
@@ -2194,8 +2191,8 @@
                 return;
             }
 
-            // ── Store data and show terms FIRST ──
-            console.log('📝 Email is new. Storing signup data, showing terms...');
+            // NEW FLOW: Store data and show terms FIRST
+            console.log('📝 Storing signup data, showing terms...');
             pendingSignupData = {
                 name: name,
                 email: email,
@@ -2205,7 +2202,7 @@
                 communityId: communityId
             };
 
-            // Show terms modal — user must accept BEFORE account is created
+            // Show terms modal - user must accept BEFORE account is created
             showTermsModal('signup');
         }
 
@@ -2299,8 +2296,8 @@
 
             } catch (error) {
                 console.error('❌ Signup error:', error);
-
-                // If account was created but Firestore failed, clean up
+                
+                // If account was created but Firestore failed, try to delete auth account
                 if (auth.currentUser) {
                     try {
                         await auth.currentUser.delete();
@@ -2309,27 +2306,11 @@
                         console.error('Could not delete auth account:', deleteError);
                     }
                 }
-
-                // ── Always close terms modal and return user to signup form ──
-                hideTermsModal();
+                
+                showAuthError(error.code === 'auth/email-already-in-use' 
+                    ? 'An account with this email already exists. Please sign in or use Forgot Password.' 
+                    : 'Signup failed. Please try again.');
                 pendingSignupData = null;
-
-                // Show the right error message on the signup form
-                if (error.code === 'auth/email-already-in-use') {
-                    showAuthError('⚠️ This email is already registered. Please sign in or use Forgot Password.');
-                } else if (error.code === 'auth/invalid-email') {
-                    showAuthError('⚠️ Please enter a valid email address.');
-                } else if (error.code === 'auth/weak-password') {
-                    showAuthError('⚠️ Password is too weak. Please use at least 6 characters.');
-                } else {
-                    showAuthError('⚠️ Signup failed: ' + (error.message || 'Please try again.'));
-                }
-
-                // Scroll error into view so user sees it
-                const errEl = document.getElementById('authError') 
-                           || document.querySelector('.auth-error')
-                           || document.querySelector('.error-message');
-                if (errEl) errEl.scrollIntoView({ behavior: 'smooth', block: 'center' });
             }
         }
 
@@ -2486,13 +2467,19 @@
                 const col = colMap[type];
                 if (col) {
                     await db.collection(col).doc(id).delete();
-                    alert('✅ Deleted');
+                    // Close any open modal after deletion
+                    closeMarketplaceModal();
+                    alert('✅ Deleted successfully');
                 }
                 const refreshMap = { visitor: loadVisitors, ticket: loadTickets, marketplace: loadMarketplace, communityshare: loadCommunityShare, event: loadEvents, security: loadSecurityAlerts, lostfound: loadLostAndFound, announcement: loadAnnouncements };
                 if (refreshMap[type]) refreshMap[type]();
             } catch (error) {
                 console.error('Error deleting:', error);
-                alert('Error: ' + error.message);
+                if (error.code === 'permission-denied') {
+                    alert('Permission denied. You can only delete your own posts.');
+                } else {
+                    alert('Error deleting: ' + error.message);
+                }
             }
         }
         
@@ -2500,7 +2487,7 @@
             if (activeMenu) { activeMenu.classList.remove('show'); activeMenu = null; }
             const viewMap = {
                 visitor: () => editVisitorInline(id),
-                ticket: () => viewTicket(id),
+                ticket: () => editTicketInline(id),
                 marketplace: () => viewMarketplaceItem(id),
                 communityshare: () => viewCommunityShareItem(id),
                 event: () => viewEvent(id),
@@ -2510,6 +2497,89 @@
             };
             if (viewMap[type]) viewMap[type]();
         }
+        async function editTicketInline(ticketId) {
+            try {
+                const doc = await db.collection('tickets').doc(ticketId).get();
+                if (!doc.exists) { alert('Ticket not found'); return; }
+                const data = doc.data();
+
+                // Only owner or admin can edit
+                if (data.residentId !== currentUser.uid && userData.role !== 'admin') {
+                    alert('You can only edit your own tickets.');
+                    return;
+                }
+                // Cannot edit closed/resolved tickets
+                if (data.status === 'closed' || data.status === 'resolved') {
+                    alert('Closed or resolved tickets cannot be edited.');
+                    return;
+                }
+
+                const html = `
+                    <h3 style="margin-bottom:16px;font-size:17px;font-weight:700;">✏️ Edit Ticket</h3>
+                    <div class="input-group">
+                        <label>Title *</label>
+                        <input type="text" id="editTicketTitle" value="${(data.title || '').replace(/"/g, '&quot;')}" 
+                               style="width:100%;padding:10px 12px;border:1px solid #e0e0e0;border-radius:8px;font-size:14px;">
+                    </div>
+                    <div class="input-group" style="margin-top:12px;">
+                        <label>Description *</label>
+                        <textarea id="editTicketDesc" rows="4"
+                                  style="width:100%;padding:10px 12px;border:1px solid #e0e0e0;border-radius:8px;font-size:14px;resize:vertical;">${data.description || ''}</textarea>
+                    </div>
+                    <div class="input-group" style="margin-top:12px;">
+                        <label>Location</label>
+                        <input type="text" id="editTicketLocation" value="${(data.location || '').replace(/"/g, '&quot;')}"
+                               style="width:100%;padding:10px 12px;border:1px solid #e0e0e0;border-radius:8px;font-size:14px;">
+                    </div>
+                    <div style="display:flex;gap:10px;margin-top:16px;">
+                        <button onclick="saveTicketEdit('${ticketId}')" 
+                                style="flex:1;background:#667eea;color:white;border:none;padding:12px;border-radius:8px;font-size:14px;font-weight:600;cursor:pointer;">
+                            💾 Save Changes
+                        </button>
+                        <button onclick="closeMarketplaceModal()" 
+                                style="flex:1;background:#f5f5f5;color:#333;border:1px solid #e0e0e0;padding:12px;border-radius:8px;font-size:14px;cursor:pointer;">
+                            Cancel
+                        </button>
+                    </div>
+                `;
+                document.getElementById('marketplaceModalBody').innerHTML = html;
+                document.getElementById('marketplaceModal').classList.add('show');
+            } catch (error) {
+                console.error('Error loading ticket for edit:', error);
+                alert('Error: ' + error.message);
+            }
+        }
+
+        async function saveTicketEdit(ticketId) {
+            const title = document.getElementById('editTicketTitle').value.trim();
+            const desc  = document.getElementById('editTicketDesc').value.trim();
+            const loc   = document.getElementById('editTicketLocation').value.trim();
+
+            if (!title || !desc) {
+                alert('Title and Description are required.');
+                return;
+            }
+            try {
+                await db.collection('tickets').doc(ticketId).update({
+                    title: title,
+                    description: desc,
+                    location: loc,
+                    updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+                });
+                closeMarketplaceModal();
+                loadTickets();
+                alert('✅ Ticket updated successfully!');
+            } catch (error) {
+                console.error('Error updating ticket:', error);
+                if (error.code === 'permission-denied') {
+                    alert('Permission denied. You can only edit your own tickets.');
+                } else {
+                    alert('Error updating ticket: ' + error.message);
+                }
+            }
+        }
+
+
         
         async function editVisitorInline(id) {
             try {
@@ -2784,16 +2854,11 @@
                 });
                 
                 // FILTER 2: Filter residents who want to be shown in directory
-                // ── ADMIN bypasses this filter — admin sees ALL residents always ──
-                const isCurrentUserAdmin = userData && userData.role === 'admin';
-
-                const visibleResidents = isCurrentUserAdmin
-                    ? approvedResidents  // Admin sees everyone regardless of privacy setting
-                    : approvedResidents.filter(r => {
-                        if (!r.privacySettings) return true;
-                        if (r.privacySettings.showInDirectory === undefined) return true;
-                        return r.privacySettings.showInDirectory === true;
-                    });
+                const visibleResidents = approvedResidents.filter(r => {
+                    if (!r.privacySettings) return true;
+                    if (r.privacySettings.showInDirectory === undefined) return true;
+                    return r.privacySettings.showInDirectory === true;
+                });
 
                 // Sort by unit number
                 visibleResidents.sort((a, b) => (a.unitNumber || '').localeCompare(b.unitNumber || ''));
@@ -2828,16 +2893,12 @@
             }
 
             let html = '';
-            // Admin sees all contact details regardless of privacy toggles
-            const isAdminViewing = userData && userData.role === 'admin';
-
             residents.forEach(data => {
                 let details = '';
-
-                // Respect privacy settings for residents; admin always sees everything
-                const showPhone = isAdminViewing || !data.privacySettings || data.privacySettings.showPhone !== false;
-                const showEmail = isAdminViewing || !data.privacySettings || data.privacySettings.showEmail !== false;
-
+                
+                const showPhone = !data.privacySettings || data.privacySettings.showPhone !== false;
+                const showEmail = !data.privacySettings || data.privacySettings.showEmail !== false;
+                
                 if (showPhone && data.phone) {
                     details += `<div><strong>Phone:</strong> ${data.phone}</div>`;
                 }
@@ -2845,14 +2906,9 @@
                     details += `<div><strong>Email:</strong> ${data.email}</div>`;
                 }
 
-                // Admin gets a privacy status indicator
-                const hiddenBadge = isAdminViewing && data.privacySettings && data.privacySettings.showInDirectory === false
-                    ? `<span style="font-size:11px;background:#e67e22;color:white;padding:2px 8px;border-radius:10px;margin-left:6px;">Hidden from directory</span>`
-                    : '';
-
                 html += `
                     <div class="card">
-                        <div class="card-title">${data.name || 'Resident'}${hiddenBadge}</div>
+                        <div class="card-title">${data.name || 'Resident'}</div>
                         <div class="card-subtitle">Unit ${data.unitNumber || 'N/A'}</div>
                         <div class="card-content">${details || '<div style="color: #999;">Contact info hidden by resident</div>'}</div>
                     </div>
@@ -3061,9 +3117,9 @@
             
             try {
                 // MULTI-TENANT: Get tickets from user's community only
+                // All residents can see all community tickets (not just their own)
                 const snapshot = await db.collection('tickets')
                     .where('communityId', '==', userCommunityId)
-                    .where('residentId', '==', currentUser.uid)
                     .get();
 
                 if (snapshot.empty) {
@@ -3091,12 +3147,22 @@
                     const date = data.createdAt ? data.createdAt.toDate().toLocaleDateString() : 'Recent';
                     const isOwner = data.residentId === currentUser.uid || data.createdBy === currentUser.uid;
                     
+                    // Closed/resolved tickets are faded to show completion
+                    const isClosed = data.status === 'closed' || data.status === 'resolved';
+                    const cardStyle = isClosed
+                        ? 'cursor:pointer;opacity:0.55;filter:grayscale(0.3);'
+                        : 'cursor:pointer;';
+                    const closedBanner = isClosed
+                        ? `<div style="font-size:11px;color:#4CAF50;font-weight:600;margin-bottom:4px;">✅ COMPLETED</div>`
+                        : '';
+
                     html += `
-                        <div class="card" onclick="viewTicket('${data.id}')" style="cursor: pointer;">
+                        <div class="card" onclick="viewTicket('${data.id}')" style="${cardStyle}">
                             <div class="card-header">
                                 <div style="flex:1;">
+                                    ${closedBanner}
                                     <div class="card-title">${data.title || 'Support Ticket'}</div>
-                                    <div class="card-subtitle">${date} • ${data.category || 'General'}</div>
+                                    <div class="card-subtitle">${date} • ${data.category || 'General'} • By ${data.residentName || 'Resident'}</div>
                                 </div>
                                 ${postMenuHtml(data.id, 'ticket', isOwner, userData.role === 'admin')}
                             </div>
@@ -3272,7 +3338,7 @@
                     </div>
                     <div class="input-group">
                         <label>Phone Number</label>
-                        <input type="tel" id="visitorPhone" placeholder="Enter your Phone Number">
+                        <input type="tel" id="visitorPhone" placeholder="555-1234">
                     </div>
                     <div class="input-group">
                         <label>Vehicle Number</label>
@@ -5066,9 +5132,12 @@
                 }
             } catch (error) {
                 console.error('❌ Error accepting terms:', error);
-                // completeSignup() handles its own errors — just re-enable button
+                alert('Error: ' + error.message);
+                
+                // Re-enable button
                 const btn = document.getElementById('acceptTermsBtn');
-                if (btn) { btn.disabled = false; btn.textContent = 'I Agree & Continue'; }
+                btn.disabled = false;
+                btn.textContent = 'I Agree & Continue';
             }
         }
 

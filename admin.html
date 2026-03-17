@@ -632,29 +632,18 @@
             }
             
             let html = '';
-            // Admin sees ALL residents — privacy settings do NOT filter here
             residents.forEach(resident => {
                 const approvalBadge = resident.isApproved !== false 
                     ? '<span class="badge badge-success">✅ Approved</span>'
                     : '<span class="badge badge-warning">⏳ Pending</span>';
-
-                // Show privacy status so admin knows what is visible to other residents
-                const privacy = resident.privacySettings || {};
-                const hiddenFromDir = privacy.showInDirectory === false;
-                const phoneHidden   = privacy.showPhone === false;
-                const emailHidden   = privacy.showEmail === false;
-                const privacyBadge  = hiddenFromDir
-                    ? '<span class="badge" style="background:#e67e22;color:white;">👁️ Hidden from Directory</span>'
-                    : '';
-
-                // Always show full details to admin regardless of privacy settings
+                
                 html += `
                     <div class="card">
                         <div style="display: flex; justify-content: space-between; align-items: start;">
                             <div>
-                                <h3>${resident.name} ${approvalBadge} ${privacyBadge}</h3>
-                                <p><strong>Unit:</strong> ${resident.unitNumber} | <strong>Email:</strong> ${resident.email}${emailHidden ? ' <em style="color:#aaa;font-size:12px;">(hidden from residents)</em>' : ''}</p>
-                                <p><strong>Phone:</strong> ${resident.phone || 'Not provided'}${phoneHidden ? ' <em style="color:#aaa;font-size:12px;">(hidden from residents)</em>' : ''}</p>
+                                <h3>${resident.name} ${approvalBadge}</h3>
+                                <p><strong>Unit:</strong> ${resident.unitNumber} | <strong>Email:</strong> ${resident.email}</p>
+                                <p><strong>Phone:</strong> ${resident.phone}</p>
                             </div>
                             <div class="action-buttons">
                                 <button class="btn btn-info" onclick="editResident('${resident.id}')">✏️ Edit</button>
@@ -865,7 +854,8 @@
                 const statusBadges = {
                     open: '<span class="badge badge-warning">Open</span>',
                     'in-progress': '<span class="badge badge-info">In Progress</span>',
-                    resolved: '<span class="badge badge-success">Resolved</span>'
+                    resolved: '<span class="badge badge-success">Resolved ✅</span>',
+                    closed:   '<span class="badge badge-success">Closed ✅</span>'
                 };
                 
                 const date = ticket.createdAt ? ticket.createdAt.toDate().toLocaleDateString() : 'N/A';
@@ -881,8 +871,10 @@
                                 <p><strong>Reporter:</strong> ${ticket.reporterName} (Unit ${ticket.unitNumber}) | <strong>Date:</strong> ${date}</p>
                             </div>
                             <div class="action-buttons">
-                                ${ticket.status !== 'resolved' ? `<button class="btn btn-success" onclick="updateTicketStatus('${ticket.id}', 'resolved')">✅ Resolve</button>` : ''}
+                                <button class="btn btn-info" onclick="viewTicketAdmin('${ticket.id}')">💬 View / Comment</button>
+                                ${ticket.status !== 'resolved' && ticket.status !== 'closed' ? `<button class="btn btn-success" onclick="updateTicketStatus('${ticket.id}', 'resolved')">✅ Resolve</button>` : ''}
                                 ${ticket.status === 'open' ? `<button class="btn btn-info" onclick="updateTicketStatus('${ticket.id}', 'in-progress')">🔧 In Progress</button>` : ''}
+                                ${ticket.status !== 'closed' ? `<button class="btn" onclick="updateTicketStatus('${ticket.id}', 'closed')" style="background:#9E9E9E;color:white;">🔒 Close</button>` : ''}
                                 <button class="btn btn-danger" onclick="deleteTicket('${ticket.id}')">🗑️ Delete</button>
                             </div>
                         </div>
@@ -1279,6 +1271,114 @@
                 window.location.href = 'index.html';
             }
         }
-    </script>
+    
+        // ── Admin: View ticket detail with comment box ──
+        async function viewTicketAdmin(ticketId) {
+            try {
+                const doc = await db.collection('tickets').doc(ticketId).get();
+                if (!doc.exists) { alert('Ticket not found'); return; }
+                const data = doc.data();
+                const comments = data.comments || [];
+                const statusColors = { open:'#2196F3','in-progress':'#FF9800',resolved:'#4CAF50',closed:'#9E9E9E' };
+                const color = statusColors[data.status] || '#2196F3';
+                const date = data.createdAt ? data.createdAt.toDate().toLocaleDateString() : 'N/A';
+
+                // Build modal content
+                let html = `
+                    <div style="padding:20px;">
+                        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;">
+                            <h3 style="margin:0;font-size:17px;">${data.title || 'Support Ticket'}</h3>
+                            <span style="background:${color};color:white;padding:3px 12px;border-radius:10px;font-size:12px;font-weight:600;text-transform:uppercase;">${data.status || 'open'}</span>
+                        </div>
+                        <p style="font-size:13px;color:#666;margin-bottom:4px;"><strong>Reporter:</strong> ${data.residentName || 'Resident'} • Unit ${data.unitNumber || 'N/A'} • ${date}</p>
+                        <p style="font-size:13px;color:#666;margin-bottom:12px;"><strong>Category:</strong> ${data.category || 'General'} | <strong>Priority:</strong> ${(data.priority || 'medium').toUpperCase()}</p>
+                        ${data.location ? `<p style="font-size:13px;color:#666;margin-bottom:12px;"><strong>Location:</strong> ${data.location}</p>` : ''}
+                        <div style="font-size:14px;color:#333;line-height:1.6;margin-bottom:16px;white-space:pre-wrap;background:#f9f9f9;padding:12px;border-radius:8px;">${data.description || ''}</div>
+
+                        <!-- Comments -->
+                        <div style="border-top:1px solid #eee;padding-top:14px;margin-bottom:14px;">
+                            <div style="font-weight:600;font-size:14px;margin-bottom:10px;">💬 Comments (${comments.length})</div>
+                            <div id="adminCommentsList">
+                                ${comments.length === 0 ? '<div style="color:#bbb;font-size:13px;text-align:center;padding:10px 0;">No comments yet</div>' :
+                                    comments.sort((a,b) => (a.timestamp ? a.timestamp.toMillis() : 0) - (b.timestamp ? b.timestamp.toMillis() : 0))
+                                    .map(c => `
+                                        <div style="display:flex;gap:8px;margin-bottom:10px;">
+                                            <div style="width:28px;height:28px;border-radius:50%;background:#667eea;color:white;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:700;flex-shrink:0;">
+                                                ${(c.userName || '?')[0].toUpperCase()}
+                                            </div>
+                                            <div style="flex:1;">
+                                                <div style="font-size:13px;"><strong>${c.userName || 'Unknown'}</strong> <span style="color:#999;font-size:11px;">${c.timestamp ? new Date(c.timestamp.toMillis()).toLocaleString() : ''}</span></div>
+                                                <div style="font-size:13px;color:#444;line-height:1.4;margin-top:2px;">${c.message || ''}</div>
+                                            </div>
+                                        </div>`).join('')
+                                }
+                            </div>
+                        </div>
+
+                        <!-- Admin Comment Input -->
+                        <div style="display:flex;gap:8px;align-items:center;margin-bottom:16px;">
+                            <input id="adminTicketComment" type="text" placeholder="Add admin comment or response..."
+                                   style="flex:1;padding:10px 14px;border:1px solid #e0e0e0;border-radius:20px;font-size:13px;outline:none;">
+                            <button onclick="addAdminTicketComment('${ticketId}')"
+                                    style="background:#667eea;color:white;border:none;border-radius:50%;width:38px;height:38px;font-size:18px;cursor:pointer;flex-shrink:0;">➤</button>
+                        </div>
+
+                        <!-- Actions -->
+                        <div style="display:flex;gap:8px;flex-wrap:wrap;">
+                            ${data.status !== 'resolved' && data.status !== 'closed' ? `<button onclick="updateTicketStatus('${ticketId}','resolved');closeAdminModal();" style="flex:1;background:#4CAF50;color:white;border:none;padding:10px;border-radius:8px;font-size:13px;font-weight:600;cursor:pointer;">✅ Mark Resolved</button>` : ''}
+                            ${data.status === 'open' ? `<button onclick="updateTicketStatus('${ticketId}','in-progress');closeAdminModal();" style="flex:1;background:#FF9800;color:white;border:none;padding:10px;border-radius:8px;font-size:13px;font-weight:600;cursor:pointer;">🔧 In Progress</button>` : ''}
+                            ${data.status !== 'closed' ? `<button onclick="updateTicketStatus('${ticketId}','closed');closeAdminModal();" style="flex:1;background:#9E9E9E;color:white;border:none;padding:10px;border-radius:8px;font-size:13px;font-weight:600;cursor:pointer;">🔒 Close Ticket</button>` : ''}
+                        </div>
+                    </div>
+                `;
+
+                // Show in modal
+                document.getElementById('adminModalBody').innerHTML = html;
+                document.getElementById('adminModal').style.display = 'flex';
+            } catch(error) {
+                console.error('Error viewing ticket:', error);
+                alert('Error: ' + error.message);
+            }
+        }
+
+        async function addAdminTicketComment(ticketId) {
+            const input = document.getElementById('adminTicketComment');
+            const text = input ? input.value.trim() : '';
+            if (!text) { alert('Please write a comment'); return; }
+            try {
+                const doc = await db.collection('tickets').doc(ticketId).get();
+                const comments = doc.data().comments || [];
+                comments.push({
+                    userId: currentUser.uid,
+                    userName: '🛡️ Admin',
+                    userUnit: 'Admin',
+                    message: text,
+                    timestamp: firebase.firestore.Timestamp.now()
+                });
+                await db.collection('tickets').doc(ticketId).update({ comments: comments });
+                // Refresh the modal
+                viewTicketAdmin(ticketId);
+                loadTickets();
+            } catch(error) {
+                console.error('Error adding comment:', error);
+                alert('Error: ' + error.message);
+            }
+        }
+
+        function closeAdminModal() {
+            const modal = document.getElementById('adminModal');
+            if (modal) modal.style.display = 'none';
+        }
+
+</script>
+
+    <!-- Admin Detail Modal -->
+    <div id="adminModal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.5);z-index:1000;align-items:center;justify-content:center;padding:20px;">
+        <div style="background:white;border-radius:16px;max-width:600px;width:100%;max-height:90vh;overflow-y:auto;position:relative;">
+            <button onclick="closeAdminModal()" style="position:absolute;top:12px;right:12px;background:none;border:none;font-size:22px;cursor:pointer;color:#999;z-index:1;">✕</button>
+            <div id="adminModalBody"></div>
+        </div>
+    </div>
+
 </body>
 </html>
