@@ -2488,11 +2488,11 @@
             const viewMap = {
                 visitor: () => editVisitorInline(id),
                 ticket: () => editTicketInline(id),
-                marketplace: () => viewMarketplaceItem(id),
-                communityshare: () => viewCommunityShareItem(id),
-                event: () => viewEvent(id),
-                security: () => viewSecurityAlert(id),
-                lostfound: () => viewLostFoundItem(id),
+                marketplace: () => editMarketplaceInline(id),
+                communityshare: () => editCommunityShareInline(id),
+                event: () => editEventInline(id),
+                security: () => editSecurityAlertInline(id),
+                lostfound: () => editLostFoundInline(id),
                 announcement: () => viewAnnouncement(id)
             };
             if (viewMap[type]) viewMap[type]();
@@ -2581,6 +2581,462 @@
 
 
         
+        // ========== EDIT MARKETPLACE ITEM ==========
+        async function editMarketplaceInline(itemId) {
+            try {
+                const doc = await db.collection('marketplace').doc(itemId).get();
+                if (!doc.exists) { alert('Item not found'); return; }
+                const data = doc.data();
+
+                // Only owner or admin can edit
+                if (data.sellerId !== currentUser.uid && userData.role !== 'admin') {
+                    alert('You can only edit your own listings.');
+                    return;
+                }
+
+                // Pre-fill contact from saved data
+                const savedContact = data.sellerPhone || data.sellerEmail || '';
+
+                const modalHtml = `
+                    <h3 style="margin-bottom:16px;font-size:17px;font-weight:700;">✏️ Edit Listing</h3>
+
+                    <div class="input-group">
+                        <label>Title *</label>
+                        <input type="text" id="editMpTitle"
+                               value="${(data.title || '').replace(/"/g, '&quot;')}"
+                               style="width:100%;padding:10px 12px;border:1px solid #e0e0e0;border-radius:8px;font-size:14px;">
+                    </div>
+
+                    <div style="display:flex;gap:12px;margin-top:12px;">
+                        <div class="input-group" style="flex:1;">
+                            <label>Price ($) *</label>
+                            <input type="number" id="editMpPrice" min="0" step="0.01"
+                                   value="${data.price || ''}"
+                                   style="width:100%;padding:10px 12px;border:1px solid #e0e0e0;border-radius:8px;font-size:14px;">
+                        </div>
+                        <div class="input-group" style="flex:1;">
+                            <label>Category</label>
+                            <select id="editMpCategory"
+                                    style="width:100%;padding:10px 12px;border:1px solid #e0e0e0;border-radius:8px;font-size:14px;background:white;">
+                                <option value="furniture"    ${data.category==='furniture'    ?'selected':''}>🪑 Furniture</option>
+                                <option value="electronics"  ${data.category==='electronics'  ?'selected':''}>📱 Electronics</option>
+                                <option value="clothing"     ${data.category==='clothing'     ?'selected':''}>👕 Clothing</option>
+                                <option value="appliances"   ${data.category==='appliances'   ?'selected':''}>🏠 Appliances</option>
+                                <option value="sports"       ${data.category==='sports'       ?'selected':''}>⚽ Sports</option>
+                                <option value="books"        ${data.category==='books'        ?'selected':''}>📚 Books</option>
+                                <option value="toys"         ${data.category==='toys'         ?'selected':''}>🧸 Toys</option>
+                                <option value="other"        ${data.category==='other'        ?'selected':''}>📦 Other</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <div class="input-group" style="margin-top:12px;">
+                        <label>Description *</label>
+                        <textarea id="editMpDesc" rows="4"
+                                  style="width:100%;padding:10px 12px;border:1px solid #e0e0e0;border-radius:8px;font-size:14px;resize:vertical;">${data.description || ''}</textarea>
+                    </div>
+
+                    <div class="input-group" style="margin-top:12px;">
+                        <label>Contact (Phone or Email) *</label>
+                        <input type="text" id="editMpContact"
+                               value="${savedContact.replace(/"/g, '&quot;')}"
+                               placeholder="Enter your Phone Number or email"
+                               style="width:100%;padding:10px 12px;border:1px solid #e0e0e0;border-radius:8px;font-size:14px;">
+                    </div>
+
+                    <div style="display:flex;gap:10px;margin-top:18px;">
+                        <button onclick="saveMarketplaceEdit('${itemId}')"
+                                style="flex:1;background:#667eea;color:white;border:none;padding:12px;border-radius:8px;font-size:14px;font-weight:600;cursor:pointer;">
+                            💾 Save Changes
+                        </button>
+                        <button onclick="closeMarketplaceModal()"
+                                style="flex:1;background:#f5f5f5;color:#333;border:1px solid #e0e0e0;padding:12px;border-radius:8px;font-size:14px;cursor:pointer;">
+                            Cancel
+                        </button>
+                    </div>
+                `;
+
+                document.getElementById('marketplaceModalBody').innerHTML = modalHtml;
+                document.getElementById('marketplaceModal').classList.add('show');
+
+            } catch (error) {
+                console.error('Error loading item for edit:', error);
+                alert('Error: ' + error.message);
+            }
+        }
+
+        async function saveMarketplaceEdit(itemId) {
+            const title    = document.getElementById('editMpTitle').value.trim();
+            const price    = document.getElementById('editMpPrice').value;
+            const category = document.getElementById('editMpCategory').value;
+            const desc     = document.getElementById('editMpDesc').value.trim();
+            const contact  = document.getElementById('editMpContact').value.trim();
+
+            if (!title || !price || !desc || !contact) {
+                alert('Please fill in all required fields (Title, Price, Description, Contact).');
+                return;
+            }
+
+            const isEmail = contact.includes('@');
+
+            try {
+                await db.collection('marketplace').doc(itemId).update({
+                    title:       title,
+                    price:       parseFloat(price),
+                    category:    category,
+                    description: desc,
+                    sellerEmail: isEmail ? contact : '',
+                    sellerPhone: isEmail ? '' : contact,
+                    updatedAt:   firebase.firestore.FieldValue.serverTimestamp()
+                });
+                closeMarketplaceModal();
+                loadMarketplace();
+                alert('✅ Listing updated successfully!');
+            } catch (error) {
+                console.error('Error updating marketplace item:', error);
+                if (error.code === 'permission-denied') {
+                    alert('Permission denied. You can only edit your own listings.');
+                } else {
+                    alert('Error updating listing: ' + error.message);
+                }
+            }
+        }
+
+
+        // ========== EDIT: COMMUNITY SHARE ==========
+        async function editCommunityShareInline(itemId) {
+            try {
+                const doc = await db.collection('communityshare').doc(itemId).get();
+                if (!doc.exists) { alert('Item not found'); return; }
+                const data = doc.data();
+                if (data.ownerId !== currentUser.uid && userData.role !== 'admin') {
+                    alert('You can only edit your own posts.'); return;
+                }
+                const savedContact = data.ownerPhone || data.ownerEmail || '';
+                const modalHtml = `
+                    <h3 style="margin-bottom:16px;font-size:17px;font-weight:700;">✏️ Edit Community Share</h3>
+                    <div class="input-group">
+                        <label>Type</label>
+                        <select id="editCsType" style="width:100%;padding:10px 12px;border:1px solid #e0e0e0;border-radius:8px;font-size:14px;background:white;">
+                            <option value="offer" ${data.type==='offer'?'selected':''}>🎁 Available to Lend / Give</option>
+                            <option value="need"  ${data.type==='need' ?'selected':''}>🙏 Need to Borrow</option>
+                        </select>
+                    </div>
+                    <div class="input-group" style="margin-top:12px;">
+                        <label>Title *</label>
+                        <input type="text" id="editCsTitle" value="${(data.title||'').replace(/"/g,'&quot;')}"
+                               style="width:100%;padding:10px 12px;border:1px solid #e0e0e0;border-radius:8px;font-size:14px;">
+                    </div>
+                    <div class="input-group" style="margin-top:12px;">
+                        <label>Description *</label>
+                        <textarea id="editCsDesc" rows="4"
+                                  style="width:100%;padding:10px 12px;border:1px solid #e0e0e0;border-radius:8px;font-size:14px;resize:vertical;">${data.description||''}</textarea>
+                    </div>
+                    <div class="input-group" style="margin-top:12px;">
+                        <label>Available Until</label>
+                        <input type="date" id="editCsAvail"
+                               value="${data.availableUntil ? (data.availableUntil.toDate ? data.availableUntil.toDate().toISOString().split('T')[0] : '') : ''}"
+                               style="width:100%;padding:10px 12px;border:1px solid #e0e0e0;border-radius:8px;font-size:14px;">
+                    </div>
+                    <div class="input-group" style="margin-top:12px;">
+                        <label>Contact (Phone or Email) *</label>
+                        <input type="text" id="editCsContact" value="${savedContact.replace(/"/g,'&quot;')}"
+                               placeholder="Enter your Phone Number or email"
+                               style="width:100%;padding:10px 12px;border:1px solid #e0e0e0;border-radius:8px;font-size:14px;">
+                    </div>
+                    <div style="display:flex;gap:10px;margin-top:18px;">
+                        <button onclick="saveCommunityShareEdit('${itemId}')"
+                                style="flex:1;background:#667eea;color:white;border:none;padding:12px;border-radius:8px;font-size:14px;font-weight:600;cursor:pointer;">💾 Save Changes</button>
+                        <button onclick="closeMarketplaceModal()"
+                                style="flex:1;background:#f5f5f5;color:#333;border:1px solid #e0e0e0;padding:12px;border-radius:8px;font-size:14px;cursor:pointer;">Cancel</button>
+                    </div>`;
+                document.getElementById('marketplaceModalBody').innerHTML = modalHtml;
+                document.getElementById('marketplaceModal').classList.add('show');
+            } catch(e) { alert('Error: ' + e.message); }
+        }
+
+        async function saveCommunityShareEdit(itemId) {
+            const type    = document.getElementById('editCsType').value;
+            const title   = document.getElementById('editCsTitle').value.trim();
+            const desc    = document.getElementById('editCsDesc').value.trim();
+            const avail   = document.getElementById('editCsAvail').value;
+            const contact = document.getElementById('editCsContact').value.trim();
+            if (!title || !desc || !contact) { alert('Please fill in Title, Description and Contact.'); return; }
+            const isEmail = contact.includes('@');
+            try {
+                await db.collection('communityshare').doc(itemId).update({
+                    type, title, description: desc,
+                    availableUntil: avail ? firebase.firestore.Timestamp.fromDate(new Date(avail)) : null,
+                    ownerEmail: isEmail ? contact : '',
+                    ownerPhone: isEmail ? '' : contact,
+                    updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+                });
+                closeMarketplaceModal(); loadCommunityShare();
+                alert('✅ Post updated successfully!');
+            } catch(e) {
+                alert(e.code === 'permission-denied' ? 'Permission denied. You can only edit your own posts.' : 'Error: ' + e.message);
+            }
+        }
+
+        // ========== EDIT: SECURITY ALERT ==========
+        async function editSecurityAlertInline(alertId) {
+            try {
+                const doc = await db.collection('security_alerts').doc(alertId).get();
+                if (!doc.exists) { alert('Alert not found'); return; }
+                const data = doc.data();
+                if (data.reportedBy !== currentUser.uid && userData.role !== 'admin') {
+                    alert('You can only edit your own alerts.'); return;
+                }
+                const dtVal = data.incidentDateTime
+                    ? data.incidentDateTime.toDate().toISOString().slice(0,16) : '';
+                const typeOpts = [
+                    ['suspicious_activity','👀 Suspicious Activity'],
+                    ['theft','🚔 Theft'],['vandalism','🔨 Vandalism'],
+                    ['noise','🔊 Noise Disturbance'],
+                    ['safety_hazard','⚠️ Safety Hazard'],['other','📝 Other']
+                ].map(([v,l]) => `<option value="${v}" ${data.type===v?'selected':''}>${l}</option>`).join('');
+                const modalHtml = `
+                    <h3 style="margin-bottom:16px;font-size:17px;font-weight:700;">✏️ Edit Security Alert</h3>
+                    <div class="input-group">
+                        <label>Alert Type</label>
+                        <select id="editSaType" style="width:100%;padding:10px 12px;border:1px solid #e0e0e0;border-radius:8px;font-size:14px;background:white;">${typeOpts}</select>
+                    </div>
+                    <div class="input-group" style="margin-top:12px;">
+                        <label>Title *</label>
+                        <input type="text" id="editSaTitle" value="${(data.title||'').replace(/"/g,'&quot;')}"
+                               style="width:100%;padding:10px 12px;border:1px solid #e0e0e0;border-radius:8px;font-size:14px;">
+                    </div>
+                    <div class="input-group" style="margin-top:12px;">
+                        <label>Description *</label>
+                        <textarea id="editSaDesc" rows="4"
+                                  style="width:100%;padding:10px 12px;border:1px solid #e0e0e0;border-radius:8px;font-size:14px;resize:vertical;">${data.description||''}</textarea>
+                    </div>
+                    <div style="display:flex;gap:12px;margin-top:12px;">
+                        <div class="input-group" style="flex:1;">
+                            <label>Location *</label>
+                            <input type="text" id="editSaLoc" value="${(data.location||'').replace(/"/g,'&quot;')}"
+                                   style="width:100%;padding:10px 12px;border:1px solid #e0e0e0;border-radius:8px;font-size:14px;">
+                        </div>
+                        <div class="input-group" style="flex:1;">
+                            <label>Date & Time *</label>
+                            <input type="datetime-local" id="editSaDt" value="${dtVal}"
+                                   style="width:100%;padding:10px 12px;border:1px solid #e0e0e0;border-radius:8px;font-size:14px;">
+                        </div>
+                    </div>
+                    <div style="display:flex;gap:10px;margin-top:18px;">
+                        <button onclick="saveSecurityAlertEdit('${alertId}')"
+                                style="flex:1;background:#667eea;color:white;border:none;padding:12px;border-radius:8px;font-size:14px;font-weight:600;cursor:pointer;">💾 Save Changes</button>
+                        <button onclick="closeMarketplaceModal()"
+                                style="flex:1;background:#f5f5f5;color:#333;border:1px solid #e0e0e0;padding:12px;border-radius:8px;font-size:14px;cursor:pointer;">Cancel</button>
+                    </div>`;
+                document.getElementById('marketplaceModalBody').innerHTML = modalHtml;
+                document.getElementById('marketplaceModal').classList.add('show');
+            } catch(e) { alert('Error: ' + e.message); }
+        }
+
+        async function saveSecurityAlertEdit(alertId) {
+            const type  = document.getElementById('editSaType').value;
+            const title = document.getElementById('editSaTitle').value.trim();
+            const desc  = document.getElementById('editSaDesc').value.trim();
+            const loc   = document.getElementById('editSaLoc').value.trim();
+            const dt    = document.getElementById('editSaDt').value;
+            if (!title || !desc || !loc || !dt) { alert('Please fill in all required fields.'); return; }
+            try {
+                await db.collection('security_alerts').doc(alertId).update({
+                    type, title, description: desc, location: loc,
+                    incidentDateTime: firebase.firestore.Timestamp.fromDate(new Date(dt)),
+                    updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+                });
+                closeMarketplaceModal(); loadSecurityAlerts();
+                alert('✅ Alert updated successfully!');
+            } catch(e) {
+                alert(e.code === 'permission-denied' ? 'Permission denied. You can only edit your own alerts.' : 'Error: ' + e.message);
+            }
+        }
+
+        // ========== EDIT: EVENT ==========
+        async function editEventInline(eventId) {
+            try {
+                const doc = await db.collection('events').doc(eventId).get();
+                if (!doc.exists) { alert('Event not found'); return; }
+                const data = doc.data();
+                if (data.organizerId !== currentUser.uid && userData.role !== 'admin') {
+                    alert('You can only edit your own events.'); return;
+                }
+                const eventDt = data.eventDate ? data.eventDate.toDate() : null;
+                const dateVal = eventDt ? eventDt.toISOString().split('T')[0] : '';
+                const timeVal = eventDt ? eventDt.toTimeString().slice(0,5) : '';
+                const savedContact = data.organizerPhone || data.organizerEmail || '';
+                const modalHtml = `
+                    <h3 style="margin-bottom:16px;font-size:17px;font-weight:700;">✏️ Edit Event</h3>
+                    <div class="input-group">
+                        <label>Event Title *</label>
+                        <input type="text" id="editEvTitle" value="${(data.title||'').replace(/"/g,'&quot;')}"
+                               style="width:100%;padding:10px 12px;border:1px solid #e0e0e0;border-radius:8px;font-size:14px;">
+                    </div>
+                    <div class="input-group" style="margin-top:12px;">
+                        <label>Description *</label>
+                        <textarea id="editEvDesc" rows="3"
+                                  style="width:100%;padding:10px 12px;border:1px solid #e0e0e0;border-radius:8px;font-size:14px;resize:vertical;">${data.description||''}</textarea>
+                    </div>
+                    <div style="display:flex;gap:12px;margin-top:12px;">
+                        <div class="input-group" style="flex:1;">
+                            <label>Date *</label>
+                            <input type="date" id="editEvDate" value="${dateVal}"
+                                   style="width:100%;padding:10px 12px;border:1px solid #e0e0e0;border-radius:8px;font-size:14px;">
+                        </div>
+                        <div class="input-group" style="flex:1;">
+                            <label>Time</label>
+                            <input type="time" id="editEvTime" value="${timeVal}"
+                                   style="width:100%;padding:10px 12px;border:1px solid #e0e0e0;border-radius:8px;font-size:14px;">
+                        </div>
+                    </div>
+                    <div class="input-group" style="margin-top:12px;">
+                        <label>Location *</label>
+                        <input type="text" id="editEvLoc" value="${(data.location||'').replace(/"/g,'&quot;')}"
+                               style="width:100%;padding:10px 12px;border:1px solid #e0e0e0;border-radius:8px;font-size:14px;">
+                    </div>
+                    <div class="input-group" style="margin-top:12px;">
+                        <label>Contact (Phone or Email) *</label>
+                        <input type="text" id="editEvContact" value="${savedContact.replace(/"/g,'&quot;')}"
+                               placeholder="Enter your Phone Number or email"
+                               style="width:100%;padding:10px 12px;border:1px solid #e0e0e0;border-radius:8px;font-size:14px;">
+                    </div>
+                    <div style="display:flex;gap:10px;margin-top:18px;">
+                        <button onclick="saveEventEdit('${eventId}')"
+                                style="flex:1;background:#667eea;color:white;border:none;padding:12px;border-radius:8px;font-size:14px;font-weight:600;cursor:pointer;">💾 Save Changes</button>
+                        <button onclick="closeMarketplaceModal()"
+                                style="flex:1;background:#f5f5f5;color:#333;border:1px solid #e0e0e0;padding:12px;border-radius:8px;font-size:14px;cursor:pointer;">Cancel</button>
+                    </div>`;
+                document.getElementById('marketplaceModalBody').innerHTML = modalHtml;
+                document.getElementById('marketplaceModal').classList.add('show');
+            } catch(e) { alert('Error: ' + e.message); }
+        }
+
+        async function saveEventEdit(eventId) {
+            const title   = document.getElementById('editEvTitle').value.trim();
+            const desc    = document.getElementById('editEvDesc').value.trim();
+            const date    = document.getElementById('editEvDate').value;
+            const time    = document.getElementById('editEvTime').value;
+            const loc     = document.getElementById('editEvLoc').value.trim();
+            const contact = document.getElementById('editEvContact').value.trim();
+            if (!title || !desc || !date || !loc || !contact) { alert('Please fill in all required fields.'); return; }
+            const isEmail = contact.includes('@');
+            const combined = new Date(date + 'T' + (time || '00:00'));
+            try {
+                await db.collection('events').doc(eventId).update({
+                    title, description: desc,
+                    eventDate: firebase.firestore.Timestamp.fromDate(combined),
+                    location: loc,
+                    organizerEmail: isEmail ? contact : '',
+                    organizerPhone: isEmail ? '' : contact,
+                    updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+                });
+                closeMarketplaceModal(); loadEvents();
+                alert('✅ Event updated successfully!');
+            } catch(e) {
+                alert(e.code === 'permission-denied' ? 'Permission denied. You can only edit your own events.' : 'Error: ' + e.message);
+            }
+        }
+
+        // ========== EDIT: LOST & FOUND ==========
+        async function editLostFoundInline(itemId) {
+            try {
+                const doc = await db.collection('lost_and_found').doc(itemId).get();
+                if (!doc.exists) { alert('Item not found'); return; }
+                const data = doc.data();
+                if (data.postedBy !== currentUser.uid && userData.role !== 'admin') {
+                    alert('You can only edit your own posts.'); return;
+                }
+                const dateVal = data.date ? data.date.toDate().toISOString().split('T')[0] : '';
+                const savedContact = data.ownerPhone || data.ownerEmail || data.contact || '';
+                const catOpts = [
+                    ['pet','🐕 Pet'],['keys','🔑 Keys'],['wallet','👛 Wallet/Purse'],
+                    ['phone','📱 Phone/Electronics'],['package','📦 Package/Mail'],
+                    ['clothing','👕 Clothing'],['jewelry','💍 Jewelry'],['other','📦 Other']
+                ].map(([v,l]) => `<option value="${v}" ${data.category===v?'selected':''}>${l}</option>`).join('');
+                const modalHtml = `
+                    <h3 style="margin-bottom:16px;font-size:17px;font-weight:700;">✏️ Edit Lost & Found</h3>
+                    <div style="display:flex;gap:12px;">
+                        <div class="input-group" style="flex:1;">
+                            <label>Type</label>
+                            <select id="editLfType" style="width:100%;padding:10px 12px;border:1px solid #e0e0e0;border-radius:8px;font-size:14px;background:white;">
+                                <option value="lost"  ${data.type==='lost' ?'selected':''}>😟 Lost</option>
+                                <option value="found" ${data.type==='found'?'selected':''}>🎉 Found</option>
+                            </select>
+                        </div>
+                        <div class="input-group" style="flex:1;">
+                            <label>Category</label>
+                            <select id="editLfCat" style="width:100%;padding:10px 12px;border:1px solid #e0e0e0;border-radius:8px;font-size:14px;background:white;">${catOpts}</select>
+                        </div>
+                    </div>
+                    <div class="input-group" style="margin-top:12px;">
+                        <label>Title *</label>
+                        <input type="text" id="editLfTitle" value="${(data.title||'').replace(/"/g,'&quot;')}"
+                               style="width:100%;padding:10px 12px;border:1px solid #e0e0e0;border-radius:8px;font-size:14px;">
+                    </div>
+                    <div class="input-group" style="margin-top:12px;">
+                        <label>Description *</label>
+                        <textarea id="editLfDesc" rows="3"
+                                  style="width:100%;padding:10px 12px;border:1px solid #e0e0e0;border-radius:8px;font-size:14px;resize:vertical;">${data.description||''}</textarea>
+                    </div>
+                    <div style="display:flex;gap:12px;margin-top:12px;">
+                        <div class="input-group" style="flex:1;">
+                            <label>Location</label>
+                            <input type="text" id="editLfLoc" value="${(data.location||'').replace(/"/g,'&quot;')}"
+                                   style="width:100%;padding:10px 12px;border:1px solid #e0e0e0;border-radius:8px;font-size:14px;">
+                        </div>
+                        <div class="input-group" style="flex:1;">
+                            <label>Date</label>
+                            <input type="date" id="editLfDate" value="${dateVal}"
+                                   style="width:100%;padding:10px 12px;border:1px solid #e0e0e0;border-radius:8px;font-size:14px;">
+                        </div>
+                    </div>
+                    <div class="input-group" style="margin-top:12px;">
+                        <label>Contact *</label>
+                        <input type="text" id="editLfContact" value="${savedContact.replace(/"/g,'&quot;')}"
+                               placeholder="Enter your Phone Number or email"
+                               style="width:100%;padding:10px 12px;border:1px solid #e0e0e0;border-radius:8px;font-size:14px;">
+                    </div>
+                    <div style="display:flex;gap:10px;margin-top:18px;">
+                        <button onclick="saveLostFoundEdit('${itemId}')"
+                                style="flex:1;background:#667eea;color:white;border:none;padding:12px;border-radius:8px;font-size:14px;font-weight:600;cursor:pointer;">💾 Save Changes</button>
+                        <button onclick="closeMarketplaceModal()"
+                                style="flex:1;background:#f5f5f5;color:#333;border:1px solid #e0e0e0;padding:12px;border-radius:8px;font-size:14px;cursor:pointer;">Cancel</button>
+                    </div>`;
+                document.getElementById('marketplaceModalBody').innerHTML = modalHtml;
+                document.getElementById('marketplaceModal').classList.add('show');
+            } catch(e) { alert('Error: ' + e.message); }
+        }
+
+        async function saveLostFoundEdit(itemId) {
+            const type    = document.getElementById('editLfType').value;
+            const cat     = document.getElementById('editLfCat').value;
+            const title   = document.getElementById('editLfTitle').value.trim();
+            const desc    = document.getElementById('editLfDesc').value.trim();
+            const loc     = document.getElementById('editLfLoc').value.trim();
+            const date    = document.getElementById('editLfDate').value;
+            const contact = document.getElementById('editLfContact').value.trim();
+            if (!title || !desc || !contact) { alert('Please fill in Title, Description and Contact.'); return; }
+            const isEmail = contact.includes('@');
+            try {
+                await db.collection('lost_and_found').doc(itemId).update({
+                    type, category: cat, title, description: desc,
+                    location: loc || 'Not specified',
+                    date: date ? firebase.firestore.Timestamp.fromDate(new Date(date)) : null,
+                    ownerEmail: isEmail ? contact : '',
+                    ownerPhone: isEmail ? '' : contact,
+                    contact: contact,
+                    updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+                });
+                closeMarketplaceModal(); loadLostAndFound();
+                alert('✅ Post updated successfully!');
+            } catch(e) {
+                alert(e.code === 'permission-denied' ? 'Permission denied. You can only edit your own posts.' : 'Error: ' + e.message);
+            }
+        }
+
+
         async function editVisitorInline(id) {
             try {
                 const doc = await db.collection('visitors').doc(id).get();
