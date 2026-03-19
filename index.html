@@ -1168,8 +1168,8 @@
         .photo-viewer-close:hover { background: rgba(255,255,255,0.25); }
         /* Directory avatar */
         .dir-avatar {
-            width: 48px;
-            height: 48px;
+            width: 56px;
+            height: 56px;
             border-radius: 50%;
             background: linear-gradient(135deg, #667eea, #764ba2);
             color: white;
@@ -1182,6 +1182,7 @@
             overflow: hidden;
             cursor: pointer;
             transition: transform 0.15s;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.15);
         }
         .dir-avatar:hover { transform: scale(1.08); }
         .dir-avatar img { width:100%; height:100%; object-fit:cover; border-radius:50%; }
@@ -3660,14 +3661,48 @@
 
                 // Sort by unit number
                 const residents = [];
+                const userIdsToFetch = [];
                 snapshot.forEach(doc => {
                     const d = doc.data();
                     residents.push({ id: doc.id, ...d });
-                    // Populate pic cache — residents doc has userId + profilePicUrl from users
+                    // If resident doc already has pic URL — great, cache it
                     if (d.userId && d.profilePicUrl) {
                         userPicCache[d.userId] = d.profilePicUrl;
+                    } else if (d.userId) {
+                        // No pic in residents doc — need to fetch from users doc
+                        userIdsToFetch.push({ residentIndex: residents.length - 1, userId: d.userId });
                     }
                 });
+
+                // Batch-fetch users docs for any residents missing profilePicUrl
+                // Firestore 'in' query supports up to 30 items per batch
+                if (userIdsToFetch.length > 0) {
+                    const batchSize = 30;
+                    for (let i = 0; i < userIdsToFetch.length; i += batchSize) {
+                        const batch = userIdsToFetch.slice(i, i + batchSize);
+                        const userIds = batch.map(b => b.userId);
+                        const usersSnap = await db.collection('users')
+                            .where(firebase.firestore.FieldPath.documentId(), 'in', userIds)
+                            .get();
+                        usersSnap.forEach(userDoc => {
+                            const picUrl = userDoc.data().profilePicUrl;
+                            if (picUrl) {
+                                // Update cache
+                                userPicCache[userDoc.id] = picUrl;
+                                // Update the resident object so renderDirectoryResidents sees it
+                                const match = batch.find(b => b.userId === userDoc.id);
+                                if (match !== undefined) {
+                                    residents[match.residentIndex].profilePicUrl = picUrl;
+                                }
+                                // Also backfill the residents doc so next load is faster
+                                const resDoc = snapshot.docs.find(d => d.data().userId === userDoc.id);
+                                if (resDoc) {
+                                    resDoc.ref.update({ profilePicUrl: picUrl }).catch(() => {});
+                                }
+                            }
+                        });
+                    }
+                }
                 
                 // FILTER 1: Only show APPROVED residents
                 const approvedResidents = residents.filter(r => {
