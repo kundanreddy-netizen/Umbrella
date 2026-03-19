@@ -2681,22 +2681,27 @@
             const ci = Math.abs((name || '').split('').reduce((a, c) => a + c.charCodeAt(0), 0)) % colors.length;
             const color = colors[ci];
             const fs = Math.floor(size * 0.4);
-
-            // Resolve pic: direct arg → cache lookup → null (show initials)
+            const s = size + 'px';
+            // Resolve pic: direct arg -> cache lookup -> null (show initials)
             const resolvedPic = picUrl || (userId && userPicCache[userId]) || null;
+            // Initials fallback
+            const fallback = '<div style="width:' + s + ';height:' + s + ';border-radius:50%;background:' + color + ';color:white;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:' + fs + 'px;flex-shrink:0;">' + initials + '</div>';
+            if (!resolvedPic) return fallback;
+            // Show pic using data attributes — click handled by delegated listener
+            return '<div class="_av-click" data-pic="' + resolvedPic + '" data-name="' + (name || '').replace(/"/g, '') + '" style="width:' + s + ';height:' + s + ';border-radius:50%;overflow:hidden;flex-shrink:0;cursor:pointer;"><img src="' + resolvedPic + '" style="width:100%;height:100%;object-fit:cover;" onerror="avatarImgError(this)"></div>';
+        }
 
-            const baseStyle = 'width:' + size + 'px;height:' + size + 'px;border-radius:50%;';
-            const initialsDiv = '<div style="' + baseStyle + 'background:' + color + ';color:white;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:' + fs + 'px;flex-shrink:0;">' + initials + '</div>';
-
-            if (resolvedPic) {
-                // Use data attributes to avoid any quote nesting issues in onclick
-                return '<div class="_av-click" data-pic="' + resolvedPic.replace(/"/g,'&quot;') + '" data-name="' + (name||'').replace(/"/g,'&quot;') + '" style="' + baseStyle + 'overflow:hidden;flex-shrink:0;cursor:pointer;">' +
-                       '<img src="' + resolvedPic + '" style="width:100%;height:100%;object-fit:cover;" ' +
-                       'onerror="this.parentElement.outerHTML=unescape('' + encodeURIComponent(initialsDiv) + '')">' +
-                       '</div>';
+        function avatarImgError(img) {
+            var wrap = img.parentElement;
+            if (!wrap) return;
+            var fb = wrap.getAttribute('data-fb');
+            if (fb) {
+                var tmp = document.createElement('div');
+                tmp.innerHTML = fb;
+                if (wrap.parentElement) wrap.parentElement.replaceChild(tmp.firstChild, wrap);
+            } else {
+                img.style.display = 'none';
             }
-
-            return initialsDiv;
         }
         
         // Delegated click handler for avatar pics (avoids inline onclick quote issues)
