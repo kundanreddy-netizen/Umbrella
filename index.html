@@ -988,12 +988,12 @@
         }
 
         .profile-avatar-large {
-            width: 150px;
-            height: 150px;
+            width: 180px;
+            height: 180px;
             border-radius: 50%;
             background: rgba(255,255,255,0.25);
             color: white;
-            font-size: 64px;
+            font-size: 72px;
             font-weight: 700;
             display: flex;
             align-items: center;
@@ -1010,8 +1010,8 @@
             display: flex;
             align-items: center;
             justify-content: center;
-            width: 150px;
-            height: 150px;
+            width: 180px;
+            height: 180px;
             border-radius: 50%;
             overflow: hidden;
             position: absolute;
@@ -2208,7 +2208,8 @@
                         unitNumber: userDataFromDb.unitNumber,
                         email: userDataFromDb.email,
                         phone: userDataFromDb.phone,
-                        communityId: userDataFromDb.communityId // NEW: Store community ID
+                        communityId: userDataFromDb.communityId,
+                        profilePicUrl: userDataFromDb.profilePicUrl || null
                     };
                     
                     // NEW: Store community ID globally for filtering
@@ -3728,11 +3729,13 @@
                 }
 
                 // Build directory avatar
+                // Check both the resident doc AND the userPicCache (populated from users collection)
                 const dirInitial = getInitials(data.name || '?');
-                const dirAvatarHtml = data.profilePicUrl
-                    ? `<div class="dir-avatar" onclick="openPhotoViewer('${data.profilePicUrl}','${(data.name||'Resident').replace(/'/g,"\\'")}')">
-                           <img src="${data.profilePicUrl}" alt="${data.name || ''}"
-                                onerror="this.parentElement.textContent='${dirInitial}'">
+                const dirPicUrl = data.profilePicUrl || (data.userId && userPicCache[data.userId]) || null;
+                const dirAvatarHtml = dirPicUrl
+                    ? `<div class="dir-avatar _av-click" data-pic="${dirPicUrl}" data-name="${(data.name||'Resident').replace(/"/g,'')}">
+                           <img src="${dirPicUrl}" alt="${data.name || ''}"
+                                onerror="avatarImgError(this)">
                        </div>`
                     : `<div class="dir-avatar" style="cursor:default;">${dirInitial}</div>`;
 
@@ -5054,7 +5057,8 @@
                 const avatarInitial = document.getElementById('profileAvatarInitial');
                 if (userDataFromDb.profilePicUrl) {
                     avatarInitial.innerHTML = `<img src="${userDataFromDb.profilePicUrl}" alt="Profile"
-                        onerror="this.innerHTML='${initial}'">`;
+                        style="width:180px;height:180px;object-fit:cover;border-radius:50%;"
+                        onerror="this.parentElement.textContent='${initial}'">`;
                 } else {
                     avatarInitial.textContent = initial;
                 }
@@ -6243,8 +6247,8 @@
 
                 const initial = getInitials(userData.displayName || 'U');
                 document.getElementById('profileAvatarInitial').innerHTML =
-                    `<img src="${publicUrl}" alt="Profile"
-                      onerror="this.innerHTML='${initial}'">`;
+                    `<img src="${publicUrl}" alt="Profile" style="width:180px;height:180px;object-fit:cover;border-radius:50%;"
+                      onerror="this.parentElement.textContent='${initial}'">`;
 
                 const nav = document.getElementById('userAvatar');
                 nav.innerHTML = `<img class="nav-avatar-img" src="${publicUrl}"
