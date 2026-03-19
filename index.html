@@ -3050,9 +3050,13 @@
                 html += '<div style="text-align:center;padding:32px 0 16px;color:#C8C4D8;font-size:14px;font-weight:500;">No comments yet — be the first!</div>';
             }
             html += '</div>';
-
-            // ── Sticky comment input bar ──
-            html += '<div class="modal-comment-bar">' +
+            html += '</div>'; // close comments-area
+            return html;
+        }
+        // ── Comment input bar (rendered OUTSIDE the scroll div so it sticks to bottom) ──
+        function commentBarHtml(collection, docId, viewFnName, loadFnName) {
+            const coll = collection, did = docId;
+            return '<div class="modal-comment-bar">' +
                 '<div class="modal-comment-input-row">' +
                     avatarHtml(userData ? userData.displayName : '', 32, currentUser ? currentUser.uid : null) +
                     '<input type="text" id="commentInput" placeholder="Add your thoughts..." ' +
@@ -3065,9 +3069,8 @@
                 '<input type="file" id="commentAttachInput" style="display:none;" accept="image/jpeg,image/png,image/webp,application/pdf" onchange="handleCommentAttach(this,\'' + coll + '\',\'' + did + '\',' + viewFnName + ',' + loadFnName + ')">' +
                 '<div id="attachPreview-' + did + '" style="margin-top:6px;padding:0 4px;"></div>' +
             '</div>';
-
-            return html;
         }
+
         
         async function addGenericComment(collection, docId, viewFn, loadFn) {
             const input = document.getElementById('commentInput');
@@ -4970,6 +4973,7 @@
                 scrollHtml += '<div style="font-size:15px;color:#1A1A1A;line-height:1.6;margin-bottom:8px;">' + (data.description || 'No description') + '</div>';
                 scrollHtml += commentsSectionHtml(comments, 'marketplace', itemId, 'viewMarketplaceItem', 'loadMarketplace', data);
                 scrollHtml += '</div>';
+                scrollHtml += commentBarHtml('marketplace', itemId, 'viewMarketplaceItem', 'loadMarketplace');
 
                 document.getElementById('marketplaceModalBody').innerHTML = scrollHtml;
                 document.getElementById('marketplaceModal').classList.add('show');
@@ -4999,7 +5003,8 @@
                 inner += '<div style="font-size:15px;color:#1A1A1A;line-height:1.7;white-space:pre-wrap;margin-bottom:8px;">' + (data.message || data.content || 'No content') + '</div>';
                 inner += commentsSectionHtml(comments, 'announcements', announcementId, 'viewAnnouncement', 'loadAnnouncements', data);
 
-                const scrollHtml = '<div style="flex:1;overflow-y:auto;padding:16px 20px 8px;">' + inner + '</div>';
+                const scrollHtml = '<div style="flex:1;overflow-y:auto;padding:16px 20px 8px;">' + inner + '</div>' +
+                                   commentBarHtml('announcements', announcementId, 'viewAnnouncement', 'loadAnnouncements');
                 document.getElementById('marketplaceModalBody').innerHTML = scrollHtml;
                 document.getElementById('marketplaceModal').classList.add('show');
             } catch (error) {
@@ -5036,7 +5041,8 @@
                 
                 html += commentsSectionHtml(comments, 'tickets', ticketId, 'viewTicket', 'loadTickets', data);
                 
-                document.getElementById('marketplaceModalBody').innerHTML = '<div style="flex:1;overflow-y:auto;padding:16px 20px 8px;">' + html + '</div>';
+                document.getElementById('marketplaceModalBody').innerHTML = '<div style="flex:1;overflow-y:auto;padding:16px 20px 8px;">' + html + '</div>' +
+                    commentBarHtml('tickets', ticketId, 'viewTicket', 'loadTickets');
                 document.getElementById('marketplaceModal').classList.add('show');
             } catch (error) {
                 console.error('Error:', error);
@@ -5064,7 +5070,8 @@
                 html += '<div style="font-size:14px;color:#333;line-height:1.6;margin-bottom:12px;">' + (data.description || '') + '</div>';
                 html += commentsSectionHtml(comments, 'security_alerts', alertId, 'viewSecurityAlert', 'loadSecurityAlerts', data);
                 
-                document.getElementById('marketplaceModalBody').innerHTML = '<div style="flex:1;overflow-y:auto;padding:16px 20px 8px;">' + html + '</div>';
+                document.getElementById('marketplaceModalBody').innerHTML = '<div style="flex:1;overflow-y:auto;padding:16px 20px 8px;">' + html + '</div>' +
+                    commentBarHtml('security_alerts', alertId, 'viewSecurityAlert', 'loadSecurityAlerts');
                 document.getElementById('marketplaceModal').classList.add('show');
             } catch (error) {
                 console.error('Error:', error);
@@ -5095,7 +5102,8 @@
                 html += '<div style="font-size:14px;color:#333;line-height:1.6;margin-bottom:12px;">' + (data.description || '') + '</div>';
                 html += commentsSectionHtml(comments, 'lost_and_found', itemId, 'viewLostFoundItem', 'loadLostAndFound', data);
                 
-                document.getElementById('marketplaceModalBody').innerHTML = '<div style="flex:1;overflow-y:auto;padding:16px 20px 8px;">' + html + '</div>';
+                document.getElementById('marketplaceModalBody').innerHTML = '<div style="flex:1;overflow-y:auto;padding:16px 20px 8px;">' + html + '</div>' +
+                    commentBarHtml('lost_and_found', itemId, 'viewLostFoundItem', 'loadLostAndFound');
                 document.getElementById('marketplaceModal').classList.add('show');
             } catch (error) {
                 console.error('Error:', error);
@@ -5276,7 +5284,8 @@
                 if (data.availableUntil) html += '<div style="font-size:12px;color:#666;margin-bottom:8px;">⏰ Available until: ' + data.availableUntil.toDate().toLocaleDateString() + '</div>';
                 html += commentsSectionHtml(comments, 'communityshare', itemId, 'viewCommunityShareItem', 'loadCommunityShare', data);
                 
-                document.getElementById('marketplaceModalBody').innerHTML = '<div style="flex:1;overflow-y:auto;padding:16px 20px 8px;">' + html + '</div>';
+                document.getElementById('marketplaceModalBody').innerHTML = '<div style="flex:1;overflow-y:auto;padding:16px 20px 8px;">' + html + '</div>' +
+                    commentBarHtml('communityshare', itemId, 'viewCommunityShareItem', 'loadCommunityShare');
                 document.getElementById('marketplaceModal').classList.add('show');
             } catch (error) {
                 console.error('Error:', error);
@@ -6029,7 +6038,8 @@
                 if (rsvps.length > 0) html += '<div style="font-size:13px;color:#666;margin-bottom:8px;">✅ Going (' + rsvps.length + '): ' + rsvps.map(r => r.userName || 'Resident').join(', ') + '</div>';
                 html += commentsSectionHtml(comments, 'events', eventId, 'viewEvent', 'loadEvents', data);
                 
-                document.getElementById('marketplaceModalBody').innerHTML = '<div style="flex:1;overflow-y:auto;padding:16px 20px 8px;">' + html + '</div>';
+                document.getElementById('marketplaceModalBody').innerHTML = '<div style="flex:1;overflow-y:auto;padding:16px 20px 8px;">' + html + '</div>' +
+                    commentBarHtml('events', eventId, 'viewEvent', 'loadEvents');
                 document.getElementById('marketplaceModal').classList.add('show');
             } catch (error) {
                 console.error('Error:', error);
