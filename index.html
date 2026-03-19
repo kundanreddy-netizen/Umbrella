@@ -1760,6 +1760,9 @@
         let currentCategory = 'all'; // Current filter category
         let userData = null;
         let userCommunityId = null; // Track user's community ID
+        // Cache of userId → profilePicUrl — populated by loadDirectory()
+        // Used to show profile pics in post headers and comments
+        let userPicCache = {};
         let currentTab = 'announcements';
         let messagingToken = null; // FCM token
         let swRegistration = null; // Service worker registration
@@ -2218,7 +2221,7 @@
                     // Update UI
                     // Update nav avatar — show photo or initial
                 const navAvatar = document.getElementById('userAvatar');
-                const navInitial = (userDataFromDb.name || 'U').charAt(0).toUpperCase();
+                const navInitial = getInitials(userDataFromDb.name || 'U');
                 if (userDataFromDb.profilePicUrl) {
                     navAvatar.innerHTML = `<img class="nav-avatar-img" src="${userDataFromDb.profilePicUrl}"
                         style="width:36px;height:36px;object-fit:cover;border-radius:50%;"
@@ -2242,7 +2245,12 @@
                     const termsAccepted = await checkTermsAcceptance();
                     
                     if (termsAccepted) {
-                        loadAllData();
+                        // Pre-populate cache with own pic
+                        if (userDataFromDb.profilePicUrl) {
+                            userPicCache[user.uid] = userDataFromDb.profilePicUrl;
+                        }
+
+                    loadAllData();
                         
                         // Check if opened from a notification click (URL has ?announcementId=)
                         checkNotificationDeepLink();
@@ -2657,18 +2665,44 @@
             return date.toLocaleDateString();
         }
         
-        function avatarHtml(name, size) {
+        function getInitials(name) {
+            const parts = (name || 'U').trim().split(/\s+/).filter(Boolean);
+            if (parts.length === 1) return parts[0].substring(0, 2).toUpperCase();
+            return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
+        }
+
+        // avatarHtml(name, size, userId, picUrl)
+        // userId  — optional, used to look up pic from userPicCache
+        // picUrl  — optional, direct pic URL (overrides cache lookup)
+        function avatarHtml(name, size, userId, picUrl) {
             size = size || 40;
-            const initials = (name || 'U').split(' ').map(w => w[0]).join('').toUpperCase().substring(0, 2);
+            const initials = getInitials(name);
             const colors = ['#667eea','#764ba2','#f093fb','#4facfe','#43e97b','#fa709a','#fee140','#a18cd1'];
             const ci = Math.abs((name || '').split('').reduce((a, c) => a + c.charCodeAt(0), 0)) % colors.length;
-            return '<div style="width:' + size + 'px;height:' + size + 'px;border-radius:50%;background:' + colors[ci] + ';color:white;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:' + Math.floor(size * 0.4) + 'px;flex-shrink:0;">' + initials + '</div>';
+            const color = colors[ci];
+
+            // Resolve pic URL: direct arg → cache lookup → initials fallback
+            const resolvedPic = picUrl || (userId && userPicCache[userId]) || null;
+
+            if (resolvedPic) {
+                const safeInit = initials.replace(/'/g, '');
+                const safeName = (name || '').replace(/'/g, '').replace(/"/g, '');
+                return '<div style="width:' + size + 'px;height:' + size + 'px;border-radius:50%;overflow:hidden;flex-shrink:0;cursor:pointer;" ' +
+                       'onclick="openPhotoViewer('' + resolvedPic + '','' + safeName + '')">' +
+                       '<img src="' + resolvedPic + '" alt="' + safeName + '" ' +
+                       'style="width:100%;height:100%;object-fit:cover;border-radius:50%;" ' +
+                       'onerror="this.parentElement.innerHTML='<div style=&quot;width:' + size + 'px;height:' + size + 'px;border-radius:50%;background:' + color + ';color:white;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:' + Math.floor(size * 0.4) + 'px;&quot;>' + safeInit + '</div>'"></div>';
+            }
+
+            return '<div style="width:' + size + 'px;height:' + size + 'px;border-radius:50%;background:' + color + ';color:white;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:' + Math.floor(size * 0.4) + 'px;flex-shrink:0;">' + initials + '</div>';
         }
         
-        function postHeaderHtml(name, unit, date, isOwner, deleteAction) {
+        // postHeaderHtml(name, unit, date, isOwner, deleteAction, userId)
+        // userId — optional, used to show profile pic in post header
+        function postHeaderHtml(name, unit, date, isOwner, deleteAction, userId) {
             const ago = date ? timeAgo(date instanceof Date ? date : date.toDate()) : '';
             return '<div style="display:flex;align-items:center;gap:12px;margin-bottom:14px;">' +
-                avatarHtml(name, 40) +
+                avatarHtml(name, 44, userId) +
                 '<div style="flex:1;min-width:0;"><div style="font-weight:700;font-size:15px;color:#333;">' + (name || 'Unknown') + '</div>' +
                 '<div style="font-size:12px;color:#999;">Unit ' + (unit || 'N/A') + (ago ? ' • ' + ago : '') + '</div></div>' +
                 (isOwner ? '<button onclick="' + deleteAction + '" style="background:none;border:none;cursor:pointer;font-size:18px;padding:6px;color:#999;" title="Delete">🗑️</button>' : '') +
@@ -2684,7 +2718,7 @@
                 sorted.forEach(c => {
                     const cDate = c.timestamp ? timeAgo(c.timestamp.toDate()) : '';
                     html += '<div style="display:flex;gap:8px;margin-bottom:10px;">' +
-                        avatarHtml(c.userName, 28) +
+                        avatarHtml(c.userName, 28, c.userId) +
                         '<div style="flex:1;"><div style="font-size:13px;"><strong>' + (c.userName || 'Unknown') + '</strong> <span style="color:#999;font-size:11px;">' + cDate + '</span></div>' +
                         '<div style="font-size:13px;color:#444;line-height:1.4;margin-top:2px;">' + (c.message || '') + '</div></div></div>';
                 });
@@ -3608,7 +3642,14 @@
 
                 // Sort by unit number
                 const residents = [];
-                snapshot.forEach(doc => residents.push({ id: doc.id, ...doc.data() }));
+                snapshot.forEach(doc => {
+                    const d = doc.data();
+                    residents.push({ id: doc.id, ...d });
+                    // Populate pic cache — residents doc has userId + profilePicUrl from users
+                    if (d.userId && d.profilePicUrl) {
+                        userPicCache[d.userId] = d.profilePicUrl;
+                    }
+                });
                 
                 // FILTER 1: Only show APPROVED residents
                 const approvedResidents = residents.filter(r => {
@@ -3670,7 +3711,7 @@
                 }
 
                 // Build directory avatar
-                const dirInitial = (data.name || '?').charAt(0).toUpperCase();
+                const dirInitial = getInitials(data.name || '?');
                 const dirAvatarHtml = data.profilePicUrl
                     ? `<div class="dir-avatar" onclick="openPhotoViewer('${data.profilePicUrl}','${(data.name||'Resident').replace(/'/g,"\\'")}')">
                            <img src="${data.profilePicUrl}" alt="${data.name || ''}"
@@ -4519,7 +4560,7 @@
                 const comments = data.comments || [];
                 const delAction = "if(confirm('Delete?')){deleteMarketplaceItem('" + itemId + "');closeMarketplaceModal();}";
                 
-                let html = postHeaderHtml(data.sellerName, data.unitNumber, data.createdAt, isOwner, delAction);
+                let html = postHeaderHtml(data.sellerName, data.unitNumber, data.createdAt, isOwner, delAction, data.sellerId);
                 html += '<div style="font-size:22px;font-weight:700;color:#667eea;margin-bottom:10px;">$' + (data.price || '0') + '</div>';
                 if (data.category) html += '<span style="background:#e3f2fd;color:#1976d2;padding:3px 10px;border-radius:10px;font-size:12px;font-weight:600;display:inline-block;margin-bottom:10px;">' + data.category + '</span>';
                 html += '<div style="font-size:14px;color:#333;line-height:1.6;margin-bottom:12px;">' + (data.description || 'No description') + '</div>';
@@ -4546,7 +4587,7 @@
                 const isAdm = userData.role === 'admin';
                 const delAction = "if(confirm('Delete?')){db.collection('announcements').doc('" + announcementId + "').delete().then(()=>{closeMarketplaceModal();loadAnnouncements();});}";
                 
-                let html = postHeaderHtml('Admin', 'Community', data.createdAt, isAdm, delAction);
+                let html = postHeaderHtml('Admin', 'Community', data.createdAt, isAdm, delAction, null);
                 html += '<div style="font-weight:600;font-size:16px;color:#333;margin-bottom:8px;">📢 ' + (data.title || 'Announcement') + '</div>';
                 if (data.category) html += '<span style="background:#e3f2fd;color:#1976d2;padding:3px 10px;border-radius:10px;font-size:12px;font-weight:600;display:inline-block;margin-bottom:8px;">' + data.category + '</span>';
                 html += '<div style="font-size:14px;color:#333;line-height:1.6;white-space:pre-wrap;">' + (data.message || data.content || 'No content') + '</div>';
@@ -4571,7 +4612,7 @@
                 const statusColor = statusColors[data.status] || '#2196F3';
                 const delAction = "if(confirm('Delete?')){db.collection('tickets').doc('" + ticketId + "').delete().then(()=>{closeMarketplaceModal();loadTickets();});}";
                 
-                let html = postHeaderHtml(data.residentName, data.unitNumber, data.createdAt, isOwner && data.status !== 'closed', delAction);
+                let html = postHeaderHtml(data.residentName, data.unitNumber, data.createdAt, isOwner && data.status !== 'closed', delAction, data.residentId);
                 html += '<span style="background:' + statusColor + ';color:white;padding:3px 10px;border-radius:10px;font-size:12px;font-weight:600;text-transform:uppercase;display:inline-block;margin-bottom:8px;">' + (data.status || 'open') + '</span>';
                 if (data.category) html += ' <span style="background:#e3f2fd;color:#1976d2;padding:3px 10px;border-radius:10px;font-size:12px;font-weight:600;">' + data.category + '</span>';
                 html += '<div style="font-weight:600;font-size:16px;color:#333;margin:8px 0;">' + (data.title || 'Support Ticket') + '</div>';
@@ -4606,7 +4647,7 @@
                 const typeLabels = { suspicious_activity: '👀 Suspicious Activity', theft: '🚔 Theft', vandalism: '🔨 Vandalism', noise: '🔊 Noise Disturbance', safety_hazard: '⚠️ Safety Hazard', other: '📝 Other' };
                 const delAction = "if(confirm('Delete?')){db.collection('security_alerts').doc('" + alertId + "').delete().then(()=>{closeMarketplaceModal();loadSecurityAlerts();});}";
                 
-                let html = postHeaderHtml(data.reportedByName, data.unitNumber, data.createdAt, isOwner, delAction);
+                let html = postHeaderHtml(data.reportedByName, data.unitNumber, data.createdAt, isOwner, delAction, data.reportedBy);
                 html += '<span style="background:#ffebee;color:#c62828;padding:3px 10px;border-radius:10px;font-size:12px;font-weight:600;display:inline-block;margin-bottom:10px;">' + (typeLabels[data.type] || '🚨 Alert') + '</span>';
                 html += '<div style="font-weight:600;font-size:16px;color:#333;margin-bottom:8px;">' + (data.title || 'Security Alert') + '</div>';
                 html += '<div style="font-size:13px;color:#666;margin-bottom:8px;">📅 ' + dateStr + ' • 📍 ' + (data.location || 'Unknown') + '</div>';
@@ -4636,7 +4677,7 @@
                     : '<span style="background:#28a745;color:white;padding:3px 10px;border-radius:10px;font-size:12px;font-weight:600;">✅ FOUND</span>';
                 const delAction = "if(confirm('Delete?')){db.collection('lost_and_found').doc('" + itemId + "').delete().then(()=>{closeMarketplaceModal();loadLostAndFound();});}";
                 
-                let html = postHeaderHtml(data.postedByName, data.unitNumber, data.createdAt, isOwner, delAction);
+                let html = postHeaderHtml(data.postedByName, data.unitNumber, data.createdAt, isOwner, delAction, data.postedBy);
                 html += typeBadge + ' ' + (categoryIcons[data.category] || '📦');
                 html += '<div style="font-weight:600;font-size:16px;color:#333;margin:8px 0;">' + (data.title || 'Item') + '</div>';
                 html += '<div style="font-size:13px;color:#666;margin-bottom:8px;">📅 ' + dateStr + ' • 📍 ' + (data.location || 'Unknown') + '</div>';
@@ -4813,7 +4854,7 @@
                 const typeColor = data.type === 'need' ? '#e65100' : '#2e7d32';
                 const delAction = "if(confirm('Delete?')){deleteCommunityShareItem('" + itemId + "');closeMarketplaceModal();}";
                 
-                let html = postHeaderHtml(data.ownerName, data.unitNumber, data.createdAt, isOwner, delAction);
+                let html = postHeaderHtml(data.ownerName, data.unitNumber, data.createdAt, isOwner, delAction, data.ownerId);
                 html += '<span style="background:' + typeBg + ';color:' + typeColor + ';padding:3px 10px;border-radius:10px;font-size:12px;font-weight:600;display:inline-block;margin-bottom:10px;">' + typeIcon + ' ' + typeLabel + '</span>';
                 html += '<div style="font-weight:600;font-size:16px;color:#333;margin-bottom:8px;">' + (data.title || 'Item') + '</div>';
                 html += '<div style="font-size:14px;color:#333;line-height:1.6;margin-bottom:12px;">' + (data.description || 'No description') + '</div>';
@@ -4992,7 +5033,7 @@
                 
                 // Update basic info
                 // Show profile picture or initial letter
-                const initial = (userDataFromDb.name || 'U').charAt(0).toUpperCase();
+                const initial = getInitials(userDataFromDb.name || 'U');
                 const avatarInitial = document.getElementById('profileAvatarInitial');
                 if (userDataFromDb.profilePicUrl) {
                     avatarInitial.innerHTML = `<img src="${userDataFromDb.profilePicUrl}" alt="Profile"
@@ -5541,7 +5582,7 @@
                 const comments = data.comments || [];
                 const delAction = "if(confirm('Delete?')){deleteEvent('" + eventId + "');closeMarketplaceModal();}";
                 
-                let html = postHeaderHtml(data.organizerName, data.unitNumber, data.createdAt, isOrganizer, delAction);
+                let html = postHeaderHtml(data.organizerName, data.unitNumber, data.createdAt, isOrganizer, delAction, data.organizerId);
                 html += '<div style="font-weight:600;font-size:16px;color:#333;margin-bottom:8px;">' + (data.title || 'Event') + '</div>';
                 html += '<div style="padding:10px 14px;background:#e3f2fd;border-radius:8px;margin-bottom:10px;font-size:14px;"><span style="font-weight:600;color:#1976d2;">📅 ' + dateStr + (timeStr ? ' • ⏰ ' + timeStr : '') + '</span>' + (data.location ? '<br>📍 ' + data.location : '') + '</div>';
                 html += '<div style="font-size:14px;color:#333;line-height:1.6;margin-bottom:12px;">' + (data.description || '') + '</div>';
@@ -6166,13 +6207,24 @@
                 }
                 if (!uploadResp.ok) throw new Error('Upload failed: ' + uploadResp.status);
 
+                // Save to users doc
                 await db.collection('users').doc(currentUser.uid).update({
                     profilePicUrl: publicUrl,
                     profilePicKey: key,
                     profilePicUpdatedAt: firebase.firestore.FieldValue.serverTimestamp()
                 });
+                // Also save to residents doc so directory shows the pic
+                const resSnap = await db.collection('residents')
+                    .where('communityId', '==', userCommunityId)
+                    .where('userId', '==', currentUser.uid)
+                    .limit(1).get();
+                if (!resSnap.empty) {
+                    await resSnap.docs[0].ref.update({ profilePicUrl: publicUrl });
+                }
+                // Update cache immediately
+                userPicCache[currentUser.uid] = publicUrl;
 
-                const initial = (userData.displayName || 'U')[0].toUpperCase();
+                const initial = getInitials(userData.displayName || 'U');
                 document.getElementById('profileAvatarInitial').innerHTML =
                     `<img src="${publicUrl}" alt="Profile"
                       onerror="this.innerHTML='${initial}'">`;
@@ -6183,6 +6235,7 @@
                     onerror="this.parentElement.textContent='${initial}'" alt="">`;
 
                 userData.profilePicUrl = publicUrl;
+                userPicCache[currentUser.uid] = publicUrl; // Keep cache current
                 closeCropModal();
                 console.log('✅ Profile picture saved');
 
