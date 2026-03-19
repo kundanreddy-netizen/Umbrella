@@ -541,27 +541,37 @@
         }
 
         /* Modal */
+        /* ── Full-screen post detail view ── */
         .modal {
             display: none;
             position: fixed;
             top: 0; left: 0;
             width: 100%; height: 100%;
-            background: rgba(0,0,0,0.55);
+            background: white;
             z-index: 1000;
-            align-items: flex-end;
-            justify-content: center;
-            padding: 0;
+            flex-direction: column;
         }
         .modal.show { display: flex; }
 
+        /* Create/QR modals keep overlay style */
+        #createModal, #qrModal {
+            background: rgba(0,0,0,0.5);
+            align-items: flex-end;
+            justify-content: center;
+        }
+        #createModal .modal-content,
+        #qrModal .modal-content {
+            border-radius: 24px 24px 0 0;
+            max-height: 92vh;
+            box-shadow: 0 -4px 24px rgba(0,0,0,0.15);
+        }
+
         .modal-content {
             background: white;
-            border-radius: 24px 24px 0 0;
             width: 100%;
-            max-width: 540px;
-            max-height: 92vh;
+            height: 100%;
+            max-width: 100%;
             padding: 0;
-            box-shadow: 0 -4px 30px rgba(0,0,0,0.18);
             display: flex;
             flex-direction: column;
             overflow: hidden;
@@ -718,9 +728,12 @@
             display: flex;
             justify-content: space-between;
             align-items: center;
-            padding: 16px 20px 14px;
-            border-bottom: 1px solid #F2F0F0;
+            padding: 14px 16px 12px;
+            border-bottom: 1px solid #F0F0F0;
             flex-shrink: 0;
+            background: white;
+            /* iOS safe area */
+            padding-top: max(14px, env(safe-area-inset-top, 14px));
         }
         .modal-title {
             font-size: 17px;
@@ -728,19 +741,21 @@
             color: #0D0D0D;
             margin: 0;
         }
+        /* Back button — ← arrow style */
         .modal-close {
-            width: 30px; height: 30px;
+            width: 36px; height: 36px;
             border-radius: 50%;
             background: #F2F2F2;
             border: none;
-            font-size: 16px;
+            font-size: 18px;
             cursor: pointer;
             display: flex;
             align-items: center;
             justify-content: center;
-            color: #555;
+            color: #333;
             line-height: 1;
         }
+        .modal-close:active { background: #E8E8E8; }
         .modal-title {
             font-size: 18px;
             font-weight: 700;
@@ -1912,43 +1927,44 @@
 
     <!-- Modal for Creating Content -->
     <div class="modal" id="createModal">
-        <div class="modal-content">
-            <div style="width:36px;height:4px;background:#E0E0E0;border-radius:2px;margin:10px auto 4px;flex-shrink:0;"></div>
+        <div class="modal-content" style="border-radius:24px 24px 0 0;height:auto;max-height:92vh;">
+            <div style="width:36px;height:4px;background:#E0E0E0;border-radius:2px;margin:10px auto 6px;flex-shrink:0;"></div>
             <div class="modal-header">
                 <h2 class="modal-title" id="modalTitle">Create</h2>
                 <button class="modal-close" onclick="closeModal()">&times;</button>
             </div>
-            <div id="modalBody" style="overflow-y:auto;padding:20px;">
-                <!-- Dynamic content will be loaded here -->
+            <div id="modalBody" style="overflow-y:auto;padding:20px;flex:1;">
             </div>
         </div>
     </div>
 
     <!-- QR Code Modal for Visitor Pass -->
     <div class="modal" id="qrModal">
-        <div class="modal-content" style="text-align: center;">
+        <div class="modal-content" style="border-radius:24px 24px 0 0;height:auto;max-height:80vh;text-align:center;">
+            <div style="width:36px;height:4px;background:#E0E0E0;border-radius:2px;margin:10px auto 6px;flex-shrink:0;"></div>
             <div class="modal-header">
                 <h2 class="modal-title">Visitor Pass</h2>
                 <button class="modal-close" onclick="closeQRModal()">&times;</button>
             </div>
-            <div id="qrModalBody" style="padding: 20px;">
-                <!-- QR code will be displayed here -->
+            <div id="qrModalBody" style="padding:20px;overflow-y:auto;">
             </div>
         </div>
     </div>
 
-    <!-- Marketplace Item Detail Modal -->
+    <!-- Post Detail — full-screen page -->
     <div class="modal" id="marketplaceModal">
         <div class="modal-content">
-            <!-- Drag handle -->
-            <div style="width:36px;height:4px;background:#E0E0E0;border-radius:2px;margin:10px auto 4px;flex-shrink:0;"></div>
-            <div class="modal-header">
-                <h2 class="modal-title">Details</h2>
-                <button class="modal-close" onclick="closeMarketplaceModal()">&times;</button>
+            <!-- Top bar: back arrow only -->
+            <div class="modal-header" style="border-bottom:none;padding-bottom:0;">
+                <button class="modal-close" onclick="closeMarketplaceModal()" aria-label="Back">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                        <polyline points="15 18 9 12 15 6"></polyline>
+                    </svg>
+                </button>
+                <div id="modalDetailMenuSlot"></div>
             </div>
-            <!-- Scrollable body + sticky comment bar live inside here -->
-            <div id="marketplaceModalBody" style="display:flex;flex-direction:column;flex:1;overflow:hidden;">
-                <!-- Item details and comments will be displayed here -->
+            <!-- Scrollable body + sticky comment bar -->
+            <div id="marketplaceModalBody" style="display:flex;flex-direction:column;flex:1;overflow:hidden;background:white;">
             </div>
         </div>
     </div>
@@ -2960,110 +2976,94 @@
         // commentsSectionHtml now renders the full interactive post footer
         function commentsSectionHtml(comments, collection, docId, viewFnName, loadFnName, postData) {
             postData = postData || {};
-            const likes    = postData.likes    || [];
+            const likes     = postData.likes    || [];
             const viewCount = postData.viewCount || 0;
             const hasLiked  = likes.includes(currentUser ? currentUser.uid : '');
-            const coll = collection;
-            const did  = docId;
-
+            const coll = collection, did = docId;
             let html = '';
 
-            // ── Action bar: Like / Comment / Share ──
-            html += '<div class="post-action-bar" style="margin-top:16px;">' +
-                '<button class="post-action-btn ' + (hasLiked ? 'liked' : '') + '" id="likeBtn-' + did + '" onclick="toggleLike(\'' + coll + '\',\'' + did + '\',' + viewFnName + ',' + loadFnName + ')">' +
-                  '<svg width="18" height="18" viewBox="0 0 24 24" fill="' + (hasLiked ? '#667eea' : 'none') + '" stroke="' + (hasLiked ? '#667eea' : 'currentColor') + '" stroke-width="2"><path d="M14 9V5a3 3 0 0 0-3-3l-4 10v11h11.28a2 2 0 0 0 2-1.7l1.38-9a2 2 0 0 0-2-2.3zM7 22H4a2 2 0 0 1-2-2v-7a2 2 0 0 1 2-2h3"></path></svg>' +
-                  (likes.length > 0 ? likes.length + ' ' : '') + 'Like' +
-                '</button>' +
-                '<button class="post-action-btn" onclick="focusCommentInput()">' +
-                  '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path></svg>' +
-                  (comments.length > 0 ? comments.length + ' ' : '') + 'Comment' +
-                '</button>' +
-                '<button class="post-action-btn" onclick="sharePost(\'' + did + '\',\'' + coll + '\')">' +
-                  '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 12v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8"></path><polyline points="16 6 12 2 8 6"></polyline><line x1="12" y1="2" x2="12" y2="15"></line></svg>' +
-                  'Share' +
-                '</button>' +
+            // ── Action bar: Like | Comment | Share ──
+            html += '<div class="post-action-bar">' +
+              '<button class="post-action-btn ' + (hasLiked ? 'liked' : '') + '" onclick="toggleLike(\'' + coll + '\',\'' + did + '\',' + viewFnName + ',' + loadFnName + ')">' +
+                '<svg width="20" height="20" viewBox="0 0 24 24" fill="' + (hasLiked ? '#667eea' : 'none') + '" stroke="' + (hasLiked ? '#667eea' : 'currentColor') + '" stroke-width="2"><path d="M14 9V5a3 3 0 0 0-3-3l-4 10v11h11.28a2 2 0 0 0 2-1.7l1.38-9a2 2 0 0 0-2-2.3zM7 22H4a2 2 0 0 1-2-2v-7a2 2 0 0 1 2-2h3"></path></svg>' +
+                (likes.length > 0 ? likes.length + ' ' : '') + 'Like' +
+              '</button>' +
+              '<button class="post-action-btn" onclick="focusCommentInput()">' +
+                '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path></svg>' +
+                (comments.length > 0 ? comments.length + ' ' : '') + 'Comment' +
+              '</button>' +
+              '<button class="post-action-btn" onclick="sharePost(\'' + did + '\',\'' + coll + '\')">' +
+                '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 12v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8"></path><polyline points="16 6 12 2 8 6"></polyline><line x1="12" y1="2" x2="12" y2="15"></line></svg>' +
+                'Share' +
+              '</button>' +
             '</div>';
 
             // ── Views row ──
             if (viewCount > 0) {
                 html += '<div class="post-views-row">' +
-                    '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#AAA" stroke-width="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path><circle cx="12" cy="12" r="3"></circle></svg>' +
+                    '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#AAA" stroke-width="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg> ' +
                     viewCount + ' view' + (viewCount !== 1 ? 's' : '') +
                 '</div>';
             }
 
             // ── Comments list ──
-            const scrollArea = '<div style="padding:0 20px;" id="comments-area-' + did + '">';
-            html += scrollArea;
-
+            html += '<div style="padding:0 20px;" id="comments-area-' + did + '">';
             if (comments.length > 0) {
-                html += '<div style="font-size:12px;font-weight:700;color:#AAA;letter-spacing:0.5px;margin:12px 0 10px;">COMMENTS · ' + comments.length + '</div>';
-                const sorted = [...comments].sort((a, b) =>
-                    (a.timestamp ? a.timestamp.toMillis() : 0) - (b.timestamp ? b.timestamp.toMillis() : 0));
-
+                html += '<div style="font-size:12px;font-weight:700;color:#AAA;letter-spacing:0.5px;margin:16px 0 12px;">COMMENTS · ' + comments.length + '</div>';
+                const sorted = [...comments].sort((a,b) => (a.timestamp ? a.timestamp.toMillis() : 0) - (b.timestamp ? b.timestamp.toMillis() : 0));
                 sorted.forEach((c, idx) => {
-                    const cDate   = c.timestamp ? timeAgo(c.timestamp.toDate()) : '';
+                    const cDate = c.timestamp ? timeAgo(c.timestamp.toDate()) : '';
                     const replies = c.replies || [];
-                    const cid     = c.commentId || idx;
-
-                    // Comment bubble
-                    html += '<div style="display:flex;gap:10px;margin-bottom:6px;align-items:flex-start;" id="comment-' + cid + '">' +
-                        avatarHtml(c.userName, 34, c.userId) +
+                    html += '<div style="display:flex;gap:10px;margin-bottom:6px;align-items:flex-start;">' +
+                        avatarHtml(c.userName, 36, c.userId) +
                         '<div style="flex:1;">' +
-                          '<div style="background:#F5F5F5;border-radius:12px;padding:9px 12px;">' +
-                            '<div style="font-size:13px;font-weight:700;color:#0D0D0D;">' + (c.userName || 'Unknown') +
-                            '<span style="font-weight:400;color:#AAA;font-size:12px;margin-left:8px;">' + cDate + '</span></div>' +
-                            '<div style="font-size:14px;color:#333;line-height:1.45;margin-top:3px;">' + renderCommentMessage(c.message || '') + '</div>' +
+                          '<div style="background:#F5F5F5;border-radius:14px;padding:10px 14px;">' +
+                            '<span style="font-size:13px;font-weight:700;color:#0D0D0D;">' + (c.userName || 'Unknown') + '</span>' +
+                            '<span style="font-size:12px;color:#AAA;margin-left:8px;">' + cDate + '</span>' +
+                            '<div style="font-size:14px;color:#1A1A1A;line-height:1.45;margin-top:4px;">' + renderCommentMessage(c.message || '') + '</div>' +
                           '</div>' +
-                          // Reply button
                           '<button class="reply-btn" onclick="showReplyInput(\'' + coll + '\',\'' + did + '\',' + idx + ',' + viewFnName + ',' + loadFnName + ')">↩ Reply' + (replies.length > 0 ? ' · ' + replies.length : '') + '</button>' +
                         '</div>' +
                     '</div>';
-
-                    // Existing replies indented
                     if (replies.length > 0) {
                         html += '<div class="reply-thread">';
                         replies.forEach(r => {
                             const rDate = r.timestamp ? timeAgo(r.timestamp.toDate()) : '';
                             html += '<div class="reply-item">' +
                                 avatarHtml(r.userName, 28, r.userId) +
-                                '<div style="flex:1;background:#F0EFFE;border-radius:10px;padding:7px 10px;">' +
-                                  '<div style="font-size:12px;font-weight:700;color:#0D0D0D;">' + (r.userName || 'Unknown') +
-                                  '<span style="font-weight:400;color:#AAA;font-size:11px;margin-left:6px;">' + rDate + '</span></div>' +
-                                  '<div style="font-size:13px;color:#333;line-height:1.4;margin-top:2px;">' + renderCommentMessage(r.message || '') + '</div>' +
+                                '<div style="flex:1;background:#F0EFFE;border-radius:12px;padding:8px 12px;">' +
+                                  '<span style="font-size:12px;font-weight:700;color:#0D0D0D;">' + (r.userName || '') + '</span>' +
+                                  '<span style="font-size:11px;color:#AAA;margin-left:6px;">' + rDate + '</span>' +
+                                  '<div style="font-size:13px;color:#333;line-height:1.4;margin-top:3px;">' + renderCommentMessage(r.message || '') + '</div>' +
                                 '</div>' +
                             '</div>';
                         });
                         html += '</div>';
                     }
-
-                    // Reply input placeholder (hidden by default)
                     html += '<div id="reply-input-' + coll + '-' + did + '-' + idx + '" style="display:none;" class="reply-input-row">' +
-                        avatarHtml(userData ? userData.displayName : 'Me', 28, currentUser ? currentUser.uid : null) +
+                        avatarHtml(userData ? userData.displayName : '', 28, currentUser ? currentUser.uid : null) +
                         '<input type="text" placeholder="Reply to ' + (c.userName || 'comment') + '..." id="reply-text-' + idx + '">' +
                         '<button onclick="submitReply(\'' + coll + '\',\'' + did + '\',' + idx + ',' + viewFnName + ',' + loadFnName + ')">Post</button>' +
                     '</div>';
                 });
             } else {
-                html += '<div style="text-align:center;padding:28px 0 16px;color:#C8C4D8;font-size:14px;font-weight:500;">No comments yet — be the first!</div>';
+                html += '<div style="text-align:center;padding:32px 0 16px;color:#C8C4D8;font-size:14px;font-weight:500;">No comments yet — be the first!</div>';
             }
-            html += '</div>'; // close comments-area
+            html += '</div>';
 
-            // ── Sticky comment input bar at bottom ──
+            // ── Sticky comment input bar ──
             html += '<div class="modal-comment-bar">' +
                 '<div class="modal-comment-input-row">' +
-                    avatarHtml(userData ? userData.displayName : 'Me', 30, currentUser ? currentUser.uid : null) +
+                    avatarHtml(userData ? userData.displayName : '', 32, currentUser ? currentUser.uid : null) +
                     '<input type="text" id="commentInput" placeholder="Add your thoughts..." ' +
                            'oninput="document.getElementById(\'postBtn-' + did + '\').classList.toggle(\'active\',this.value.trim().length>0)">' +
-                    '<button class="modal-attach-btn" onclick="triggerCommentAttach()" title="Attach image or file">📎</button>' +
-                    '<button class="modal-post-btn" id="postBtn-' + did + '" ' +
-                           'onclick="addGenericComment(\'' + coll + '\',\'' + did + '\',' + viewFnName + ',' + loadFnName + ')">Post</button>' +
+                    '<button class="modal-attach-btn" onclick="triggerCommentAttach()" title="Attach">📎</button>' +
+                    '<button class="modal-post-btn" id="postBtn-' + did + '" onclick="addGenericComment(\'' + coll + '\',\'' + did + '\',' + viewFnName + ',' + loadFnName + ')">' +
+                        'Post <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="22" y1="2" x2="11" y2="13"></line><polygon points="22 2 15 22 11 13 2 9 22 2"></polygon></svg>' +
+                    '</button>' +
                 '</div>' +
-                // Hidden file input for comment attachments
-                '<input type="file" id="commentAttachInput" style="display:none;" ' +
-                       'accept="image/jpeg,image/png,image/webp,image/gif,application/pdf" ' +
-                       'onchange="handleCommentAttach(this,\'' + coll + '\',\'' + did + '\',' + viewFnName + ',' + loadFnName + ')">' +
-                '<div id="attachPreview-' + did + '" style="margin-top:6px;"></div>' +
+                '<input type="file" id="commentAttachInput" style="display:none;" accept="image/jpeg,image/png,image/webp,application/pdf" onchange="handleCommentAttach(this,\'' + coll + '\',\'' + did + '\',' + viewFnName + ',' + loadFnName + ')">' +
+                '<div id="attachPreview-' + did + '" style="margin-top:6px;padding:0 4px;"></div>' +
             '</div>';
 
             return html;
@@ -4957,16 +4957,15 @@
                 const comments = data.comments || [];
                 const delAction = "if(confirm('Delete?')){deleteMarketplaceItem('" + itemId + "');closeMarketplaceModal();}";
                 
-                // Scrollable content wrapper + sticky comment bar
+                // Scroll area + sticky comment bar (two-child flex column)
                 let scrollHtml = '<div style="flex:1;overflow-y:auto;padding:16px 20px 8px;">';
                 scrollHtml += postHeaderHtml(data.sellerName, data.unitNumber, data.createdAt, isOwner, delAction, data.sellerId);
-                scrollHtml += '<div style="font-size:26px;font-weight:800;color:#667eea;margin-bottom:8px;">$' + (data.price || '0') + '</div>';
-                if (data.category) scrollHtml += '<span style="background:#EEF2FF;color:#667eea;padding:4px 12px;border-radius:20px;font-size:12px;font-weight:600;display:inline-block;margin-bottom:10px;">' + data.category + '</span>';
-                scrollHtml += '<div style="font-size:15px;color:#1A1A1A;line-height:1.6;margin-bottom:4px;">' + (data.description || 'No description') + '</div>';
-                // Action bar + views + comments list
+                scrollHtml += '<div style="font-size:28px;font-weight:800;color:#667eea;margin-bottom:8px;">$' + (data.price || '0') + '</div>';
+                if (data.category) scrollHtml += '<span style="background:#EEF2FF;color:#667eea;padding:4px 14px;border-radius:20px;font-size:13px;font-weight:600;display:inline-block;margin-bottom:12px;">' + data.category + '</span>';
+                scrollHtml += '<div style="font-size:15px;color:#1A1A1A;line-height:1.6;margin-bottom:8px;">' + (data.description || 'No description') + '</div>';
                 scrollHtml += commentsSectionHtml(comments, 'marketplace', itemId, 'viewMarketplaceItem', 'loadMarketplace', data);
                 scrollHtml += '</div>';
-                
+
                 document.getElementById('marketplaceModalBody').innerHTML = scrollHtml;
                 document.getElementById('marketplaceModal').classList.add('show');
             } catch (error) {
