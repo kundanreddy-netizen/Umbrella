@@ -631,40 +631,39 @@
         .mb-20 { margin-bottom: 20px; }
         .hidden { display: none !important; }
 
-        /* Pull to Refresh */
+        /* Pull to Refresh — circular spinner, MyGate style */
         .pull-to-refresh {
             position: fixed;
-            top: -80px;
-            left: 0;
-            right: 0;
-            height: 80px;
+            top: 60px;
+            left: 50%;
+            transform: translateX(-50%) translateY(-80px);
+            width: 44px;
+            height: 44px;
+            border-radius: 50%;
+            background: white;
+            box-shadow: 0 2px 12px rgba(0,0,0,0.18);
             display: flex;
             align-items: center;
             justify-content: center;
             z-index: 9999;
             pointer-events: none;
-            background: rgba(255,255,255,0.95);
-            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            opacity: 0;
+            transition: opacity 0.15s ease;
         }
-
         .pull-to-refresh-icon {
-            font-size: 32px;
-            transition: transform 0.3s;
+            font-size: 0;
+            width: 22px;
+            height: 22px;
+            border: 2.5px solid #E8E6E2;
+            border-top-color: #667eea;
+            border-radius: 50%;
+            display: block;
         }
-
-        .pull-to-refresh-text {
-            margin-left: 10px;
-            color: #667eea;
-            font-weight: 600;
-            font-size: 14px;
-        }
-
+        .pull-to-refresh-text { display: none; }
         .pull-to-refresh.refreshing .pull-to-refresh-icon {
-            animation: spin 1s linear infinite;
+            animation: ptr-spin 0.7s linear infinite;
         }
-
-        @keyframes spin {
-            from { transform: rotate(0deg); }
+        @keyframes ptr-spin {
             to { transform: rotate(360deg); }
         }
 
@@ -1567,9 +1566,9 @@
         </div>
 
         <!-- Pull to Refresh Indicator -->
+        <!-- Pull to Refresh — circular spinner appears when pulling down -->
         <div class="pull-to-refresh" id="pullToRefresh">
-            <div class="pull-to-refresh-icon">⬇️</div>
-            <div class="pull-to-refresh-text" id="pullToRefreshText">Pull to refresh</div>
+            <div class="pull-to-refresh-icon" id="pullToRefreshIcon"></div>
         </div>
 
         <!-- Tab Navigation -->
@@ -3555,100 +3554,101 @@
         // ========== PULL TO REFRESH (SIMPLIFIED) ==========
         let startY = 0;
         let currentY = 0;
-        let pulling = false;
+                // ── Pull to Refresh ──
+        // Thresholds tuned to feel natural — not hair-trigger
+        let pulling    = false;
         let refreshing = false;
 
-        function setupPullToRefresh() {
-            console.log('🔄 Setting up pull-to-refresh...');
-            
-            const indicator = document.getElementById('pullToRefresh');
-            if (!indicator) {
-                console.error('❌ Pull indicator not found');
-                return;
-            }
+        const PTR_TRIGGER   = 80;  // px pulled down to trigger refresh (was 100, felt ok)
+        const PTR_DEAD_ZONE = 10;  // px of slack before anything shows (prevents accidental)
+        const PTR_SHOW_AT   = 30;  // px pulled before circle becomes visible
 
-            // Touchstart - ONLY at very top
+        function setupPullToRefresh() {
+            const indicator = document.getElementById('pullToRefresh');
+            if (!indicator) return;
+
+            // ── touchstart: only arm if exactly at top ──
             window.addEventListener('touchstart', (e) => {
-                if (window.scrollY === 0 && !refreshing) {
+                if (window.scrollY <= 0 && !refreshing) {
                     startY = e.touches[0].pageY;
-                    pulling = true;
+                    pulling = false; // arm but don't activate yet
                 }
             }, { passive: true });
 
-            // Touchmove
+            // ── touchmove: track pull distance ──
             window.addEventListener('touchmove', (e) => {
-                if (!pulling || refreshing) return;
-                
+                if (refreshing || startY === 0) return;
+
                 currentY = e.touches[0].pageY;
                 const diff = currentY - startY;
 
-                // Only activate if scrolled to exact top AND pulling down
-                if (diff > 0 && window.scrollY === 0) {
-                    // Only prevent default if we're actually pulling (more than 20px)
-                    if (diff > 20) {
-                        e.preventDefault();
-                    }
-                    
-                    const pullAmount = Math.min(diff * 0.5, 80);
-                    indicator.style.transform = `translateY(${pullAmount}px)`;
-                    indicator.style.opacity = Math.min(diff / 100, 1);
+                // Must be pulling DOWN and still at top
+                if (diff > PTR_DEAD_ZONE && window.scrollY <= 0) {
+                    pulling = true;
 
+                    // Prevent native scroll bounce only when we're handling it
+                    if (diff > PTR_DEAD_ZONE) e.preventDefault();
+
+                    // Progress 0→1 from PTR_SHOW_AT to PTR_TRIGGER
+                    const progress = Math.min((diff - PTR_DEAD_ZONE) / (PTR_TRIGGER - PTR_DEAD_ZONE), 1);
+
+                    // Circle drops in from above — translateY from -80px to 0 over pull range
+                    const dropY = -80 + (progress * 80);
+                    indicator.style.transform = `translateX(-50%) translateY(${dropY}px)`;
+                    indicator.style.opacity   = diff >= PTR_SHOW_AT ? Math.min((diff - PTR_SHOW_AT) / 30, 1) : 0;
+
+                    // Rotate the arc proportional to pull distance (visual feedback)
                     const icon = indicator.querySelector('.pull-to-refresh-icon');
-                    const text = indicator.querySelector('.pull-to-refresh-text');
-
-                    if (diff > 100) {
-                        icon.textContent = '🔄';
-                        text.textContent = 'Release to refresh';
-                    } else {
-                        icon.textContent = '⬇️';
-                        text.textContent = 'Pull down';
+                    if (icon && !refreshing) {
+                        icon.style.transform = `rotate(${progress * 270}deg)`;
                     }
-                } else {
-                    // If scrolled away from top, cancel pulling
+                } else if (diff <= 0) {
+                    // Scrolling up — cancel
                     pulling = false;
+                    resetPTR(indicator);
                 }
             }, { passive: false });
 
-            // Touchend
+            // ── touchend: trigger or reset ──
             window.addEventListener('touchend', () => {
-                if (!pulling) return;
+                if (!pulling) { startY = 0; currentY = 0; return; }
 
                 const diff = currentY - startY;
 
-                if (diff > 100 && !refreshing && window.scrollY === 0) {
-                    // Trigger refresh
+                if (diff >= PTR_TRIGGER && window.scrollY <= 0) {
+                    // ✅ Trigger refresh
                     refreshing = true;
-                    const icon = indicator.querySelector('.pull-to-refresh-icon');
-                    const text = indicator.querySelector('.pull-to-refresh-text');
-                    
-                    indicator.style.transform = 'translateY(60px)';
-                    indicator.style.opacity = '1';
+                    indicator.style.transform = 'translateX(-50%) translateY(0px)';
+                    indicator.style.opacity   = '1';
                     indicator.classList.add('refreshing');
-                    icon.textContent = '🔄';
-                    text.textContent = 'Refreshing...';
 
-                    console.log('🔄 REFRESHING!');
+                    const icon = indicator.querySelector('.pull-to-refresh-icon');
+                    if (icon) icon.style.transform = '';
+
                     loadAllData();
 
                     setTimeout(() => {
-                        indicator.style.transform = 'translateY(-80px)';
-                        indicator.style.opacity = '0';
+                        resetPTR(indicator);
                         indicator.classList.remove('refreshing');
                         refreshing = false;
-                        pulling = false;
-                    }, 1500);
+                    }, 1800);
                 } else {
-                    // Reset
-                    indicator.style.transform = 'translateY(-80px)';
-                    indicator.style.opacity = '0';
-                    pulling = false;
+                    resetPTR(indicator);
                 }
 
-                startY = 0;
-                currentY = 0;
+                pulling   = false;
+                startY    = 0;
+                currentY  = 0;
             }, { passive: true });
+        }
 
-            console.log('✅ Pull-to-refresh ready');
+        function resetPTR(indicator) {
+            if (!indicator) indicator = document.getElementById('pullToRefresh');
+            if (!indicator) return;
+            indicator.style.transition = 'transform 0.25s ease, opacity 0.2s ease';
+            indicator.style.transform  = 'translateX(-50%) translateY(-80px)';
+            indicator.style.opacity    = '0';
+            setTimeout(() => { if (indicator) indicator.style.transition = ''; }, 260);
         }
 
         // ========== END PULL TO REFRESH ==========
