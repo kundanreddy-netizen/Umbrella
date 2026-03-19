@@ -679,23 +679,23 @@
             flex-shrink: 0;
         }
         .modal-post-btn {
+            width: 38px;
+            height: 38px;
+            border-radius: 50%;
             background: #667eea;
             color: white;
             border: none;
-            border-radius: 20px;
-            padding: 9px 20px;
-            font-size: 14px;
-            font-weight: 700;
             cursor: pointer;
             flex-shrink: 0;
-            opacity: 0.45;
+            opacity: 0.35;
             transition: opacity 0.2s, transform 0.1s;
             display: flex;
             align-items: center;
-            gap: 5px;
+            justify-content: center;
+            padding: 0;
         }
         .modal-post-btn.active { opacity: 1; }
-        .modal-post-btn.active:active { transform: scale(0.96); }
+        .modal-post-btn.active:active { transform: scale(0.92); }
         /* Reply input inline */
         .reply-input-row {
             display: flex;
@@ -3063,7 +3063,7 @@
                            'oninput="document.getElementById(\'postBtn-' + did + '\').classList.toggle(\'active\',this.value.trim().length>0)">' +
                     '<button class="modal-attach-btn" onclick="triggerCommentAttach()" title="Attach">📎</button>' +
                     '<button class="modal-post-btn" id="postBtn-' + did + '" onclick="addGenericComment(\'' + coll + '\',\'' + did + '\',' + viewFnName + ',' + loadFnName + ')">' +
-                        'Post <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="22" y1="2" x2="11" y2="13"></line><polygon points="22 2 15 22 11 13 2 9 22 2"></polygon></svg>' +
+                        '<svg width="18" height="18" viewBox="0 0 24 24" fill="white" stroke="white" stroke-width="0"><path d="M2 21l21-9L2 3v7l15 2-15 2v7z"/></svg>' +
                     '</button>' +
                 '</div>' +
                 '<input type="file" id="commentAttachInput" style="display:none;" accept="image/jpeg,image/png,image/webp,application/pdf" onchange="handleCommentAttach(this,\'' + coll + '\',\'' + did + '\',' + viewFnName + ',' + loadFnName + ')">' +
