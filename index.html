@@ -29,7 +29,7 @@
 
         body {
             font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            background: #F2F0EB;
             min-height: 100vh;
         }
 
@@ -225,12 +225,13 @@
             position: relative;
             overflow-y: auto;
             height: 100vh;
+            background: #F2F0EB;
         }
 
         .header {
             background: white;
-            padding: 15px 20px;
-            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            padding: 12px 16px;
+            box-shadow: 0 1px 0 rgba(0,0,0,0.08);
             position: sticky;
             top: 0;
             z-index: 100;
@@ -362,24 +363,25 @@
             gap: 8px;
             padding: 12px;
             margin: 0;
+            background: #F2F0EB;
         }
 
         .tab-btn {
-            padding: 12px 8px;
+            padding: 10px 6px;
             background: white;
-            border: 2px solid #e0e0e0;
-            border-radius: 10px;
+            border: 1.5px solid #E8E6E2;
+            border-radius: 12px;
             font-size: 11px;
             font-weight: 600;
             cursor: pointer;
             color: #666;
-            transition: all 0.3s;
+            transition: all 0.2s;
             white-space: nowrap;
             display: flex;
             flex-direction: column;
             align-items: center;
-            gap: 5px;
-            box-shadow: 0 2px 6px rgba(0,0,0,0.05);
+            gap: 4px;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.06);
         }
 
         .tab-btn .tab-icon {
@@ -396,7 +398,8 @@
 
         /* Content Area */
         .content-area {
-            padding: 0 15px 20px;
+            padding: 0 12px 20px;
+            background: #F2F0EB;
         }
 
         .tab-content {
@@ -449,30 +452,30 @@
 
         /* Cards */
         .card {
-            background: white;
-            border-radius: 12px;
-            padding: 20px;
-            margin-bottom: 15px;
-            box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+            background: #FFFFFF;
+            border-radius: 16px;
+            padding: 16px 16px 12px;
+            margin-bottom: 10px;
+            box-shadow: 0 1px 4px rgba(0,0,0,0.08);
         }
+        .card:active { background: #FAFAFA; }
 
         .card-title {
-            font-size: 18px;
+            font-size: 16px;
             font-weight: 600;
-            color: #333;
-            margin-bottom: 10px;
+            color: #0D0D0D;
+            margin-bottom: 4px;
+            line-height: 1.3;
         }
-
         .card-subtitle {
-            font-size: 12px;
-            color: #999;
-            margin-bottom: 10px;
+            font-size: 13px;
+            color: #888;
+            margin-bottom: 8px;
         }
-
         .card-content {
             font-size: 15px;
-            color: #555;
-            line-height: 1.6;
+            color: #1A1A1A;
+            line-height: 1.55;
         }
 
         /* Empty State */
@@ -481,6 +484,9 @@
             padding: 60px 20px;
             color: white;
         }
+        .empty-state .empty-icon { font-size: 48px; margin-bottom: 12px; opacity: 0.7; }
+        .empty-state .empty-text { font-size: 17px; font-weight: 600; color: #555; }
+        .empty-state .empty-subtext { font-size: 14px; color: #999; margin-top: 6px; }
 
         .empty-icon {
             font-size: 64px;
@@ -545,7 +551,7 @@
 
         .modal-content {
             background: white;
-            border-radius: 16px;
+            border-radius: 20px;
             width: 100%;
             max-width: 420px;
             max-height: 80vh;
@@ -1367,7 +1373,27 @@
         }
         .post-menu-item:hover { background: #f5f5f5; }
         .post-menu-item.danger { color: #dc3545; }
-        .card-header { display: flex; justify-content: space-between; align-items: flex-start; }
+        .card-header { display: flex; justify-content: space-between; align-items: flex-start; gap: 8px; }
+        /* Feed header — avatar + name + meta row */
+        .feed-meta { font-size: 13px; color: #888888; margin-top: 2px; }
+        .feed-body { font-size: 15px; color: #1A1A1A; line-height: 1.55; margin: 10px 0 8px; }
+        .feed-footer { display: flex; align-items: center; justify-content: space-between; 
+                       padding-top: 10px; border-top: 1px solid #F0F0F0; margin-top: 6px; }
+        .feed-footer-meta { font-size: 13px; color: #999; display: flex; gap: 14px; align-items: center; }
+        /* Inline comment pill */
+        .feed-comment-row { display: flex; gap: 8px; align-items: center; margin-top: 10px; }
+        .feed-comment-input {
+            flex: 1; padding: 10px 16px;
+            border: 1px solid #E0E0E0; border-radius: 22px;
+            font-size: 14px; font-family: inherit;
+            outline: none; background: #FAFAFA; color: #333;
+        }
+        .feed-comment-input:focus { border-color: #667eea; background: white; }
+        .feed-send-btn {
+            background: none; border: none; cursor: pointer;
+            color: #667eea; font-size: 20px; padding: 4px 6px; flex-shrink: 0;
+        }
+        .feed-send-btn:active { opacity: 0.7; }
     </style>
 </head>
 <body>
@@ -2741,39 +2767,46 @@
             }
         });
 
-        // postHeaderHtml(name, unit, date, isOwner, deleteAction, userId)
-        // userId — optional, used to show profile pic in post header
+        // postHeaderHtml — modal post header, MyGate style
         function postHeaderHtml(name, unit, date, isOwner, deleteAction, userId) {
             const ago = date ? timeAgo(date instanceof Date ? date : date.toDate()) : '';
-            return '<div style="display:flex;align-items:center;gap:12px;margin-bottom:14px;">' +
-                avatarHtml(name, 44, userId) +
-                '<div style="flex:1;min-width:0;"><div style="font-weight:700;font-size:15px;color:#333;">' + (name || 'Unknown') + '</div>' +
-                '<div style="font-size:12px;color:#999;">Unit ' + (unit || 'N/A') + (ago ? ' • ' + ago : '') + '</div></div>' +
-                (isOwner ? '<button onclick="' + deleteAction + '" style="background:none;border:none;cursor:pointer;font-size:18px;padding:6px;color:#999;" title="Delete">🗑️</button>' : '') +
+            return '<div style="display:flex;align-items:center;gap:12px;margin-bottom:16px;padding-bottom:14px;border-bottom:1px solid #F0F0F0;">' +
+                avatarHtml(name, 48, userId) +
+                '<div style="flex:1;min-width:0;">' +
+                  '<div style="font-weight:700;font-size:16px;color:#0D0D0D;line-height:1.2;">' + (name || 'Unknown') + '</div>' +
+                  '<div style="font-size:13px;color:#888;margin-top:3px;">Unit ' + (unit || 'N/A') + (ago ? ' · ' + ago : '') + '</div>' +
+                '</div>' +
+                (isOwner ? '<button onclick="' + deleteAction + '" style="background:none;border:none;cursor:pointer;font-size:16px;padding:6px;color:#bbb;" title="Delete">🗑️</button>' : '') +
                 '</div>';
         }
         
         function commentsSectionHtml(comments, collection, docId, viewFnName, loadFnName) {
-            let html = '<div style="border-top:1px solid #eee;margin-top:16px;padding-top:14px;">';
-            html += '<div style="font-weight:600;font-size:14px;color:#333;margin-bottom:10px;">💬 Comments (' + comments.length + ')</div>';
-            
+            let html = '<div style="margin-top:16px;">';
+
+            // Comment input — always at top, pill style
+            html += '<div class="feed-comment-row">' +
+                avatarHtml(userData ? userData.displayName : 'Me', 36, currentUser ? currentUser.uid : null) +
+                '<input id="commentInput" class="feed-comment-input" type="text" placeholder="Add your thoughts...">' +
+                '<button class="feed-send-btn" onclick="addGenericComment(\'' + collection + '\',\'' + docId + '\',' + viewFnName + ',' + loadFnName + ')">➤</button>' +
+                '</div>';
+
+            // Comments list
             if (comments.length > 0) {
+                html += '<div style="margin-top:14px;border-top:1px solid #F0F0F0;padding-top:12px;">';
+                html += '<div style="font-size:13px;font-weight:600;color:#888;margin-bottom:10px;">COMMENTS · ' + comments.length + '</div>';
                 const sorted = [...comments].sort((a, b) => (a.timestamp ? a.timestamp.toMillis() : 0) - (b.timestamp ? b.timestamp.toMillis() : 0));
                 sorted.forEach(c => {
                     const cDate = c.timestamp ? timeAgo(c.timestamp.toDate()) : '';
-                    html += '<div style="display:flex;gap:8px;margin-bottom:10px;">' +
-                        avatarHtml(c.userName, 28, c.userId) +
-                        '<div style="flex:1;"><div style="font-size:13px;"><strong>' + (c.userName || 'Unknown') + '</strong> <span style="color:#999;font-size:11px;">' + cDate + '</span></div>' +
-                        '<div style="font-size:13px;color:#444;line-height:1.4;margin-top:2px;">' + (c.message || '') + '</div></div></div>';
+                    html += '<div style="display:flex;gap:10px;margin-bottom:12px;align-items:flex-start;">' +
+                        avatarHtml(c.userName, 34, c.userId) +
+                        '<div style="flex:1;background:#F5F5F5;border-radius:12px;padding:9px 12px;">' +
+                          '<div style="font-size:13px;font-weight:700;color:#0D0D0D;">' + (c.userName || 'Unknown') +
+                          '<span style="font-weight:400;color:#AAA;font-size:12px;margin-left:8px;">' + cDate + '</span></div>' +
+                          '<div style="font-size:14px;color:#333;line-height:1.45;margin-top:3px;">' + (c.message || '') + '</div>' +
+                        '</div></div>';
                 });
-            } else {
-                html += '<div style="text-align:center;color:#bbb;font-size:13px;padding:10px 0;">No comments yet</div>';
+                html += '</div>';
             }
-            
-            // Input
-            html += '<div style="display:flex;gap:8px;margin-top:10px;align-items:center;">' +
-                '<input id="commentInput" type="text" placeholder="Add your thoughts..." style="flex:1;padding:10px 14px;border:1px solid #e0e0e0;border-radius:20px;font-size:13px;outline:none;">' +
-                '<button onclick="addGenericComment(\'' + collection + '\',\'' + docId + '\',' + viewFnName + ',' + loadFnName + ')" style="background:none;border:none;cursor:pointer;font-size:20px;color:#667eea;padding:4px;">➤</button></div>';
             html += '</div>';
             return html;
         }
@@ -3638,16 +3671,22 @@
                     const isAdm = userData.role === 'admin';
                     
                     html += `
-                        <div class="card" onclick="viewAnnouncement('${doc.id}')" style="cursor: pointer;">
-                            <div class="card-header">
-                                <div style="flex:1;">
-                                    <div class="card-title">${data.title || 'Announcement'}</div>
-                                    <div class="card-subtitle">${date} • 👤 Admin</div>
+                        <div class="card" onclick="viewAnnouncement('${doc.id}')" style="cursor:pointer;">
+                            <div style="display:flex;align-items:center;gap:12px;">
+                                ${avatarHtml('Admin', 48, null)}
+                                <div style="flex:1;min-width:0;">
+                                    <div style="font-weight:700;font-size:16px;color:#0D0D0D;">${data.title || 'Announcement'}</div>
+                                    <div class="feed-meta">Admin · ${date}</div>
                                 </div>
                                 ${postMenuHtml(doc.id, 'announcement', isAdm, isAdm)}
                             </div>
-                            <div class="card-content" style="display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden;">${data.message || data.content || ''}</div>
-                            ${data.category ? `<span class="badge badge-${data.category}">${data.category}</span>` : ''}
+                            <div class="feed-body" style="-webkit-line-clamp:3;display:-webkit-box;-webkit-box-orient:vertical;overflow:hidden;">${data.message || data.content || ''}</div>
+                            <div class="feed-footer">
+                                <div class="feed-footer-meta">
+                                    ${data.category ? `<span class="badge badge-${data.category}">${data.category}</span>` : ''}
+                                </div>
+                                <div style="font-size:12px;color:#bbb;">Tap to read ›</div>
+                            </div>
                         </div>
                     `;
                 });
@@ -4054,16 +4093,23 @@
 
                     html += `
                         <div class="card" onclick="viewTicket('${data.id}')" style="${cardStyle}">
-                            <div class="card-header">
-                                <div style="flex:1;">
-                                    ${closedBanner}
-                                    <div class="card-title">${data.title || 'Support Ticket'}</div>
-                                    <div class="card-subtitle">${date} • ${data.category || 'General'} • By ${data.residentName || 'Resident'}</div>
+                            <div style="display:flex;align-items:center;gap:12px;">
+                                ${avatarHtml(data.residentName, 48, data.residentId)}
+                                <div style="flex:1;min-width:0;">
+                                    <div style="font-weight:700;font-size:16px;color:#0D0D0D;">${data.residentName || 'Resident'}</div>
+                                    <div class="feed-meta">Unit ${data.unitNumber || 'N/A'} · ${date} · ${data.category || 'General'}</div>
                                 </div>
                                 ${postMenuHtml(data.id, 'ticket', isOwner, userData.role === 'admin')}
                             </div>
-                            <div class="card-content" style="display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden;">${data.description || ''}</div>
-                            <span class="badge badge-${data.status || 'open'}">${data.status || 'open'}</span>
+                            <div class="feed-body" style="-webkit-line-clamp:3;display:-webkit-box;-webkit-box-orient:vertical;overflow:hidden;">
+                                ${closedBanner}
+                                <span style="font-weight:600;color:#0D0D0D;">${data.title || 'Support Ticket'}</span>
+                                <div style="margin-top:4px;">${data.description || ''}</div>
+                            </div>
+                            <div class="feed-footer">
+                                <span class="badge badge-${data.status || 'open'}">${data.status || 'open'}</span>
+                                <div style="font-size:12px;color:#bbb;">Tap to view ›</div>
+                            </div>
                         </div>
                     `;
                 });
@@ -4159,23 +4205,26 @@
                 const commentCount = data.comments ? data.comments.length : 0;
                 
                 html += `
-                    <div class="card" onclick="viewMarketplaceItem('${data.id}')" style="cursor: pointer;">
-                        <div class="card-header">
-                            <div style="flex:1;">
-                                <div class="card-title">${data.title || 'Item for Sale'}</div>
-                                <div class="card-subtitle">
-                                    <strong style="color: #667eea; font-size: 18px;">$${data.price || '0'}</strong>
-                                </div>
+                    <div class="card" onclick="viewMarketplaceItem('${data.id}')" style="cursor:pointer;">
+                        <div style="display:flex;align-items:center;gap:12px;">
+                            ${avatarHtml(data.sellerName, 48, data.sellerId)}
+                            <div style="flex:1;min-width:0;">
+                                <div style="font-weight:700;font-size:16px;color:#0D0D0D;">${data.sellerName || 'Resident'}</div>
+                                <div class="feed-meta">Unit ${data.unitNumber || 'N/A'} · ${date}</div>
                             </div>
                             ${postMenuHtml(data.id, 'marketplace', isOwner, userData.role === 'admin')}
                         </div>
-                        <div class="card-content" style="margin-top: 10px;">
-                            ${data.description || 'No description'}
-                            ${data.category ? `<br><span class="badge" style="background: #e3f2fd; color: #1976d2; margin-top: 8px;">${data.category}</span>` : ''}
+                        <div class="feed-body">
+                            <span style="font-size:20px;font-weight:800;color:#667eea;">$${data.price || '0'}</span>
+                            <span style="font-size:16px;font-weight:600;color:#0D0D0D;margin-left:8px;">${data.title || 'Item'}</span>
+                            <div style="margin-top:6px;color:#555;">${data.description || ''}</div>
                         </div>
-                        <div style="margin-top: 12px; padding-top: 12px; border-top: 1px solid #f0f0f0; font-size: 13px; color: #666;">
-                            👤 ${data.sellerName || 'Unknown'} • Unit ${data.unitNumber || 'N/A'} • ${date}
-                            ${commentCount > 0 ? ` • 💬 ${commentCount} comment${commentCount > 1 ? 's' : ''}` : ''}
+                        <div class="feed-footer">
+                            <div class="feed-footer-meta">
+                                ${data.category ? `<span class="badge" style="background:#EEF2FF;color:#667eea;">${data.category}</span>` : ''}
+                                ${commentCount > 0 ? `<span>💬 ${commentCount}</span>` : ''}
+                            </div>
+                            <div style="font-size:12px;color:#bbb;">Tap to view ›</div>
                         </div>
                     </div>
                 `;
@@ -4696,7 +4745,7 @@
                 html += '<span style="background:' + statusColor + ';color:white;padding:3px 10px;border-radius:10px;font-size:12px;font-weight:600;text-transform:uppercase;display:inline-block;margin-bottom:8px;">' + (data.status || 'open') + '</span>';
                 if (data.category) html += ' <span style="background:#e3f2fd;color:#1976d2;padding:3px 10px;border-radius:10px;font-size:12px;font-weight:600;">' + data.category + '</span>';
                 html += '<div style="font-weight:600;font-size:16px;color:#333;margin:8px 0;">' + (data.title || 'Support Ticket') + '</div>';
-                html += '<div style="font-size:14px;color:#333;line-height:1.6;margin-bottom:12px;white-space:pre-wrap;">' + (data.description || 'No description') + '</div>';
+                html += '<div style="font-size:15px;color:#1A1A1A;line-height:1.6;margin-bottom:14px;white-space:pre-wrap;">' + (data.description || 'No description') + '</div>';
                 
                 // Admin response section (kept)
                 if (data.adminResponse) {
@@ -4886,23 +4935,26 @@
                     const isOwner = data.ownerId === currentUser.uid;
                     
                     html += `
-                        <div class="card" onclick="viewCommunityShareItem('${data.id}')" style="cursor: pointer;">
-                            <div class="card-header">
-                                <div style="display: flex; align-items: center; gap: 8px;">
-                                    <span style="background: ${typeBg}; color: ${typeColor}; padding: 4px 10px; border-radius: 12px; font-size: 11px; font-weight: 600;">
-                                        ${typeIcon} ${typeLabel}
-                                    </span>
+                        <div class="card" onclick="viewCommunityShareItem('${data.id}')" style="cursor:pointer;">
+                            <div style="display:flex;align-items:center;gap:12px;">
+                                ${avatarHtml(data.ownerName, 48, data.ownerId)}
+                                <div style="flex:1;min-width:0;">
+                                    <div style="font-weight:700;font-size:16px;color:#0D0D0D;">${data.ownerName || 'Resident'}</div>
+                                    <div class="feed-meta">Unit ${data.unitNumber || 'N/A'} · ${date}</div>
                                 </div>
                                 ${postMenuHtml(data.id, 'communityshare', isOwner, userData.role === 'admin')}
                             </div>
-                            <div class="card-title">${data.title || 'Item'}</div>
-                            <div class="card-content" style="margin-top: 10px;">
-                                ${data.description || 'No description'}
-                                ${data.availableUntil ? `<div style="margin-top: 8px; font-size: 12px; color: #666;"><strong>Available until:</strong> ${data.availableUntil.toDate().toLocaleDateString()}</div>` : ''}
+                            <div class="feed-body">
+                                <span style="background:${typeBg};color:${typeColor};padding:3px 10px;border-radius:10px;font-size:12px;font-weight:600;">${typeIcon} ${typeLabel}</span>
+                                <div style="margin-top:8px;font-weight:600;font-size:15px;color:#0D0D0D;">${data.title || 'Item'}</div>
+                                <div style="margin-top:4px;color:#555;">${data.description || ''}</div>
+                                ${data.availableUntil ? `<div style="margin-top:6px;font-size:12px;color:#888;">Available until: ${data.availableUntil.toDate().toLocaleDateString()}</div>` : ''}
                             </div>
-                            <div style="margin-top: 12px; padding-top: 12px; border-top: 1px solid #f0f0f0; font-size: 13px; color: #666;">
-                                👤 ${data.ownerName || 'Unknown'} • Unit ${data.unitNumber || 'N/A'} • ${date}
-                                ${commentCount > 0 ? ` • 💬 ${commentCount} comment${commentCount > 1 ? 's' : ''}` : ''}
+                            <div class="feed-footer">
+                                <div class="feed-footer-meta">
+                                    ${commentCount > 0 ? `<span>💬 ${commentCount}</span>` : ''}
+                                </div>
+                                <div style="font-size:12px;color:#bbb;">Tap to view ›</div>
                             </div>
                         </div>
                     `;
@@ -5605,7 +5657,29 @@
                     const isOrganizer = data.organizerId === currentUser.uid;
                     const isAdm = userData.role === 'admin';
                     
-                    html += '<div class="card" onclick="viewEvent(\'' + data.id + '\')" style="cursor:pointer;' + (isPast ? 'opacity:0.6;' : '') + '"><div class="card-header"><div style="flex:1;"><div class="card-title">' + (data.title || 'Event') + '</div><div class="card-subtitle">📅 ' + dateStr + (timeStr ? ' • ⏰ ' + timeStr : '') + '</div></div>' + postMenuHtml(data.id, 'event', isOrganizer, isAdm) + '</div><div class="card-content" style="margin-top:10px;">' + (data.description || '') + (data.location ? '<div style="margin-top:8px;"><strong>📍</strong> ' + data.location + '</div>' : '') + '</div><div style="margin-top:12px;padding-top:12px;border-top:1px solid #f0f0f0;font-size:13px;color:#666;">👤 ' + (data.organizerName || 'Unknown') + ' • Unit ' + (data.unitNumber || 'N/A') + (rsvpCount > 0 ? ' • ✅ ' + rsvpCount + ' RSVP' + (rsvpCount > 1 ? 's' : '') : '') + (commentCount > 0 ? ' • 💬 ' + commentCount + ' comment' + (commentCount > 1 ? 's' : '') : '') + '</div></div>';
+                    html += '<div class="card" onclick="viewEvent(\'' + data.id + '\')" style="cursor:pointer;' + (isPast ? 'opacity:0.55;' : '') + '">' +
+                      '<div style="display:flex;align-items:center;gap:12px;">' +
+                        avatarHtml(data.organizerName, 48, data.organizerId) +
+                        '<div style="flex:1;min-width:0;">' +
+                          '<div style="font-weight:700;font-size:16px;color:#0D0D0D;">' + (data.organizerName || 'Resident') + '</div>' +
+                          '<div class="feed-meta">Unit ' + (data.unitNumber || 'N/A') + ' · ' + dateStr + (timeStr ? ' · ' + timeStr : '') + '</div>' +
+                        '</div>' +
+                        postMenuHtml(data.id, 'event', isOrganizer, isAdm) +
+                      '</div>' +
+                      '<div class="feed-body">' +
+                        '<span style="font-size:12px;font-weight:600;color:#667eea;background:#EEF2FF;padding:3px 10px;border-radius:10px;">🎉 Event</span>' +
+                        '<div style="margin-top:8px;font-weight:600;font-size:15px;color:#0D0D0D;">' + (data.title || 'Event') + '</div>' +
+                        '<div style="margin-top:4px;color:#555;">' + (data.description || '') + '</div>' +
+                        (data.location ? '<div style="margin-top:6px;font-size:13px;color:#666;">📍 ' + data.location + '</div>' : '') +
+                      '</div>' +
+                      '<div class="feed-footer">' +
+                        '<div class="feed-footer-meta">' +
+                          (rsvpCount > 0 ? '<span>✅ ' + rsvpCount + ' RSVP</span>' : '') +
+                          (commentCount > 0 ? '<span>💬 ' + commentCount + '</span>' : '') +
+                        '</div>' +
+                        '<div style="font-size:12px;color:#bbb;">Tap to view ›</div>' +
+                      '</div>' +
+                    '</div>';
                 });
                 container.innerHTML = html;
             } catch (error) {
@@ -5866,8 +5940,25 @@
                     const posted = data.createdAt ? data.createdAt.toDate().toLocaleDateString() : 'Recently';
                     const isOwner = data.reportedBy === currentUser.uid;
                     const isAdm = userData.role === 'admin';
-                    html += '<div class="card" onclick="viewSecurityAlert(\'' + data.id + '\')" style="cursor:pointer;"><div class="card-header"><div style="flex:1;"><div class="card-title">' + (typeIcons[data.type] || '🚨') + ' ' + data.title + '</div><div class="card-subtitle">📅 ' + dateStr + ' • 📍 ' + data.location + '</div></div>' + postMenuHtml(data.id, 'security', isOwner, isAdm) + '</div><div class="card-content" style="margin-top:10px;display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden;">' + data.description + '</div><div style="margin-top:12px;padding-top:12px;border-top:1px solid #f0f0f0;font-size:13px;color:#666;">👤 ' + data.reportedByName + ' • Unit ' + data.unitNumber + ' • Posted ' + posted + '</div></div>';
-                });
+                    html += '<div class="card" onclick="viewSecurityAlert(\'' + data.id + '\')" style="cursor:pointer;">' +
+                      '<div style="display:flex;align-items:center;gap:12px;">' +
+                        avatarHtml(data.reportedByName, 48, data.reportedBy) +
+                        '<div style="flex:1;min-width:0;">' +
+                          '<div style="font-weight:700;font-size:16px;color:#0D0D0D;">' + (data.reportedByName || 'Resident') + '</div>' +
+                          '<div class="feed-meta">Unit ' + data.unitNumber + ' · ' + posted + '</div>' +
+                        '</div>' +
+                        postMenuHtml(data.id, 'security', isOwner, isAdm) +
+                      '</div>' +
+                      '<div class="feed-body">' +
+                        '<span style="font-size:12px;font-weight:600;color:#e53935;background:#FFEBEE;padding:3px 10px;border-radius:10px;">🚨 ' + (typeLabels[data.type] || data.type) + '</span>' +
+                        '<div style="margin-top:8px;font-weight:600;font-size:15px;color:#0D0D0D;">' + (data.title || 'Alert') + '</div>' +
+                        '<div style="margin-top:4px;color:#555;display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden;">' + data.description + '</div>' +
+                      '</div>' +
+                      '<div class="feed-footer">' +
+                        '<div class="feed-footer-meta"><span>📍 ' + (data.location || '') + '</span></div>' +
+                        '<div style="font-size:12px;color:#bbb;">Tap to view ›</div>' +
+                      '</div>' +
+                    '</div>';                });
                 container.innerHTML = html;
             } catch (error) {
                 console.error('Error loading security alerts:', error);
@@ -5943,8 +6034,25 @@
                     const dateStr = data.date ? data.date.toDate().toLocaleDateString() : 'Date unknown';
                     const isOwner = data.postedBy === currentUser.uid;
                     const isAdm = userData.role === 'admin';
-                    html += '<div class="card" onclick="viewLostFoundItem(\'' + data.id + '\')" style="cursor:pointer;"><div class="card-header"><div style="flex:1;"><div style="display:flex;justify-content:space-between;align-items:start;margin-bottom:10px;"><div class="card-title">' + (categoryIcons[data.category] || '📦') + ' ' + data.title + '</div>' + typeBadge + '</div><div class="card-subtitle">📅 ' + dateStr + ' • 📍 ' + data.location + '</div></div>' + postMenuHtml(data.id, 'lostfound', isOwner, isAdm) + '</div><div class="card-content" style="margin-top:10px;display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden;">' + data.description + '</div><div style="margin-top:12px;padding-top:12px;border-top:1px solid #f0f0f0;font-size:13px;color:#666;">👤 ' + data.postedByName + ' • Unit ' + data.unitNumber + '</div></div>';
-                });
+                    html += '<div class="card" onclick="viewLostFoundItem(\'' + data.id + '\')" style="cursor:pointer;">' +
+                      '<div style="display:flex;align-items:center;gap:12px;">' +
+                        avatarHtml(data.postedByName, 48, data.postedBy) +
+                        '<div style="flex:1;min-width:0;">' +
+                          '<div style="font-weight:700;font-size:16px;color:#0D0D0D;">' + (data.postedByName || 'Resident') + '</div>' +
+                          '<div class="feed-meta">Unit ' + (data.unitNumber || 'N/A') + '</div>' +
+                        '</div>' +
+                        postMenuHtml(data.id, 'lostfound', isOwner, isAdm) +
+                      '</div>' +
+                      '<div class="feed-body">' +
+                        '<span style="font-size:12px;font-weight:600;padding:3px 10px;border-radius:10px;background:' + (data.type === 'lost' ? '#FFF3E0' : '#E8F5E9') + ';color:' + (data.type === 'lost' ? '#E65100' : '#2E7D32') + ';">' + (data.type === 'lost' ? '❌ Lost' : '✅ Found') + ' · ' + (categoryIcons[data.category] || '📦') + '</span>' +
+                        '<div style="margin-top:8px;font-weight:600;font-size:15px;color:#0D0D0D;">' + (data.title || 'Item') + '</div>' +
+                        '<div style="margin-top:4px;color:#555;display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden;">' + data.description + '</div>' +
+                      '</div>' +
+                      '<div class="feed-footer">' +
+                        '<div class="feed-footer-meta">' + (data.location ? '<span>📍 ' + data.location + '</span>' : '') + '</div>' +
+                        '<div style="font-size:12px;color:#bbb;">Tap to view ›</div>' +
+                      '</div>' +
+                    '</div>';                });
                 container.innerHTML = html;
             } catch (error) {
                 console.error('Error loading lost & found:', error);
