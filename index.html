@@ -988,61 +988,54 @@
         }
 
         .profile-avatar-large {
-            width: 120px;
-            height: 120px;
+            width: 150px;
+            height: 150px;
             border-radius: 50%;
-            background: white;
-            color: #667eea;
-            font-size: 52px;
+            background: rgba(255,255,255,0.25);
+            color: white;
+            font-size: 64px;
             font-weight: 700;
             display: flex;
             align-items: center;
             justify-content: center;
-            margin: 0 auto 8px;
+            margin: 0 auto 0;
             overflow: hidden;
             position: relative;
             border: 4px solid rgba(255,255,255,0.9);
-            box-shadow: 0 4px 20px rgba(0,0,0,0.25);
+            box-shadow: 0 4px 24px rgba(0,0,0,0.3);
+            cursor: pointer;
         }
         /* Avatar initial/image span — fills the full circle */
         #profileAvatarInitial {
             display: flex;
             align-items: center;
             justify-content: center;
-            width: 120px;
-            height: 120px;
+            width: 150px;
+            height: 150px;
             border-radius: 50%;
             overflow: hidden;
             position: absolute;
             top: 0; left: 0;
         }
         #profileAvatarInitial img {
-            width: 120px;
-            height: 120px;
+            width: 150px;
+            height: 150px;
             object-fit: cover;
             border-radius: 50%;
             display: block;
         }
-        /* Edit icon button — bottom right of avatar */
-        .avatar-edit-btn {
-            position: absolute;
-            bottom: 4px;
-            right: 4px;
-            width: 30px;
-            height: 30px;
-            border-radius: 50%;
-            background: #1877f2;
-            border: 2px solid white;
-            display: flex;
-            align-items: center;
-            justify-content: center;
+        /* Edit text link below the avatar */
+        .avatar-edit-link {
+            display: inline-block;
+            margin-top: 10px;
+            color: #25d366;
+            font-size: 18px;
+            font-weight: 700;
             cursor: pointer;
-            font-size: 13px;
-            box-shadow: 0 2px 8px rgba(0,0,0,0.3);
-            transition: background 0.2s, transform 0.15s;
-            z-index: 2;
+            letter-spacing: 0.3px;
         }
-        .avatar-edit-btn:hover { background: #1565c0; transform: scale(1.1); }
+        .avatar-edit-link:hover { opacity: 0.8; }
+
         .profile-avatar-large img {
             width: 100%;
             height: 100%;
@@ -6205,6 +6198,14 @@
             document.getElementById('photoViewerName').textContent = name || '';
             document.getElementById('photoViewerOverlay').classList.add('show');
         }
+        function openOwnPhotoViewer() {
+            // Open own profile pic fullscreen if one exists
+            const picUrl = userData && userData.profilePicUrl;
+            if (picUrl) {
+                openPhotoViewer(picUrl, userData.displayName || '');
+            }
+            // If no pic, do nothing — tapping circle with initials does nothing
+        }
         function closePhotoViewer() {
             document.getElementById('photoViewerOverlay').classList.remove('show');
             document.getElementById('photoViewerImg').src = '';
@@ -6251,14 +6252,17 @@
     <div class="profile-modal" id="profileModal">
         <div class="profile-content">
             <div class="profile-header">
-                <div class="profile-avatar-large" id="profileAvatarLarge">
+                <!-- Tap pic = view fullscreen | Edit link = upload/crop -->
+                <div class="profile-avatar-large" id="profileAvatarLarge"
+                     onclick="openOwnPhotoViewer()"
+                     title="View profile picture">
                     <span id="profileAvatarInitial">U</span>
-                    <!-- Edit button — only shown for own profile -->
-                    <div class="avatar-edit-btn" id="avatarEditBtn"
-                         onclick="document.getElementById('profilePicInput').click()"
-                         title="Edit profile picture">✏️</div>
                 </div>
-                <h2 id="profileName">Loading...</h2>
+                <!-- Edit link — only shown on own profile -->
+                <div id="avatarEditLink" onclick="document.getElementById('profilePicInput').click()">
+                    <span class="avatar-edit-link">Edit</span>
+                </div>
+                <h2 id="profileName" style="margin-top:10px;">Loading...</h2>
                 <p id="profileUnit">Unit ---</p>
             </div>
             
