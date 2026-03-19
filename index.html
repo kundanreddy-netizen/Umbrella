@@ -997,8 +997,38 @@
             display: flex;
             align-items: center;
             justify-content: center;
-            margin: 0 auto 20px;
-            border: 4px solid rgba(255,255,255,0.3);
+            margin: 0 auto 15px;
+            overflow: hidden;
+            cursor: pointer;
+            position: relative;
+            border: 3px solid rgba(255,255,255,0.5);
+            transition: opacity 0.2s;
+        }
+        .profile-avatar-large:hover { opacity: 0.85; }
+        .profile-avatar-large img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            border-radius: 50%;
+        }
+        .profile-avatar-large .avatar-upload-hint {
+            position: absolute;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            background: rgba(0,0,0,0.55);
+            color: white;
+            font-size: 10px;
+            font-weight: 600;
+            text-align: center;
+            padding: 3px 0;
+            border-radius: 0 0 50px 50px;
+        }
+        .nav-avatar-img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            border-radius: 50%;
         }
 
         .profile-header h2 {
@@ -1154,6 +1184,9 @@
     </style>
 </head>
 <body>
+    <!-- Hidden file input for profile picture upload -->
+    <input type="file" id="profilePicInput" accept="image/jpeg,image/png,image/webp,image/gif"
+           style="display:none;" onchange="handleProfilePicChange(event)">
     <!-- Loading Screen -->
     <div class="loading-screen" id="loadingScreen">
         <svg class="logo" viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg">
@@ -2022,7 +2055,14 @@
                     console.log('🏘️ User Community ID:', userCommunityId);
                     
                     // Update UI
-                    document.getElementById('userAvatar').textContent = (userDataFromDb.name || 'U').charAt(0).toUpperCase();
+                    // Update nav avatar — show photo or initial
+                const navAvatar = document.getElementById('userAvatar');
+                if (userDataFromDb.profilePicUrl) {
+                    navAvatar.innerHTML = `<img class="nav-avatar-img" src="${userDataFromDb.profilePicUrl}"
+                        onerror="this.parentElement.textContent='${(userDataFromDb.name||'U')[0].toUpperCase()}'" alt="">`;
+                } else {
+                    navAvatar.textContent = (userDataFromDb.name || 'U').charAt(0).toUpperCase();
+                }
                     
                     // Load and display community name
                     loadCommunityName();
@@ -4688,8 +4728,14 @@
                     createdAt: firebase.firestore.FieldValue.serverTimestamp()
                 });
 
-                // Push notification handled automatically by Cloud Function
-                // (triggers on new communityshare document)
+                // DISABLED: Send push notification to community
+                const typeLabel = type === 'offer' ? 'offering' : 'looking for';
+                await sendCommunityNotification(
+                    'community_share',
+                    `🤝 Community Share - ${shareType === 'offer' ? 'Offer' : 'Request'}`,
+                    `${userData.displayName || 'Someone'} shared: ${$title}`,
+                    { postId: csRef.id, postType: 'communityshare' }
+                );
 
                 closeModal();
                 loadCommunityShare();
@@ -4770,7 +4816,16 @@
                 const residentData = !residentQuery.empty ? residentQuery.docs[0].data() : {};
                 
                 // Update basic info
-                document.getElementById('profileAvatarLarge').textContent = (userDataFromDb.name || 'U').charAt(0).toUpperCase();
+                // Show profile picture or initial letter
+                const avatarEl = document.getElementById('profileAvatarLarge');
+                if (userDataFromDb.profilePicUrl) {
+                    avatarEl.innerHTML = `<img src="${userDataFromDb.profilePicUrl}" alt="Profile"
+                        onerror="this.parentElement.innerHTML='${(userDataFromDb.name||'U')[0].toUpperCase()}<span class=\"avatar-upload-hint\">📷 Change</span>'">
+                        <span class="avatar-upload-hint">📷 Change</span>`;
+                } else {
+                    avatarEl.innerHTML = (userDataFromDb.name || 'U').charAt(0).toUpperCase() +
+                        '<span class="avatar-upload-hint">📷 Change</span>';
+                }
                 document.getElementById('profileName').textContent = userDataFromDb.name || 'Unknown';
                 document.getElementById('profileUnit').textContent = 'Unit ' + (userDataFromDb.unitNumber || 'N/A');
                 document.getElementById('profileEmail').textContent = userDataFromDb.email || 'Not provided';
@@ -5765,14 +5820,129 @@
 
         // ========== END TERMS FUNCTIONS ==========
 
-    </script>
+    
+        // ============================================================
+        // PROFILE PICTURE UPLOAD
+        // ============================================================
+        async function handleProfilePicChange(event) {
+            const file = event.target.files[0];
+            if (!file) return;
+
+            // Validate size (max 2MB)
+            if (file.size > 2 * 1024 * 1024) {
+                alert('Image must be under 2MB. Please choose a smaller image.');
+                return;
+            }
+
+            // Show uploading state on avatar
+            const avatarEl = document.getElementById('profileAvatarLarge');
+            const originalContent = avatarEl.innerHTML;
+            avatarEl.innerHTML = '<div style="font-size:13px;color:#667eea;text-align:center;">Uploading...</div>';
+
+            try {
+                // Step 1: Get presigned URL from Cloud Function
+                const getUploadUrl = firebase.functions().httpsCallable('getUploadUrl');
+                const result = await getUploadUrl({
+                    fileName:    file.name,
+                    contentType: file.type,
+                    folder:      'profiles'
+                });
+                const { presignedUrl, publicUrl, key } = result.data;
+
+                // Step 2: Upload directly to R2 (no Firebase bandwidth used)
+                const uploadResponse = await fetch(presignedUrl, {
+                    method: 'PUT',
+                    headers: { 'Content-Type': file.type },
+                    body: file
+                });
+
+                if (!uploadResponse.ok) {
+                    throw new Error('Upload to storage failed: ' + uploadResponse.status);
+                }
+
+                // Step 3: Save URL and key to Firestore user document
+                await db.collection('users').doc(currentUser.uid).update({
+                    profilePicUrl: publicUrl,
+                    profilePicKey: key,
+                    profilePicUpdatedAt: firebase.firestore.FieldValue.serverTimestamp()
+                });
+
+                // Step 4: Update UI immediately — no reload needed
+                avatarEl.innerHTML = `<img src="${publicUrl}" alt="Profile"
+                    onerror="this.parentElement.textContent='${(userData.displayName||'U')[0].toUpperCase()}'">
+                    <span class="avatar-upload-hint">📷 Change</span>`;
+
+                // Update nav avatar too
+                const navAvatar = document.getElementById('userAvatar');
+                navAvatar.innerHTML = `<img class="nav-avatar-img" src="${publicUrl}"
+                    onerror="this.parentElement.textContent='${(userData.displayName||'U')[0].toUpperCase()}'" alt="">`;
+
+                // Update local userData cache
+                userData.profilePicUrl = publicUrl;
+
+                console.log('✅ Profile picture updated:', publicUrl);
+                alert('✅ Profile picture updated!');
+
+            } catch (error) {
+                console.error('❌ Profile pic upload error:', error);
+                avatarEl.innerHTML = originalContent;
+                if (error.code === 'functions/unauthenticated') {
+                    alert('Please log in again to upload a photo.');
+                } else {
+                    alert('Upload failed: ' + (error.message || 'Please try again.'));
+                }
+            }
+
+            // Clear input so same file can be selected again
+            event.target.value = '';
+        }
+
+        // ── Shared upload helper (reused by all features in Phase 2) ──
+        // Returns { publicUrl, key } or throws on error
+        async function uploadFileToR2(file, folder, maxSizeMB = 5) {
+            if (file.size > maxSizeMB * 1024 * 1024) {
+                throw new Error(`File must be under ${maxSizeMB}MB.`);
+            }
+
+            const allowedTypes = ['image/jpeg','image/jpg','image/png','image/gif','image/webp','application/pdf'];
+            if (!allowedTypes.includes(file.type)) {
+                throw new Error('Only images (JPEG, PNG, GIF, WebP) and PDFs are allowed.');
+            }
+
+            const getUploadUrl = firebase.functions().httpsCallable('getUploadUrl');
+            const result = await getUploadUrl({
+                fileName:    file.name,
+                contentType: file.type,
+                folder:      folder
+            });
+            const { presignedUrl, publicUrl, key } = result.data;
+
+            const uploadResponse = await fetch(presignedUrl, {
+                method: 'PUT',
+                headers: { 'Content-Type': file.type },
+                body: file
+            });
+
+            if (!uploadResponse.ok) {
+                throw new Error('Storage upload failed: ' + uploadResponse.status);
+            }
+
+            return { publicUrl, key };
+        }
+
+</script>
 
 
     <!-- Profile Modal -->
     <div class="profile-modal" id="profileModal">
         <div class="profile-content">
             <div class="profile-header">
-                <div class="profile-avatar-large" id="profileAvatarLarge">U</div>
+                <div class="profile-avatar-large" id="profileAvatarLarge"
+                     onclick="document.getElementById('profilePicInput').click()"
+                     title="Tap to change profile picture">
+                    U
+                    <span class="avatar-upload-hint">📷 Change</span>
+                </div>
                 <h2 id="profileName">Loading...</h2>
                 <p id="profileUnit">Unit ---</p>
             </div>
