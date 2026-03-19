@@ -564,11 +564,157 @@
             background: white;
             border-radius: 20px;
             width: 100%;
-            max-width: 420px;
-            max-height: 80vh;
+            max-width: 480px;
+            max-height: 90vh;
             overflow-y: auto;
-            padding: 20px;
+            padding: 0;
             box-shadow: 0 8px 30px rgba(0,0,0,0.2);
+            display: flex;
+            flex-direction: column;
+        }
+        /* Modal scrollable body */
+        .modal-body-scroll {
+            flex: 1;
+            overflow-y: auto;
+            padding: 16px 20px 0;
+        }
+        /* Action bar — Like / Comment / Share */
+        .post-action-bar {
+            display: flex;
+            border-top: 1px solid #F0F0F0;
+            border-bottom: 1px solid #F0F0F0;
+            margin: 14px 0 0;
+        }
+        .post-action-btn {
+            flex: 1;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 7px;
+            padding: 12px 6px;
+            background: none;
+            border: none;
+            cursor: pointer;
+            font-size: 14px;
+            font-weight: 500;
+            color: #555;
+            transition: background 0.15s;
+        }
+        .post-action-btn:hover { background: #F8F5FF; }
+        .post-action-btn + .post-action-btn {
+            border-left: 1px solid #F0F0F0;
+        }
+        .post-action-btn.liked { color: #667eea; }
+        .post-action-btn svg { flex-shrink: 0; }
+        /* Views row */
+        .post-views-row {
+            display: flex;
+            justify-content: flex-end;
+            align-items: center;
+            gap: 5px;
+            padding: 8px 20px;
+            font-size: 13px;
+            color: #AAA;
+            border-bottom: 1px solid #F0F0F0;
+        }
+        /* Reply indent */
+        .reply-thread {
+            margin-left: 44px;
+            margin-top: 6px;
+            border-left: 2px solid #E8E4FF;
+            padding-left: 10px;
+        }
+        .reply-item {
+            display: flex;
+            gap: 8px;
+            margin-bottom: 8px;
+            align-items: flex-start;
+        }
+        .reply-btn {
+            background: none;
+            border: none;
+            font-size: 12px;
+            color: #888;
+            cursor: pointer;
+            padding: 3px 0;
+            font-weight: 600;
+        }
+        .reply-btn:hover { color: #667eea; }
+        /* Fixed comment input bar at bottom of modal */
+        .modal-comment-bar {
+            position: sticky;
+            bottom: 0;
+            background: white;
+            border-top: 1px solid #F0F0F0;
+            padding: 10px 14px;
+        }
+        .modal-comment-input-row {
+            display: flex;
+            gap: 8px;
+            align-items: center;
+            background: #F5F5F5;
+            border-radius: 12px;
+            padding: 10px 14px;
+        }
+        .modal-comment-input-row input {
+            flex: 1;
+            background: none;
+            border: none;
+            outline: none;
+            font-size: 14px;
+            font-family: inherit;
+            color: #333;
+        }
+        .modal-comment-input-row input::placeholder { color: #AAA; }
+        .modal-attach-btn {
+            background: none;
+            border: none;
+            cursor: pointer;
+            font-size: 18px;
+            padding: 2px;
+            color: #888;
+            flex-shrink: 0;
+        }
+        .modal-post-btn {
+            background: #667eea;
+            color: white;
+            border: none;
+            border-radius: 8px;
+            padding: 7px 14px;
+            font-size: 14px;
+            font-weight: 600;
+            cursor: pointer;
+            flex-shrink: 0;
+            opacity: 0.5;
+            transition: opacity 0.2s;
+        }
+        .modal-post-btn.active { opacity: 1; }
+        /* Reply input inline */
+        .reply-input-row {
+            display: flex;
+            gap: 8px;
+            align-items: center;
+            margin-top: 8px;
+            margin-left: 44px;
+        }
+        .reply-input-row input {
+            flex: 1;
+            padding: 8px 12px;
+            border: 1.5px solid #667eea;
+            border-radius: 18px;
+            font-size: 13px;
+            outline: none;
+            font-family: inherit;
+        }
+        .reply-input-row button {
+            background: #667eea;
+            color: white;
+            border: none;
+            border-radius: 18px;
+            padding: 8px 14px;
+            font-size: 13px;
+            font-weight: 600;
+            cursor: pointer;
         }
 
         .modal-header {
@@ -1778,11 +1924,11 @@
     <!-- Marketplace Item Detail Modal -->
     <div class="modal" id="marketplaceModal">
         <div class="modal-content">
-            <div class="modal-header">
-                <h2 class="modal-title">Item Details</h2>
+            <div class="modal-header" style="padding:16px 20px 12px;border-bottom:1px solid #F0F0F0;flex-shrink:0;">
+                <h2 class="modal-title">Details</h2>
                 <button class="modal-close" onclick="closeMarketplaceModal()">&times;</button>
             </div>
-            <div id="marketplaceModalBody" style="padding: 20px;">
+            <div id="marketplaceModalBody">
                 <!-- Item details and comments will be displayed here -->
             </div>
         </div>
@@ -2789,52 +2935,142 @@
                 '</div>';
         }
         
-        function commentsSectionHtml(comments, collection, docId, viewFnName, loadFnName) {
-            let html = '<div style="margin-top:16px;">';
+        // ── Like / Comment / Share / Views / Reply section ──
+        // commentsSectionHtml now renders the full interactive post footer
+        function commentsSectionHtml(comments, collection, docId, viewFnName, loadFnName, postData) {
+            postData = postData || {};
+            const likes    = postData.likes    || [];
+            const viewCount = postData.viewCount || 0;
+            const hasLiked  = likes.includes(currentUser ? currentUser.uid : '');
+            const coll = collection;
+            const did  = docId;
 
-            // Comment input — always at top, pill style
-            html += '<div class="feed-comment-row">' +
-                avatarHtml(userData ? userData.displayName : 'Me', 36, currentUser ? currentUser.uid : null) +
-                '<input id="commentInput" class="feed-comment-input" type="text" placeholder="Add your thoughts...">' +
-                '<button class="feed-send-btn" onclick="addGenericComment(\'' + collection + '\',\'' + docId + '\',' + viewFnName + ',' + loadFnName + ')">➤</button>' +
+            let html = '';
+
+            // ── Action bar: Like / Comment / Share ──
+            html += '<div class="post-action-bar">' +
+                '<button class="post-action-btn ' + (hasLiked ? 'liked' : '') + '" id="likeBtn-' + did + '" onclick="toggleLike(\'' + coll + '\',\'' + did + '\',' + viewFnName + ',' + loadFnName + ')">' +
+                  '<svg width="18" height="18" viewBox="0 0 24 24" fill="' + (hasLiked ? '#667eea' : 'none') + '" stroke="' + (hasLiked ? '#667eea' : 'currentColor') + '" stroke-width="2"><path d="M14 9V5a3 3 0 0 0-3-3l-4 10v11h11.28a2 2 0 0 0 2-1.7l1.38-9a2 2 0 0 0-2-2.3zM7 22H4a2 2 0 0 1-2-2v-7a2 2 0 0 1 2-2h3"></path></svg>' +
+                  (likes.length > 0 ? likes.length + ' ' : '') + 'Like' +
+                '</button>' +
+                '<button class="post-action-btn" onclick="focusCommentInput()">' +
+                  '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path></svg>' +
+                  (comments.length > 0 ? comments.length + ' ' : '') + 'Comment' +
+                '</button>' +
+                '<button class="post-action-btn" onclick="sharePost(\'' + did + '\',\'' + coll + '\')">' +
+                  '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 12v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8"></path><polyline points="16 6 12 2 8 6"></polyline><line x1="12" y1="2" x2="12" y2="15"></line></svg>' +
+                  'Share' +
+                '</button>' +
+            '</div>';
+
+            // ── Views row ──
+            if (viewCount > 0) {
+                html += '<div class="post-views-row">' +
+                    '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#AAA" stroke-width="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path><circle cx="12" cy="12" r="3"></circle></svg>' +
+                    viewCount + ' view' + (viewCount !== 1 ? 's' : '') +
                 '</div>';
-
-            // Comments list
-            if (comments.length > 0) {
-                html += '<div style="margin-top:14px;border-top:1px solid #F0F0F0;padding-top:12px;">';
-                html += '<div style="font-size:13px;font-weight:600;color:#888;margin-bottom:10px;">COMMENTS · ' + comments.length + '</div>';
-                const sorted = [...comments].sort((a, b) => (a.timestamp ? a.timestamp.toMillis() : 0) - (b.timestamp ? b.timestamp.toMillis() : 0));
-                sorted.forEach(c => {
-                    const cDate = c.timestamp ? timeAgo(c.timestamp.toDate()) : '';
-                    html += '<div style="display:flex;gap:10px;margin-bottom:12px;align-items:flex-start;">' +
-                        avatarHtml(c.userName, 34, c.userId) +
-                        '<div style="flex:1;background:#F5F5F5;border-radius:12px;padding:9px 12px;">' +
-                          '<div style="font-size:13px;font-weight:700;color:#0D0D0D;">' + (c.userName || 'Unknown') +
-                          '<span style="font-weight:400;color:#AAA;font-size:12px;margin-left:8px;">' + cDate + '</span></div>' +
-                          '<div style="font-size:14px;color:#333;line-height:1.45;margin-top:3px;">' + (c.message || '') + '</div>' +
-                        '</div></div>';
-                });
-                html += '</div>';
             }
-            html += '</div>';
+
+            // ── Comments list ──
+            const scrollArea = '<div style="padding:0 20px;" id="comments-area-' + did + '">';
+            html += scrollArea;
+
+            if (comments.length > 0) {
+                html += '<div style="font-size:12px;font-weight:700;color:#AAA;letter-spacing:0.5px;margin:12px 0 10px;">COMMENTS · ' + comments.length + '</div>';
+                const sorted = [...comments].sort((a, b) =>
+                    (a.timestamp ? a.timestamp.toMillis() : 0) - (b.timestamp ? b.timestamp.toMillis() : 0));
+
+                sorted.forEach((c, idx) => {
+                    const cDate   = c.timestamp ? timeAgo(c.timestamp.toDate()) : '';
+                    const replies = c.replies || [];
+                    const cid     = c.commentId || idx;
+
+                    // Comment bubble
+                    html += '<div style="display:flex;gap:10px;margin-bottom:6px;align-items:flex-start;" id="comment-' + cid + '">' +
+                        avatarHtml(c.userName, 34, c.userId) +
+                        '<div style="flex:1;">' +
+                          '<div style="background:#F5F5F5;border-radius:12px;padding:9px 12px;">' +
+                            '<div style="font-size:13px;font-weight:700;color:#0D0D0D;">' + (c.userName || 'Unknown') +
+                            '<span style="font-weight:400;color:#AAA;font-size:12px;margin-left:8px;">' + cDate + '</span></div>' +
+                            '<div style="font-size:14px;color:#333;line-height:1.45;margin-top:3px;">' + renderCommentMessage(c.message || '') + '</div>' +
+                          '</div>' +
+                          // Reply button
+                          '<button class="reply-btn" onclick="showReplyInput(\'' + coll + '\',\'' + did + '\',' + idx + ',' + viewFnName + ',' + loadFnName + ')">↩ Reply' + (replies.length > 0 ? ' · ' + replies.length : '') + '</button>' +
+                        '</div>' +
+                    '</div>';
+
+                    // Existing replies indented
+                    if (replies.length > 0) {
+                        html += '<div class="reply-thread">';
+                        replies.forEach(r => {
+                            const rDate = r.timestamp ? timeAgo(r.timestamp.toDate()) : '';
+                            html += '<div class="reply-item">' +
+                                avatarHtml(r.userName, 28, r.userId) +
+                                '<div style="flex:1;background:#F0EFFE;border-radius:10px;padding:7px 10px;">' +
+                                  '<div style="font-size:12px;font-weight:700;color:#0D0D0D;">' + (r.userName || 'Unknown') +
+                                  '<span style="font-weight:400;color:#AAA;font-size:11px;margin-left:6px;">' + rDate + '</span></div>' +
+                                  '<div style="font-size:13px;color:#333;line-height:1.4;margin-top:2px;">' + renderCommentMessage(r.message || '') + '</div>' +
+                                '</div>' +
+                            '</div>';
+                        });
+                        html += '</div>';
+                    }
+
+                    // Reply input placeholder (hidden by default)
+                    html += '<div id="reply-input-' + coll + '-' + did + '-' + idx + '" style="display:none;" class="reply-input-row">' +
+                        avatarHtml(userData ? userData.displayName : 'Me', 28, currentUser ? currentUser.uid : null) +
+                        '<input type="text" placeholder="Reply to ' + (c.userName || 'comment') + '..." id="reply-text-' + idx + '">' +
+                        '<button onclick="submitReply(\'' + coll + '\',\'' + did + '\',' + idx + ',' + viewFnName + ',' + loadFnName + ')">Post</button>' +
+                    '</div>';
+                });
+            } else {
+                html += '<div style="text-align:center;padding:20px 0;color:#CCC;font-size:14px;">No comments yet — be the first!</div>';
+            }
+            html += '</div>'; // close comments-area
+
+            // ── Sticky comment input bar at bottom ──
+            html += '<div class="modal-comment-bar">' +
+                '<div class="modal-comment-input-row">' +
+                    avatarHtml(userData ? userData.displayName : 'Me', 30, currentUser ? currentUser.uid : null) +
+                    '<input type="text" id="commentInput" placeholder="Add your thoughts..." ' +
+                           'oninput="document.getElementById(\'postBtn-' + did + '\').classList.toggle(\'active\',this.value.trim().length>0)">' +
+                    '<button class="modal-attach-btn" onclick="triggerCommentAttach()" title="Attach image or file">📎</button>' +
+                    '<button class="modal-post-btn" id="postBtn-' + did + '" ' +
+                           'onclick="addGenericComment(\'' + coll + '\',\'' + did + '\',' + viewFnName + ',' + loadFnName + ')">Post</button>' +
+                '</div>' +
+                // Hidden file input for comment attachments
+                '<input type="file" id="commentAttachInput" style="display:none;" ' +
+                       'accept="image/jpeg,image/png,image/webp,image/gif,application/pdf" ' +
+                       'onchange="handleCommentAttach(this,\'' + coll + '\',\'' + did + '\',' + viewFnName + ',' + loadFnName + ')">' +
+                '<div id="attachPreview-' + did + '" style="margin-top:6px;"></div>' +
+            '</div>';
+
             return html;
         }
         
         async function addGenericComment(collection, docId, viewFn, loadFn) {
             const input = document.getElementById('commentInput');
-            const text = input ? input.value.trim() : '';
-            if (!text) { alert('Please write a comment'); return; }
+            const text  = input ? input.value.trim() : '';
+            if (!text) return;
             try {
-                const doc = await db.collection(collection).doc(docId).get();
-                const comments = doc.data().comments || [];
+                const docRef   = db.collection(collection).doc(docId);
+                const snap     = await docRef.get();
+                const comments = snap.data().comments || [];
+                const commentId = Date.now().toString(36) + Math.random().toString(36).slice(2,5);
                 comments.push({
-                    userId: currentUser.uid,
-                    userName: userData.displayName || 'Unknown',
-                    userUnit: userData.unitNumber || 'N/A',
-                    message: text,
+                    commentId: commentId,
+                    userId:    currentUser.uid,
+                    userName:  userData.displayName || 'Unknown',
+                    userUnit:  userData.unitNumber  || 'N/A',
+                    message:   text,
+                    replies:   [],
                     timestamp: firebase.firestore.Timestamp.now()
                 });
-                await db.collection(collection).doc(docId).update({ comments: comments });
+                await docRef.update({ comments: comments });
+                if (input) { input.value = ''; input.dispatchEvent(new Event('input')); }
+                // Clear attach preview
+                const prev = document.querySelector('[id^="attachPreview-"]');
+                if (prev) prev.innerHTML = '';
                 if (viewFn) viewFn(docId);
                 if (loadFn) loadFn();
             } catch (error) {
@@ -4695,6 +4931,7 @@
                 const doc = await db.collection('marketplace').doc(itemId).get();
                 if (!doc.exists) { alert('Item not found'); return; }
                 const data = doc.data();
+                trackView('marketplace', itemId); // non-blocking
                 const isOwner = data.sellerId === currentUser.uid;
                 const comments = data.comments || [];
                 const delAction = "if(confirm('Delete?')){deleteMarketplaceItem('" + itemId + "');closeMarketplaceModal();}";
@@ -4703,7 +4940,7 @@
                 html += '<div style="font-size:22px;font-weight:700;color:#667eea;margin-bottom:10px;">$' + (data.price || '0') + '</div>';
                 if (data.category) html += '<span style="background:#e3f2fd;color:#1976d2;padding:3px 10px;border-radius:10px;font-size:12px;font-weight:600;display:inline-block;margin-bottom:10px;">' + data.category + '</span>';
                 html += '<div style="font-size:14px;color:#333;line-height:1.6;margin-bottom:12px;">' + (data.description || 'No description') + '</div>';
-                html += commentsSectionHtml(comments, 'marketplace', itemId, 'viewMarketplaceItem', 'loadMarketplace');
+                html += commentsSectionHtml(comments, 'marketplace', itemId, 'viewMarketplaceItem', 'loadMarketplace', data);
                 
                 document.getElementById('marketplaceModalBody').innerHTML = html;
                 document.getElementById('marketplaceModal').classList.add('show');
@@ -4745,6 +4982,7 @@
                 const doc = await db.collection('tickets').doc(ticketId).get();
                 if (!doc.exists) { alert('Ticket not found'); return; }
                 const data = doc.data();
+                trackView('tickets', ticketId); // non-blocking
                 const isOwner = data.residentId === currentUser.uid;
                 const comments = data.comments || [];
                 const statusColors = { open: '#2196F3', 'in-progress': '#FF9800', resolved: '#4CAF50', closed: '#9E9E9E' };
@@ -4764,7 +5002,7 @@
                     html += '<div style="padding:10px;background:#fff3e0;border-radius:8px;border-left:3px solid #FF9800;margin-bottom:12px;font-size:13px;color:#E65100;">⏳ Awaiting admin response</div>';
                 }
                 
-                html += commentsSectionHtml(comments, 'tickets', ticketId, 'viewTicket', 'loadTickets');
+                html += commentsSectionHtml(comments, 'tickets', ticketId, 'viewTicket', 'loadTickets', data);
                 
                 document.getElementById('marketplaceModalBody').innerHTML = html;
                 document.getElementById('marketplaceModal').classList.add('show');
@@ -4780,6 +5018,7 @@
                 const doc = await db.collection('security_alerts').doc(alertId).get();
                 if (!doc.exists) { alert('Alert not found'); return; }
                 const data = doc.data();
+                trackView('security_alerts', alertId); // non-blocking
                 const dateStr = data.incidentDateTime ? data.incidentDateTime.toDate().toLocaleString() : 'Unknown';
                 const isOwner = data.reportedBy === currentUser.uid;
                 const comments = data.comments || [];
@@ -4791,7 +5030,7 @@
                 html += '<div style="font-weight:600;font-size:16px;color:#333;margin-bottom:8px;">' + (data.title || 'Security Alert') + '</div>';
                 html += '<div style="font-size:13px;color:#666;margin-bottom:8px;">📅 ' + dateStr + ' • 📍 ' + (data.location || 'Unknown') + '</div>';
                 html += '<div style="font-size:14px;color:#333;line-height:1.6;margin-bottom:12px;">' + (data.description || '') + '</div>';
-                html += commentsSectionHtml(comments, 'security_alerts', alertId, 'viewSecurityAlert', 'loadSecurityAlerts');
+                html += commentsSectionHtml(comments, 'security_alerts', alertId, 'viewSecurityAlert', 'loadSecurityAlerts', data);
                 
                 document.getElementById('marketplaceModalBody').innerHTML = html;
                 document.getElementById('marketplaceModal').classList.add('show');
@@ -4807,6 +5046,7 @@
                 const doc = await db.collection('lost_and_found').doc(itemId).get();
                 if (!doc.exists) { alert('Item not found'); return; }
                 const data = doc.data();
+                trackView('lost_and_found', itemId); // non-blocking
                 const dateStr = data.date ? data.date.toDate().toLocaleDateString() : 'Date unknown';
                 const isOwner = data.postedBy === currentUser.uid;
                 const comments = data.comments || [];
@@ -4821,7 +5061,7 @@
                 html += '<div style="font-weight:600;font-size:16px;color:#333;margin:8px 0;">' + (data.title || 'Item') + '</div>';
                 html += '<div style="font-size:13px;color:#666;margin-bottom:8px;">📅 ' + dateStr + ' • 📍 ' + (data.location || 'Unknown') + '</div>';
                 html += '<div style="font-size:14px;color:#333;line-height:1.6;margin-bottom:12px;">' + (data.description || '') + '</div>';
-                html += commentsSectionHtml(comments, 'lost_and_found', itemId, 'viewLostFoundItem', 'loadLostAndFound');
+                html += commentsSectionHtml(comments, 'lost_and_found', itemId, 'viewLostFoundItem', 'loadLostAndFound', data);
                 
                 document.getElementById('marketplaceModalBody').innerHTML = html;
                 document.getElementById('marketplaceModal').classList.add('show');
@@ -4988,6 +5228,7 @@
                 const doc = await db.collection('communityshare').doc(itemId).get();
                 if (!doc.exists) { alert('Item not found'); return; }
                 const data = doc.data();
+                trackView('communityshare', itemId); // non-blocking
                 const isOwner = data.ownerId === currentUser.uid;
                 const comments = data.comments || [];
                 const typeIcon = data.type === 'need' ? '🙏' : '🎁';
@@ -5001,7 +5242,7 @@
                 html += '<div style="font-weight:600;font-size:16px;color:#333;margin-bottom:8px;">' + (data.title || 'Item') + '</div>';
                 html += '<div style="font-size:14px;color:#333;line-height:1.6;margin-bottom:12px;">' + (data.description || 'No description') + '</div>';
                 if (data.availableUntil) html += '<div style="font-size:12px;color:#666;margin-bottom:8px;">⏰ Available until: ' + data.availableUntil.toDate().toLocaleDateString() + '</div>';
-                html += commentsSectionHtml(comments, 'communityshare', itemId, 'viewCommunityShareItem', 'loadCommunityShare');
+                html += commentsSectionHtml(comments, 'communityshare', itemId, 'viewCommunityShareItem', 'loadCommunityShare', data);
                 
                 document.getElementById('marketplaceModalBody').innerHTML = html;
                 document.getElementById('marketplaceModal').classList.add('show');
@@ -5738,6 +5979,7 @@
                 const doc = await db.collection('events').doc(eventId).get();
                 if (!doc.exists) { alert('Event not found'); return; }
                 const data = doc.data();
+                trackView('events', eventId); // non-blocking
                 const eventDate = data.eventDate ? data.eventDate.toDate() : null;
                 const dateStr = eventDate ? eventDate.toLocaleDateString() : 'TBD';
                 const timeStr = eventDate ? eventDate.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'}) : '';
@@ -5753,7 +5995,7 @@
                 html += '<div style="font-size:14px;color:#333;line-height:1.6;margin-bottom:12px;">' + (data.description || '') + '</div>';
                 if (!isOrganizer) html += '<button class="btn" style="width:100%;margin-bottom:10px;" onclick="toggleRSVP(\'' + eventId + '\',' + hasRSVPd + ')">' + (hasRSVPd ? '✅ You are Going!' : '✓ RSVP') + '</button>';
                 if (rsvps.length > 0) html += '<div style="font-size:13px;color:#666;margin-bottom:8px;">✅ Going (' + rsvps.length + '): ' + rsvps.map(r => r.userName || 'Resident').join(', ') + '</div>';
-                html += commentsSectionHtml(comments, 'events', eventId, 'viewEvent', 'loadEvents');
+                html += commentsSectionHtml(comments, 'events', eventId, 'viewEvent', 'loadEvents', data);
                 
                 document.getElementById('marketplaceModalBody').innerHTML = html;
                 document.getElementById('marketplaceModal').classList.add('show');
@@ -6585,6 +6827,194 @@
                 console.error('❌ Remove pic error:', err);
                 alert('Error removing picture: ' + err.message);
             }
+        }
+
+
+        // ════════════════════════════════════════════
+        // POST INTERACTIONS: Like / Reply / Share / Views
+        // ════════════════════════════════════════════
+
+        // ── Like / Unlike ──
+        async function toggleLike(collection, docId, viewFn, loadFn) {
+            if (!currentUser) return;
+            try {
+                const docRef = db.collection(collection).doc(docId);
+                const snap   = await docRef.get();
+                const likes  = snap.data().likes || [];
+                const uid    = currentUser.uid;
+                const hasLiked = likes.includes(uid);
+
+                const updatedLikes = hasLiked
+                    ? likes.filter(id => id !== uid)
+                    : [...likes, uid];
+
+                await docRef.update({ likes: updatedLikes });
+                if (viewFn) viewFn(docId);
+            } catch(e) {
+                console.error('Like error:', e);
+            }
+        }
+
+        // ── Track view (called when a post modal opens) ──
+        async function trackView(collection, docId) {
+            if (!currentUser) return;
+            try {
+                // Use a Set stored as an array so same user only counts once
+                const docRef = db.collection(collection).doc(docId);
+                const snap   = await docRef.get();
+                const viewers = snap.data().viewers || [];
+                if (!viewers.includes(currentUser.uid)) {
+                    await docRef.update({
+                        viewers:   firebase.firestore.FieldValue.arrayUnion(currentUser.uid),
+                        viewCount: firebase.firestore.FieldValue.increment(1)
+                    });
+                }
+            } catch(e) {
+                // Non-blocking — don't alert on view tracking failure
+                console.warn('View tracking error:', e.message);
+            }
+        }
+
+        // ── Share post via native share sheet ──
+        function sharePost(docId, collection) {
+            const BASE = 'https://kundanreddy-netizen.github.io/Umbrella/';
+            const url  = BASE + '?postId=' + docId + '&postType=' + collection;
+            const text = 'Check this out on The Umbrella Connect!';
+
+            if (navigator.share) {
+                navigator.share({ title: 'The Umbrella Connect', text: text, url: url })
+                    .catch(e => { if (e.name !== 'AbortError') copyToClipboard(url); });
+            } else {
+                // Fallback — copy to clipboard
+                copyToClipboard(url);
+                alert('Link copied! Share it on WhatsApp, Messages, or Email.');
+            }
+        }
+
+        // ── Focus comment input ──
+        function focusCommentInput() {
+            const inp = document.getElementById('commentInput');
+            if (inp) { inp.focus(); inp.scrollIntoView({ behavior: 'smooth', block: 'center' }); }
+        }
+
+        // ── Show reply input under a specific comment ──
+        function showReplyInput(collection, docId, commentIdx, viewFn, loadFn) {
+            // Hide any currently open reply inputs
+            document.querySelectorAll('[id^="reply-input-"]').forEach(el => el.style.display = 'none');
+
+            const key = 'reply-input-' + collection + '-' + docId + '-' + commentIdx;
+            const el  = document.getElementById(key);
+            if (!el) return;
+            el.style.display = 'flex';
+            const inp = document.getElementById('reply-text-' + commentIdx);
+            if (inp) setTimeout(() => { inp.focus(); }, 80);
+        }
+
+        // ── Submit a reply to a comment ──
+        async function submitReply(collection, docId, commentIdx, viewFn, loadFn) {
+            const inp  = document.getElementById('reply-text-' + commentIdx);
+            const text = inp ? inp.value.trim() : '';
+            if (!text) return;
+
+            try {
+                const docRef = db.collection(collection).doc(docId);
+                const snap   = await docRef.get();
+                const comments = snap.data().comments || [];
+
+                if (!comments[commentIdx]) return;
+                const replies = comments[commentIdx].replies || [];
+                replies.push({
+                    userId:    currentUser.uid,
+                    userName:  userData.displayName || 'Unknown',
+                    userUnit:  userData.unitNumber  || 'N/A',
+                    message:   text,
+                    timestamp: firebase.firestore.Timestamp.now()
+                });
+                comments[commentIdx].replies = replies;
+
+                await docRef.update({ comments: comments });
+                if (viewFn) viewFn(docId);
+                if (loadFn) loadFn();
+            } catch(e) {
+                console.error('Reply error:', e);
+                alert('Error posting reply: ' + e.message);
+            }
+        }
+
+        // ── Trigger file/image picker for comment attachment ──
+        function triggerCommentAttach() {
+            const inp = document.getElementById('commentAttachInput');
+            if (inp) inp.click();
+        }
+
+        // ── Handle comment attachment upload ──
+        async function handleCommentAttach(input, collection, docId, viewFn, loadFn) {
+            const file = input.files[0];
+            if (!file) return;
+
+            if (file.size > 10 * 1024 * 1024) {
+                alert('File must be under 10MB');
+                input.value = '';
+                return;
+            }
+
+            // Show preview/uploading indicator
+            const previewId = 'attachPreview-' + docId;
+            const preview   = document.getElementById(previewId);
+            if (preview) {
+                preview.innerHTML = '<div style="font-size:12px;color:#667eea;padding:4px 0;">⏳ Uploading attachment...</div>';
+            }
+
+            try {
+                const fn = firebase.functions().httpsCallable('getUploadUrl');
+                const result = await fn({
+                    fileName:    file.name,
+                    contentType: file.type,
+                    folder:      collection
+                });
+                const { presignedUrl, publicUrl } = result.data;
+
+                await fetch(presignedUrl, {
+                    method:  'PUT',
+                    headers: { 'Content-Type': file.type },
+                    body:    file
+                });
+
+                // Prepend url to comment input so it gets posted with the message
+                const commentInput = document.getElementById('commentInput');
+                const isImage = file.type.startsWith('image/');
+                const attachTag = isImage
+                    ? '[img:' + publicUrl + ']'
+                    : '[file:' + file.name + ':' + publicUrl + ']';
+
+                if (commentInput) {
+                    commentInput.value = (commentInput.value + ' ' + attachTag).trim();
+                    commentInput.dispatchEvent(new Event('input'));
+                }
+
+                if (preview) {
+                    preview.innerHTML = isImage
+                        ? '<img src="' + publicUrl + '" style="max-height:60px;border-radius:8px;margin-top:4px;">'
+                        : '<div style="font-size:12px;color:#667eea;padding:4px 0;">📎 ' + file.name + '</div>';
+                }
+            } catch(e) {
+                console.error('Attach error:', e);
+                if (preview) preview.innerHTML = '';
+                alert('Upload failed: ' + e.message);
+            }
+            input.value = '';
+        }
+
+        // ── Render comment message — handle [img:url] and [file:name:url] tags ──
+        function renderCommentMessage(message) {
+            if (!message) return '';
+            var out = message.replace(/\[img:(https?:\/\/[^\]]+)\]/g, function(m, url) {
+                return '<br><img src="' + url + '" style="max-width:100%;max-height:200px;border-radius:8px;margin-top:6px;cursor:pointer;" onclick="openPhotoViewer(this.src,\'\')">';
+            });
+            out = out.replace(/\[file:([^:]+):(https?:\/\/[^\]]+)\]/g, function(m, name, url) {
+                return '<br><a href="' + url + '" target="_blank" style="font-size:12px;color:#667eea;text-decoration:none;">📎 ' + name + '</a>';
+            });
+            return out;
         }
 
 </script>
