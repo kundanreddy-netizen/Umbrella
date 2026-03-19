@@ -5830,8 +5830,8 @@
             if (!file) return;
 
             // Validate size (max 2MB)
-            if (file.size > 2 * 1024 * 1024) {
-                alert('Image must be under 2MB. Please choose a smaller image.');
+            if (file.size > 5 * 1024 * 1024) {
+                alert('Image must be under 5MB. Please choose a smaller image.');
                 return;
             }
 
@@ -5842,24 +5842,39 @@
 
             try {
                 // Step 1: Get presigned URL from Cloud Function
+                console.log('[Upload] Requesting presigned URL...');
                 const getUploadUrl = firebase.functions().httpsCallable('getUploadUrl');
-                const result = await getUploadUrl({
-                    fileName:    file.name,
-                    contentType: file.type,
-                    folder:      'profiles'
-                });
+                let result;
+                try {
+                    result = await getUploadUrl({
+                        fileName:    file.name,
+                        contentType: file.type,
+                        folder:      'profiles'
+                    });
+                } catch (cfError) {
+                    console.error('[Upload] Cloud Function error:', cfError);
+                    throw new Error('Could not get upload URL: ' + (cfError.message || cfError.code));
+                }
                 const { presignedUrl, publicUrl, key } = result.data;
+                console.log('[Upload] Presigned URL received, uploading to R2...');
 
                 // Step 2: Upload directly to R2 (no Firebase bandwidth used)
-                const uploadResponse = await fetch(presignedUrl, {
-                    method: 'PUT',
-                    headers: { 'Content-Type': file.type },
-                    body: file
-                });
+                let uploadResponse;
+                try {
+                    uploadResponse = await fetch(presignedUrl, {
+                        method: 'PUT',
+                        headers: { 'Content-Type': file.type },
+                        body: file
+                    });
+                } catch (fetchError) {
+                    console.error('[Upload] Fetch/CORS error:', fetchError);
+                    throw new Error('Storage upload blocked (CORS). Check R2 CORS policy. Details: ' + fetchError.message);
+                }
 
                 if (!uploadResponse.ok) {
-                    throw new Error('Upload to storage failed: ' + uploadResponse.status);
+                    throw new Error('Upload to storage failed with status: ' + uploadResponse.status);
                 }
+                console.log('[Upload] R2 upload successful!');
 
                 // Step 3: Save URL and key to Firestore user document
                 await db.collection('users').doc(currentUser.uid).update({
