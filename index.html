@@ -975,9 +975,34 @@
             border-radius: 16px;
             max-width: 420px;
             width: 100%;
-            max-height: 80vh;
+            max-height: 85vh;
             overflow-y: auto;
+            position: relative;
         }
+        /* Floating X — always visible regardless of scroll position */
+        .profile-close-btn {
+            position: sticky;
+            top: 12px;
+            float: right;
+            margin: 12px 12px 0 0;
+            width: 32px;
+            height: 32px;
+            border-radius: 50%;
+            background: rgba(0,0,0,0.12);
+            border: none;
+            color: #333;
+            font-size: 16px;
+            font-weight: 700;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 10;
+            flex-shrink: 0;
+            transition: background 0.2s;
+            line-height: 1;
+        }
+        .profile-close-btn:hover { background: rgba(0,0,0,0.22); }
 
         .profile-header {
             background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
@@ -6355,12 +6380,103 @@
             return { publicUrl, key };
         }
 
+
+        // ── Avatar Edit Menu ──
+        function toggleAvatarMenu() {
+            const menu = document.getElementById('avatarActionMenu');
+            if (!menu) return;
+            const isOpen = menu.style.display === 'block';
+            menu.style.display = isOpen ? 'none' : 'block';
+
+            // Show/hide Remove option based on whether user has a pic
+            const removeOpt = document.getElementById('removePhotoOption');
+            if (removeOpt) {
+                removeOpt.style.display = (userData && userData.profilePicUrl) ? 'flex' : 'none';
+            }
+
+            // Close menu when clicking outside
+            if (!isOpen) {
+                setTimeout(() => {
+                    document.addEventListener('click', closeAvatarMenuOutside, { once: true });
+                }, 10);
+            }
+        }
+
+        function closeAvatarMenuOutside(e) {
+            const menu = document.getElementById('avatarActionMenu');
+            const link = document.getElementById('avatarEditLink');
+            if (menu && link && !link.contains(e.target)) {
+                menu.style.display = 'none';
+            }
+        }
+
+        function chooseProfilePic() {
+            document.getElementById('avatarActionMenu').style.display = 'none';
+            document.getElementById('profilePicInput').click();
+        }
+
+        async function removeProfilePic() {
+            document.getElementById('avatarActionMenu').style.display = 'none';
+            if (!confirm('Remove your profile picture? Your initials will be shown instead.')) return;
+
+            try {
+                // Remove from Firestore users doc
+                await db.collection('users').doc(currentUser.uid).update({
+                    profilePicUrl: firebase.firestore.FieldValue.delete(),
+                    profilePicKey: firebase.firestore.FieldValue.delete()
+                });
+
+                // Remove from residents doc too
+                const resSnap = await db.collection('residents')
+                    .where('communityId', '==', userCommunityId)
+                    .where('userId', '==', currentUser.uid)
+                    .limit(1).get();
+                if (!resSnap.empty) {
+                    await resSnap.docs[0].ref.update({
+                        profilePicUrl: firebase.firestore.FieldValue.delete()
+                    });
+                }
+
+                // Clear from cache
+                delete userPicCache[currentUser.uid];
+                userData.profilePicUrl = null;
+
+                // Restore initials in profile avatar
+                const initial = getInitials(userData.displayName || 'U');
+                document.getElementById('profileAvatarInitial').innerHTML = initial;
+
+                // Restore initials in nav avatar
+                const navAvatar = document.getElementById('userAvatar');
+                navAvatar.innerHTML = '';
+                navAvatar.textContent = initial;
+
+                // Optionally delete file from R2 (best-effort)
+                try {
+                    const picKey = (await db.collection('users').doc(currentUser.uid).get()).data()?.profilePicKey;
+                    if (picKey) {
+                        const deleteFn = firebase.functions().httpsCallable('deleteFile');
+                        await deleteFn({ key: picKey });
+                    }
+                } catch (e) {
+                    console.warn('Could not delete R2 file:', e.message);
+                }
+
+                console.log('✅ Profile picture removed');
+
+            } catch (err) {
+                console.error('❌ Remove pic error:', err);
+                alert('Error removing picture: ' + err.message);
+            }
+        }
+
 </script>
 
 
     <!-- Profile Modal -->
     <div class="profile-modal" id="profileModal">
         <div class="profile-content">
+            <!-- Floating close button — always visible at top right regardless of scroll -->
+            <button class="profile-close-btn" onclick="closeProfile()" aria-label="Close">✕</button>
             <div class="profile-header">
                 <!-- Tap pic = view fullscreen | Edit link = upload/crop -->
                 <div class="profile-avatar-large" id="profileAvatarLarge"
@@ -6369,8 +6485,49 @@
                     <span id="profileAvatarInitial">U</span>
                 </div>
                 <!-- Edit link — only shown on own profile -->
-                <div id="avatarEditLink" onclick="document.getElementById('profilePicInput').click()">
-                    <span class="avatar-edit-link">Edit</span>
+                <div id="avatarEditLink" style="position:relative;display:inline-block;">
+                    <span class="avatar-edit-link" onclick="toggleAvatarMenu()">Edit</span>
+                    <!-- Avatar action menu -->
+                    <div id="avatarActionMenu" style="
+                        display:none;
+                        position:absolute;
+                        top:100%;
+                        left:50%;
+                        transform:translateX(-50%);
+                        background:white;
+                        border-radius:12px;
+                        box-shadow:0 4px 20px rgba(0,0,0,0.18);
+                        min-width:180px;
+                        overflow:hidden;
+                        z-index:100;
+                        margin-top:6px;
+                    ">
+                        <div onclick="chooseProfilePic()" style="
+                            padding:14px 18px;
+                            font-size:14px;
+                            font-weight:500;
+                            cursor:pointer;
+                            color:#333;
+                            display:flex;
+                            align-items:center;
+                            gap:10px;
+                            border-bottom:1px solid #f0f0f0;
+                        " onmouseenter="this.style.background='#f5f5f5'" onmouseleave="this.style.background='white'">
+                            📷 Upload Photo
+                        </div>
+                        <div id="removePhotoOption" onclick="removeProfilePic()" style="
+                            padding:14px 18px;
+                            font-size:14px;
+                            font-weight:500;
+                            cursor:pointer;
+                            color:#e53935;
+                            display:flex;
+                            align-items:center;
+                            gap:10px;
+                        " onmouseenter="this.style.background='#fff5f5'" onmouseleave="this.style.background='white'">
+                            🗑️ Remove Photo
+                        </div>
+                    </div>
                 </div>
                 <h2 id="profileName" style="margin-top:10px;">Loading...</h2>
                 <p id="profileUnit">Unit ---</p>
