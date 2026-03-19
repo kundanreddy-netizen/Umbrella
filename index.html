@@ -3207,7 +3207,7 @@
                         </button>
                     </div>
                 `;
-                document.getElementById('marketplaceModalBody').innerHTML = html;
+                document.getElementById('marketplaceModalBody').innerHTML = '<div style="flex:1;overflow-y:auto;padding:16px 20px 8px;">' + html + '</div>';
                 document.getElementById('marketplaceModal').classList.add('show');
             } catch (error) {
                 console.error('Error loading ticket for edit:', error);
@@ -3321,7 +3321,7 @@
                     </div>
                 `;
 
-                document.getElementById('marketplaceModalBody').innerHTML = modalHtml;
+                document.getElementById('marketplaceModalBody').innerHTML = '<div style="flex:1;overflow-y:auto;padding:16px 20px 8px;">' + modalHtml + '</div>';
                 document.getElementById('marketplaceModal').classList.add('show');
 
             } catch (error) {
@@ -3415,7 +3415,7 @@
                         <button onclick="closeMarketplaceModal()"
                                 style="flex:1;background:#f5f5f5;color:#333;border:1px solid #e0e0e0;padding:12px;border-radius:8px;font-size:14px;cursor:pointer;">Cancel</button>
                     </div>`;
-                document.getElementById('marketplaceModalBody').innerHTML = modalHtml;
+                document.getElementById('marketplaceModalBody').innerHTML = '<div style="flex:1;overflow-y:auto;padding:16px 20px 8px;">' + modalHtml + '</div>';
                 document.getElementById('marketplaceModal').classList.add('show');
             } catch(e) { alert('Error: ' + e.message); }
         }
@@ -3494,7 +3494,7 @@
                         <button onclick="closeMarketplaceModal()"
                                 style="flex:1;background:#f5f5f5;color:#333;border:1px solid #e0e0e0;padding:12px;border-radius:8px;font-size:14px;cursor:pointer;">Cancel</button>
                     </div>`;
-                document.getElementById('marketplaceModalBody').innerHTML = modalHtml;
+                document.getElementById('marketplaceModalBody').innerHTML = '<div style="flex:1;overflow-y:auto;padding:16px 20px 8px;">' + modalHtml + '</div>';
                 document.getElementById('marketplaceModal').classList.add('show');
             } catch(e) { alert('Error: ' + e.message); }
         }
@@ -3573,7 +3573,7 @@
                         <button onclick="closeMarketplaceModal()"
                                 style="flex:1;background:#f5f5f5;color:#333;border:1px solid #e0e0e0;padding:12px;border-radius:8px;font-size:14px;cursor:pointer;">Cancel</button>
                     </div>`;
-                document.getElementById('marketplaceModalBody').innerHTML = modalHtml;
+                document.getElementById('marketplaceModalBody').innerHTML = '<div style="flex:1;overflow-y:auto;padding:16px 20px 8px;">' + modalHtml + '</div>';
                 document.getElementById('marketplaceModal').classList.add('show');
             } catch(e) { alert('Error: ' + e.message); }
         }
@@ -3669,7 +3669,7 @@
                         <button onclick="closeMarketplaceModal()"
                                 style="flex:1;background:#f5f5f5;color:#333;border:1px solid #e0e0e0;padding:12px;border-radius:8px;font-size:14px;cursor:pointer;">Cancel</button>
                     </div>`;
-                document.getElementById('marketplaceModalBody').innerHTML = modalHtml;
+                document.getElementById('marketplaceModalBody').innerHTML = '<div style="flex:1;overflow-y:auto;padding:16px 20px 8px;">' + modalHtml + '</div>';
                 document.getElementById('marketplaceModal').classList.add('show');
             } catch(e) { alert('Error: ' + e.message); }
         }
@@ -3821,58 +3821,63 @@
 
         function setupPullToRefresh() {
             const indicator = document.getElementById('pullToRefresh');
-            if (!indicator) return;
+            // The scroll container is #mainApp div, NOT window
+            const scroller  = document.getElementById('mainApp');
+            if (!indicator || !scroller) return;
 
-            // ── touchstart: only arm if exactly at top ──
-            window.addEventListener('touchstart', (e) => {
-                if (window.scrollY <= 0 && !refreshing) {
-                    startY = e.touches[0].pageY;
-                    pulling = false; // arm but don't activate yet
+            // ── touchstart: arm ONLY when scroll container is at very top ──
+            scroller.addEventListener('touchstart', (e) => {
+                // Must be scrolled all the way to top (scrollTop === 0)
+                if (scroller.scrollTop <= 0 && !refreshing) {
+                    startY   = e.touches[0].pageY;
+                    pulling  = false;
+                    currentY = startY;
                 }
             }, { passive: true });
 
-            // ── touchmove: track pull distance ──
-            window.addEventListener('touchmove', (e) => {
+            // ── touchmove: track pull, only when at top ──
+            scroller.addEventListener('touchmove', (e) => {
                 if (refreshing || startY === 0) return;
 
                 currentY = e.touches[0].pageY;
                 const diff = currentY - startY;
 
-                // Must be pulling DOWN and still at top
-                if (diff > PTR_DEAD_ZONE && window.scrollY <= 0) {
+                // Only activate if still at the very top AND pulling down
+                if (diff > PTR_DEAD_ZONE && scroller.scrollTop <= 0) {
                     pulling = true;
+                    e.preventDefault(); // stop native scroll
 
-                    // Prevent native scroll bounce only when we're handling it
-                    if (diff > PTR_DEAD_ZONE) e.preventDefault();
-
-                    // Progress 0→1 from PTR_SHOW_AT to PTR_TRIGGER
                     const progress = Math.min((diff - PTR_DEAD_ZONE) / (PTR_TRIGGER - PTR_DEAD_ZONE), 1);
+                    const dropY    = -80 + (progress * 80);
 
-                    // Circle drops in from above — translateY from -80px to 0 over pull range
-                    const dropY = -80 + (progress * 80);
                     indicator.style.transform = `translateX(-50%) translateY(${dropY}px)`;
-                    indicator.style.opacity   = diff >= PTR_SHOW_AT ? Math.min((diff - PTR_SHOW_AT) / 30, 1) : 0;
+                    indicator.style.opacity   = diff >= PTR_SHOW_AT
+                        ? Math.min((diff - PTR_SHOW_AT) / 30, 1) : 0;
 
-                    // Rotate the arc proportional to pull distance (visual feedback)
                     const icon = indicator.querySelector('.pull-to-refresh-icon');
                     if (icon && !refreshing) {
                         icon.style.transform = `rotate(${progress * 270}deg)`;
                     }
+                } else if (scroller.scrollTop > 0) {
+                    // User has scrolled away from top — disarm completely
+                    pulling  = false;
+                    startY   = 0;
+                    currentY = 0;
+                    resetPTR(indicator);
                 } else if (diff <= 0) {
-                    // Scrolling up — cancel
+                    // Swiping up at top — just reset
                     pulling = false;
                     resetPTR(indicator);
                 }
             }, { passive: false });
 
             // ── touchend: trigger or reset ──
-            window.addEventListener('touchend', () => {
+            scroller.addEventListener('touchend', () => {
                 if (!pulling) { startY = 0; currentY = 0; return; }
 
                 const diff = currentY - startY;
 
-                if (diff >= PTR_TRIGGER && window.scrollY <= 0) {
-                    // ✅ Trigger refresh
+                if (diff >= PTR_TRIGGER && scroller.scrollTop <= 0) {
                     refreshing = true;
                     indicator.style.transform = 'translateX(-50%) translateY(0px)';
                     indicator.style.opacity   = '1';
@@ -3892,9 +3897,9 @@
                     resetPTR(indicator);
                 }
 
-                pulling   = false;
-                startY    = 0;
-                currentY  = 0;
+                pulling  = false;
+                startY   = 0;
+                currentY = 0;
             }, { passive: true });
         }
 
@@ -4987,12 +4992,15 @@
                 const isAdm = userData.role === 'admin';
                 const delAction = "if(confirm('Delete?')){db.collection('announcements').doc('" + announcementId + "').delete().then(()=>{closeMarketplaceModal();loadAnnouncements();});}";
                 
-                let html = postHeaderHtml('Admin', 'Community', data.createdAt, isAdm, delAction, null);
-                html += '<div style="font-weight:600;font-size:16px;color:#333;margin-bottom:8px;">📢 ' + (data.title || 'Announcement') + '</div>';
-                if (data.category) html += '<span style="background:#e3f2fd;color:#1976d2;padding:3px 10px;border-radius:10px;font-size:12px;font-weight:600;display:inline-block;margin-bottom:8px;">' + data.category + '</span>';
-                html += '<div style="font-size:14px;color:#333;line-height:1.6;white-space:pre-wrap;">' + (data.message || data.content || 'No content') + '</div>';
-                
-                document.getElementById('marketplaceModalBody').innerHTML = html;
+                const comments = data.comments || [];
+                let inner = postHeaderHtml('Admin', 'Community', data.createdAt, isAdm, delAction, null);
+                if (data.category) inner += '<span style="background:#EEF2FF;color:#667eea;padding:4px 14px;border-radius:20px;font-size:13px;font-weight:600;display:inline-block;margin-bottom:12px;">' + data.category + '</span>';
+                inner += '<div style="font-size:17px;font-weight:700;color:#0D0D0D;margin-bottom:10px;">📢 ' + (data.title || 'Announcement') + '</div>';
+                inner += '<div style="font-size:15px;color:#1A1A1A;line-height:1.7;white-space:pre-wrap;margin-bottom:8px;">' + (data.message || data.content || 'No content') + '</div>';
+                inner += commentsSectionHtml(comments, 'announcements', announcementId, 'viewAnnouncement', 'loadAnnouncements', data);
+
+                const scrollHtml = '<div style="flex:1;overflow-y:auto;padding:16px 20px 8px;">' + inner + '</div>';
+                document.getElementById('marketplaceModalBody').innerHTML = scrollHtml;
                 document.getElementById('marketplaceModal').classList.add('show');
             } catch (error) {
                 console.error('Error:', error);
