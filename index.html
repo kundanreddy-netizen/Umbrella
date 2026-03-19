@@ -2680,23 +2680,35 @@
             const colors = ['#667eea','#764ba2','#f093fb','#4facfe','#43e97b','#fa709a','#fee140','#a18cd1'];
             const ci = Math.abs((name || '').split('').reduce((a, c) => a + c.charCodeAt(0), 0)) % colors.length;
             const color = colors[ci];
+            const fs = Math.floor(size * 0.4);
 
-            // Resolve pic URL: direct arg → cache lookup → initials fallback
+            // Resolve pic: direct arg → cache lookup → null (show initials)
             const resolvedPic = picUrl || (userId && userPicCache[userId]) || null;
 
+            const baseStyle = 'width:' + size + 'px;height:' + size + 'px;border-radius:50%;';
+            const initialsDiv = '<div style="' + baseStyle + 'background:' + color + ';color:white;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:' + fs + 'px;flex-shrink:0;">' + initials + '</div>';
+
             if (resolvedPic) {
-                const safeInit = initials.replace(/'/g, '');
-                const safeName = (name || '').replace(/'/g, '').replace(/"/g, '');
-                return '<div style="width:' + size + 'px;height:' + size + 'px;border-radius:50%;overflow:hidden;flex-shrink:0;cursor:pointer;" ' +
-                       'onclick="openPhotoViewer('' + resolvedPic + '','' + safeName + '')">' +
-                       '<img src="' + resolvedPic + '" alt="' + safeName + '" ' +
-                       'style="width:100%;height:100%;object-fit:cover;border-radius:50%;" ' +
-                       'onerror="this.parentElement.innerHTML='<div style=&quot;width:' + size + 'px;height:' + size + 'px;border-radius:50%;background:' + color + ';color:white;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:' + Math.floor(size * 0.4) + 'px;&quot;>' + safeInit + '</div>'"></div>';
+                // Use data attributes to avoid any quote nesting issues in onclick
+                return '<div class="_av-click" data-pic="' + resolvedPic.replace(/"/g,'&quot;') + '" data-name="' + (name||'').replace(/"/g,'&quot;') + '" style="' + baseStyle + 'overflow:hidden;flex-shrink:0;cursor:pointer;">' +
+                       '<img src="' + resolvedPic + '" style="width:100%;height:100%;object-fit:cover;" ' +
+                       'onerror="this.parentElement.outerHTML=unescape('' + encodeURIComponent(initialsDiv) + '')">' +
+                       '</div>';
             }
 
-            return '<div style="width:' + size + 'px;height:' + size + 'px;border-radius:50%;background:' + color + ';color:white;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:' + Math.floor(size * 0.4) + 'px;flex-shrink:0;">' + initials + '</div>';
+            return initialsDiv;
         }
         
+        // Delegated click handler for avatar pics (avoids inline onclick quote issues)
+        document.addEventListener('click', function(e) {
+            const el = e.target.closest('._av-click');
+            if (el) {
+                const pic  = el.getAttribute('data-pic');
+                const name = el.getAttribute('data-name');
+                if (pic) openPhotoViewer(pic, name);
+            }
+        });
+
         // postHeaderHtml(name, unit, date, isOwner, deleteAction, userId)
         // userId — optional, used to show profile pic in post header
         function postHeaderHtml(name, unit, date, isOwner, deleteAction, userId) {
