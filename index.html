@@ -533,44 +533,57 @@
             background: rgba(0,0,0,0.5);
             z-index: 1000;
             overflow-y: auto;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
         }
 
         .modal.show {
-            display: block;
+            display: flex;
         }
 
         .modal-content {
             background: white;
-            border-radius: 20px 20px 0 0;
-            margin: 50px auto 0;
-            max-width: 500px;
-            min-height: calc(100vh - 50px);
-            padding: 30px 20px;
+            border-radius: 16px;
+            width: 100%;
+            max-width: 420px;
+            max-height: 80vh;
+            overflow-y: auto;
+            padding: 20px;
+            box-shadow: 0 8px 30px rgba(0,0,0,0.2);
         }
 
         .modal-header {
             display: flex;
             justify-content: space-between;
             align-items: center;
-            margin-bottom: 25px;
+            margin-bottom: 15px;
+            padding-bottom: 12px;
+            border-bottom: 1px solid #f0f0f0;
         }
 
         .modal-title {
-            font-size: 22px;
+            font-size: 18px;
             font-weight: 700;
             color: #333;
         }
 
         .modal-close {
-            font-size: 28px;
+            font-size: 24px;
             color: #999;
             cursor: pointer;
-            background: none;
+            background: #f5f5f5;
             border: none;
             padding: 0;
-            width: 30px;
-            height: 30px;
+            width: 32px;
+            height: 32px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: background 0.2s;
         }
+        .modal-close:hover { background: #e0e0e0; }
 
         /* Badge */
         .badge {
@@ -959,9 +972,9 @@
         .profile-content {
             background: white;
             border-radius: 16px;
-            max-width: 600px;
+            max-width: 420px;
             width: 100%;
-            max-height: 90vh;
+            max-height: 80vh;
             overflow-y: auto;
         }
 
@@ -984,8 +997,38 @@
             display: flex;
             align-items: center;
             justify-content: center;
-            margin: 0 auto 20px;
-            border: 4px solid rgba(255,255,255,0.3);
+            margin: 0 auto 15px;
+            overflow: hidden;
+            cursor: pointer;
+            position: relative;
+            border: 3px solid rgba(255,255,255,0.5);
+            transition: opacity 0.2s;
+        }
+        .profile-avatar-large:hover { opacity: 0.85; }
+        .profile-avatar-large img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            border-radius: 50%;
+        }
+        .profile-avatar-large .avatar-upload-hint {
+            position: absolute;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            background: rgba(0,0,0,0.55);
+            color: white;
+            font-size: 10px;
+            font-weight: 600;
+            text-align: center;
+            padding: 3px 0;
+            border-radius: 0 0 50px 50px;
+        }
+        .nav-avatar-img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            border-radius: 50%;
         }
 
         .profile-header h2 {
@@ -1116,9 +1159,34 @@
         .toggle-switch.active::after {
             transform: translateX(22px);
         }
+        /* 3-Dot Post Menu */
+        .post-menu-wrapper { position: relative; display: inline-block; }
+        .post-menu-btn {
+            background: none; border: none; font-size: 22px; cursor: pointer;
+            padding: 6px 10px; border-radius: 50%; color: #555; line-height: 1;
+            font-weight: 900; letter-spacing: 1px; transition: background 0.2s;
+        }
+        .post-menu-btn:hover { background: rgba(0,0,0,0.08); color: #222; }
+        .post-menu-dropdown {
+            display: none; position: absolute; right: 0; top: 100%;
+            background: white; border-radius: 12px; box-shadow: 0 4px 20px rgba(0,0,0,0.15);
+            min-width: 160px; z-index: 1000; overflow: hidden;
+        }
+        .post-menu-dropdown.show { display: block; }
+        .post-menu-item {
+            display: flex; align-items: center; gap: 10px; padding: 12px 16px;
+            font-size: 14px; color: #333; cursor: pointer; border: none;
+            background: none; width: 100%; text-align: left; transition: background 0.15s;
+        }
+        .post-menu-item:hover { background: #f5f5f5; }
+        .post-menu-item.danger { color: #dc3545; }
+        .card-header { display: flex; justify-content: space-between; align-items: flex-start; }
     </style>
 </head>
 <body>
+    <!-- Hidden file input for profile picture upload -->
+    <input type="file" id="profilePicInput" accept="image/jpeg,image/png,image/webp,image/gif"
+           style="display:none;" onchange="handleProfilePicChange(event)">
     <!-- Loading Screen -->
     <div class="loading-screen" id="loadingScreen">
         <svg class="logo" viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg">
@@ -1219,6 +1287,14 @@
                         <div style="position: relative;">
                             <input type="password" id="signupPassword" placeholder="Choose a password" autocomplete="new-password" inputmode="text" style="padding-right: 45px;" required minlength="6">
                             <button type="button" onclick="togglePassword('signupPassword', this)" style="position: absolute; right: 10px; top: 50%; transform: translateY(-50%); background: none; border: none; cursor: pointer; font-size: 18px; color: #666; padding: 5px;">👁️</button>
+                        </div>
+                    </div>
+
+                    <div class="input-group">
+                        <label>Confirm Password</label>
+                        <div style="position: relative;">
+                            <input type="password" id="signupPasswordConfirm" placeholder="Re-enter your password" autocomplete="new-password" inputmode="text" style="padding-right: 45px;" required minlength="6">
+                            <button type="button" onclick="togglePassword('signupPasswordConfirm', this)" style="position: absolute; right: 10px; top: 50%; transform: translateY(-50%); background: none; border: none; cursor: pointer; font-size: 18px; color: #666; padding: 5px;">👁️</button>
                         </div>
                     </div>
 
@@ -1556,6 +1632,8 @@
                         const existingToast = document.getElementById('fcm-toast');
                         if (existingToast) existingToast.remove();
                         
+                        const announcementId = payload.data?.announcementId || '';
+                        
                         const toast = document.createElement('div');
                         toast.id = 'fcm-toast';
                         toast.style.cssText = `
@@ -1571,9 +1649,23 @@
                             z-index: 9999;
                             max-width: 90%;
                             text-align: center;
+                            cursor: pointer;
                             transition: opacity 0.3s ease, transform 0.3s ease;
                         `;
-                        toast.innerHTML = '<strong>' + title + '</strong>' + (body ? '<br><span style="font-size:13px;opacity:0.9">' + body + '</span>' : '');
+                        toast.innerHTML = '<strong>' + title + '</strong>' + (body ? '<br><span style="font-size:13px;opacity:0.9">' + body + '</span>' : '') + '<br><span style="font-size:11px;opacity:0.7;margin-top:4px;display:inline-block;">Tap to view</span>';
+                        
+                        // Click toast to open the correct post
+                        const postId   = payload.data?.postId   || '';
+                        const postType = payload.data?.postType || 'announcement';
+                        toast.addEventListener('click', () => {
+                            toast.remove();
+                            if (postId) {
+                                openPostById(postType, postId);
+                            } else if (announcementId) {
+                                viewAnnouncement(announcementId);
+                            }
+                        });
+                        
                         document.body.appendChild(toast);
                         
                         setTimeout(() => {
@@ -1587,6 +1679,73 @@
                     console.error('❌ Service Worker registration failed:', error);
                 });
         }
+
+        // ========================================
+        // APP RESUME HANDLER
+        // ========================================
+        // When the app returns to foreground (e.g. after tapping a notification),
+        // refresh all data and check for pending announcements.
+        let lastVisibilityChange = 0;
+        document.addEventListener('visibilitychange', async () => {
+            if (document.visibilityState === 'visible' && currentUser) {
+                const now = Date.now();
+                // Throttle: only refresh if at least 3 seconds since last refresh
+                if (now - lastVisibilityChange > 3000) {
+                    lastVisibilityChange = now;
+                    console.log('📱 App resumed - refreshing data...');
+                    loadAllData();
+                    
+                    // METHOD 1: Check URL params (from fcmOptions.link when app was closed)
+                    const urlParams = new URLSearchParams(window.location.search);
+                    const urlAnnouncementId = urlParams.get('announcementId');
+                    if (urlAnnouncementId) {
+                        console.log('[visibilitychange] Deep link: announcement', urlAnnouncementId);
+                        setTimeout(() => { viewAnnouncement(urlAnnouncementId); }, 1200);
+                        if (window.history.replaceState) {
+                            window.history.replaceState({}, document.title,
+                                window.location.origin + window.location.pathname);
+                        }
+                        return;
+                    }
+
+                    // New: postId + postType deep link
+                    const urlPostId   = urlParams.get('postId');
+                    const urlPostType = urlParams.get('postType');
+                    if (urlPostId && urlPostType) {
+                        console.log('[visibilitychange] Deep link: post', urlPostType, urlPostId);
+                        setTimeout(() => { openPostById(urlPostType, urlPostId); }, 1200);
+                        if (window.history.replaceState) {
+                            window.history.replaceState({}, document.title,
+                                window.location.origin + window.location.pathname);
+                        }
+                        return;
+                    }
+                    
+                    // METHOD 2: Check Cache API (from SW onBackgroundMessage - works on iOS)
+                    try {
+                        const cache = await caches.open('umbrella-pending');
+                        const resp = await cache.match('/__pending-notification');
+                        if (resp) {
+                            const pending = await resp.json();
+                            await cache.delete('/__pending-notification');
+                            
+                            // Only open if notification is less than 2 minutes old
+                            if (now - pending.timestamp < 120000) {
+                                if (pending.postId && pending.postType) {
+                                    console.log('[Cache] Post notification:', pending.postType, pending.postId);
+                                    setTimeout(() => { openPostById(pending.postType, pending.postId); }, 1200);
+                                } else if (pending.announcementId) {
+                                    console.log('[Cache] Announcement notification:', pending.announcementId);
+                                    setTimeout(() => { viewAnnouncement(pending.announcementId); }, 1200);
+                                }
+                            }
+                        }
+                    } catch (e) {
+                        console.log('Cache check skipped:', e.message);
+                    }
+                }
+            }
+        });
 
         // Request notification permission
         // ========================================
@@ -1693,8 +1852,88 @@
                 case 'community_share':
                     loadCommunityShare();
                     break;
+                case 'security':
+                    loadSecurityAlerts();
+                    break;
+                case 'lostfound':
+                    loadLostAndFound();
+                    break;
                 default:
                     loadAllData();
+            }
+        }
+        
+        // Check if the app was opened from a notification click (deep link)
+        function checkNotificationDeepLink() {
+            const urlParams = new URLSearchParams(window.location.search);
+
+            // Legacy: announcementId param (admin announcements)
+            const announcementId = urlParams.get('announcementId');
+            // New: postId + postType params (all resident features)
+            const postId   = urlParams.get('postId');
+            const postType = urlParams.get('postType');
+
+            if (announcementId) {
+                console.log('[DeepLink] Opening announcement:', announcementId);
+                setTimeout(() => { viewAnnouncement(announcementId); }, 1500);
+            } else if (postId && postType) {
+                console.log('[DeepLink] Opening post:', postType, postId);
+                setTimeout(() => { openPostById(postType, postId); }, 1500);
+            }
+
+            // Clean up URL params
+            if ((announcementId || postId) && window.history.replaceState) {
+                window.history.replaceState({}, document.title,
+                    window.location.origin + window.location.pathname);
+            }
+        }
+
+        // Open any post type by ID — used by deep links and notification clicks
+        async function openPostById(postType, postId) {
+            console.log('[openPostById]', postType, postId);
+            if (!postId) { console.warn('[openPostById] No postId'); return; }
+            try {
+                // Map type → tab name and view function
+                const tabMap = {
+                    'announcement':  'announcements',
+                    'marketplace':   'marketplace',
+                    'ticket':        'tickets',
+                    'community_share': 'communityshare',
+                    'communityshare':  'communityshare',
+                    'event':         'events',
+                    'security':      'security',
+                    'lostfound':     'lostandfound',
+                    'lost_and_found':'lostandfound'
+                };
+                const viewMap = {
+                    'announcement':    () => viewAnnouncement(postId),
+                    'marketplace':     () => viewMarketplaceItem(postId),
+                    'ticket':          () => viewTicket(postId),
+                    'community_share': () => viewCommunityShareItem(postId),
+                    'communityshare':  () => viewCommunityShareItem(postId),
+                    'event':           () => viewEvent(postId),
+                    'security':        () => viewSecurityAlert(postId),
+                    'lostfound':       () => viewLostFoundItem(postId),
+                    'lost_and_found':  () => viewLostFoundItem(postId)
+                };
+
+                const tab = tabMap[postType];
+                const viewFn = viewMap[postType];
+
+                if (!viewFn) {
+                    console.warn('[openPostById] Unknown postType:', postType);
+                    return;
+                }
+
+                // Switch to correct tab first, then open modal after data loads
+                if (tab) navigateToTab(tab);
+                setTimeout(async () => {
+                    try { await viewFn(); }
+                    catch(e) { console.error('[openPostById] viewFn error:', e); }
+                }, 600);
+
+            } catch(e) {
+                console.error('[openPostById] Error:', e);
             }
         }
         
@@ -1739,6 +1978,10 @@
                     title: title,
                     body: body,
                     data: data,
+                    // Flatten postId/postType to top-level so Cloud Function
+                    // can pass them as FCM data fields (FCM only sends strings)
+                    postId:   data.postId   || '',
+                    postType: data.postType || type,
                     createdBy: currentUser.uid,
                     createdByName: userData.displayName || userData.name,
                     createdAt: firebase.firestore.FieldValue.serverTimestamp(),
@@ -1812,7 +2055,14 @@
                     console.log('🏘️ User Community ID:', userCommunityId);
                     
                     // Update UI
-                    document.getElementById('userAvatar').textContent = (userDataFromDb.name || 'U').charAt(0).toUpperCase();
+                    // Update nav avatar — show photo or initial
+                const navAvatar = document.getElementById('userAvatar');
+                if (userDataFromDb.profilePicUrl) {
+                    navAvatar.innerHTML = `<img class="nav-avatar-img" src="${userDataFromDb.profilePicUrl}"
+                        onerror="this.parentElement.textContent='${(userDataFromDb.name||'U')[0].toUpperCase()}'" alt="">`;
+                } else {
+                    navAvatar.textContent = (userDataFromDb.name || 'U').charAt(0).toUpperCase();
+                }
                     
                     // Load and display community name
                     loadCommunityName();
@@ -1830,6 +2080,27 @@
                     
                     if (termsAccepted) {
                         loadAllData();
+                        
+                        // Check if opened from a notification click (URL has ?announcementId=)
+                        checkNotificationDeepLink();
+                        
+                        // Listen for messages from service worker (when app is already open and notification is clicked)
+                        if ('serviceWorker' in navigator) {
+                            navigator.serviceWorker.addEventListener('message', (event) => {
+                                // Legacy: admin announcement deep link
+                                if (event.data?.type === 'OPEN_ANNOUNCEMENT' && event.data?.announcementId) {
+                                    console.log('[SW] Opening announcement:', event.data.announcementId);
+                                    setTimeout(() => { viewAnnouncement(event.data.announcementId); }, 500);
+                                }
+                                // New: any post type deep link
+                                if (event.data?.type === 'OPEN_POST' && event.data?.postId) {
+                                    console.log('[SW] Opening post:', event.data.postType, event.data.postId);
+                                    setTimeout(() => {
+                                        openPostById(event.data.postType || 'announcement', event.data.postId);
+                                    }, 500);
+                                }
+                            });
+                        }
                         
                         // Ask for notification permission
                         console.log('=== NOTIFICATION CHECK ===');
@@ -2002,7 +2273,18 @@
                 // Auth state change will handle the rest
             } catch (error) {
                 console.error('Login error:', error);
-                showAuthError(error.message);
+                const code = error.code || '';
+                if (code === 'auth/invalid-credential' || code === 'auth/wrong-password' || code === 'auth/user-not-found') {
+                    showAuthError('Incorrect email or password. Please try again or use Forgot Password to reset.');
+                } else if (code === 'auth/too-many-requests') {
+                    showAuthError('Too many failed attempts. Please wait a few minutes and try again, or use Forgot Password.');
+                } else if (code === 'auth/user-disabled') {
+                    showAuthError('This account has been disabled. Please contact your community admin.');
+                } else if (code === 'auth/invalid-email') {
+                    showAuthError('Please enter a valid email address.');
+                } else {
+                    showAuthError('Sign in failed. Please check your credentials and try again.');
+                }
             }
         }
 
@@ -2025,6 +2307,12 @@
 
             if (password.length < 6) {
                 showAuthError('Password must be at least 6 characters');
+                return;
+            }
+
+            const confirmPassword = document.getElementById('signupPasswordConfirm').value;
+            if (password !== confirmPassword) {
+                showAuthError('Passwords do not match. Please re-enter.');
                 return;
             }
 
@@ -2144,7 +2432,9 @@
                     }
                 }
                 
-                showAuthError('Signup failed: ' + error.message + '. Please try again.');
+                showAuthError(error.code === 'auth/email-already-in-use' 
+                    ? 'An account with this email already exists. Please sign in or use Forgot Password.' 
+                    : 'Signup failed. Please try again.');
                 pendingSignupData = null;
             }
         }
@@ -2192,6 +2482,708 @@
             }, 500);
         }
 
+        // ========== SOCIAL POST HELPERS ==========
+        function timeAgo(date) {
+            if (!date) return '';
+            const now = new Date();
+            const diff = Math.floor((now - date) / 1000);
+            if (diff < 60) return 'Just now';
+            if (diff < 3600) return Math.floor(diff / 60) + ' min ago';
+            if (diff < 86400) return Math.floor(diff / 3600) + ' hr ago';
+            if (diff < 604800) return Math.floor(diff / 86400) + ' day ago';
+            return date.toLocaleDateString();
+        }
+        
+        function avatarHtml(name, size) {
+            size = size || 40;
+            const initials = (name || 'U').split(' ').map(w => w[0]).join('').toUpperCase().substring(0, 2);
+            const colors = ['#667eea','#764ba2','#f093fb','#4facfe','#43e97b','#fa709a','#fee140','#a18cd1'];
+            const ci = Math.abs((name || '').split('').reduce((a, c) => a + c.charCodeAt(0), 0)) % colors.length;
+            return '<div style="width:' + size + 'px;height:' + size + 'px;border-radius:50%;background:' + colors[ci] + ';color:white;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:' + Math.floor(size * 0.4) + 'px;flex-shrink:0;">' + initials + '</div>';
+        }
+        
+        function postHeaderHtml(name, unit, date, isOwner, deleteAction) {
+            const ago = date ? timeAgo(date instanceof Date ? date : date.toDate()) : '';
+            return '<div style="display:flex;align-items:center;gap:12px;margin-bottom:14px;">' +
+                avatarHtml(name, 40) +
+                '<div style="flex:1;min-width:0;"><div style="font-weight:700;font-size:15px;color:#333;">' + (name || 'Unknown') + '</div>' +
+                '<div style="font-size:12px;color:#999;">Unit ' + (unit || 'N/A') + (ago ? ' • ' + ago : '') + '</div></div>' +
+                (isOwner ? '<button onclick="' + deleteAction + '" style="background:none;border:none;cursor:pointer;font-size:18px;padding:6px;color:#999;" title="Delete">🗑️</button>' : '') +
+                '</div>';
+        }
+        
+        function commentsSectionHtml(comments, collection, docId, viewFnName, loadFnName) {
+            let html = '<div style="border-top:1px solid #eee;margin-top:16px;padding-top:14px;">';
+            html += '<div style="font-weight:600;font-size:14px;color:#333;margin-bottom:10px;">💬 Comments (' + comments.length + ')</div>';
+            
+            if (comments.length > 0) {
+                const sorted = [...comments].sort((a, b) => (a.timestamp ? a.timestamp.toMillis() : 0) - (b.timestamp ? b.timestamp.toMillis() : 0));
+                sorted.forEach(c => {
+                    const cDate = c.timestamp ? timeAgo(c.timestamp.toDate()) : '';
+                    html += '<div style="display:flex;gap:8px;margin-bottom:10px;">' +
+                        avatarHtml(c.userName, 28) +
+                        '<div style="flex:1;"><div style="font-size:13px;"><strong>' + (c.userName || 'Unknown') + '</strong> <span style="color:#999;font-size:11px;">' + cDate + '</span></div>' +
+                        '<div style="font-size:13px;color:#444;line-height:1.4;margin-top:2px;">' + (c.message || '') + '</div></div></div>';
+                });
+            } else {
+                html += '<div style="text-align:center;color:#bbb;font-size:13px;padding:10px 0;">No comments yet</div>';
+            }
+            
+            // Input
+            html += '<div style="display:flex;gap:8px;margin-top:10px;align-items:center;">' +
+                '<input id="commentInput" type="text" placeholder="Add your thoughts..." style="flex:1;padding:10px 14px;border:1px solid #e0e0e0;border-radius:20px;font-size:13px;outline:none;">' +
+                '<button onclick="addGenericComment(\'' + collection + '\',\'' + docId + '\',' + viewFnName + ',' + loadFnName + ')" style="background:none;border:none;cursor:pointer;font-size:20px;color:#667eea;padding:4px;">➤</button></div>';
+            html += '</div>';
+            return html;
+        }
+        
+        async function addGenericComment(collection, docId, viewFn, loadFn) {
+            const input = document.getElementById('commentInput');
+            const text = input ? input.value.trim() : '';
+            if (!text) { alert('Please write a comment'); return; }
+            try {
+                const doc = await db.collection(collection).doc(docId).get();
+                const comments = doc.data().comments || [];
+                comments.push({
+                    userId: currentUser.uid,
+                    userName: userData.displayName || 'Unknown',
+                    userUnit: userData.unitNumber || 'N/A',
+                    message: text,
+                    timestamp: firebase.firestore.Timestamp.now()
+                });
+                await db.collection(collection).doc(docId).update({ comments: comments });
+                if (viewFn) viewFn(docId);
+                if (loadFn) loadFn();
+            } catch (error) {
+                console.error('Error adding comment:', error);
+                alert('Error: ' + error.message);
+            }
+        }
+
+        // ========== 3-DOT POST MENU ==========
+        let activeMenu = null;
+        
+        function togglePostMenu(event, menuId) {
+            event.stopPropagation();
+            const menu = document.getElementById(menuId);
+            if (activeMenu && activeMenu !== menu) activeMenu.classList.remove('show');
+            menu.classList.toggle('show');
+            activeMenu = menu.classList.contains('show') ? menu : null;
+        }
+        
+        document.addEventListener('click', () => {
+            if (activeMenu) { activeMenu.classList.remove('show'); activeMenu = null; }
+        });
+        
+        function postMenuHtml(id, type, isOwner, isAdm) {
+            if (!isOwner && !isAdm) return '';
+            const mid = 'pm-' + type + '-' + id;
+            let items = '';
+            if (isOwner) items += '<button class="post-menu-item" onclick="event.stopPropagation(); editPost(\'' + type + '\',\'' + id + '\')">✏️ Edit</button>';
+            items += '<button class="post-menu-item danger" onclick="event.stopPropagation(); deletePost(\'' + type + '\',\'' + id + '\')">🗑️ Delete</button>';
+            return '<div class="post-menu-wrapper"><button class="post-menu-btn" onclick="togglePostMenu(event,\'' + mid + '\')">⋮</button><div class="post-menu-dropdown" id="' + mid + '">' + items + '</div></div>';
+        }
+        
+        async function deletePost(type, id) {
+            if (!confirm('Delete this post? This cannot be undone.')) return;
+            if (activeMenu) { activeMenu.classList.remove('show'); activeMenu = null; }
+            try {
+                const colMap = { visitor: 'visitors', ticket: 'tickets', security: 'security_alerts', lostfound: 'lost_and_found', announcement: 'announcements', marketplace: 'marketplace', communityshare: 'communityshare', event: 'events' };
+                const col = colMap[type];
+                if (col) {
+                    await db.collection(col).doc(id).delete();
+                    // Close any open modal after deletion
+                    closeMarketplaceModal();
+                    alert('✅ Deleted successfully');
+                }
+                const refreshMap = { visitor: loadVisitors, ticket: loadTickets, marketplace: loadMarketplace, communityshare: loadCommunityShare, event: loadEvents, security: loadSecurityAlerts, lostfound: loadLostAndFound, announcement: loadAnnouncements };
+                if (refreshMap[type]) refreshMap[type]();
+            } catch (error) {
+                console.error('Error deleting:', error);
+                if (error.code === 'permission-denied') {
+                    alert('Permission denied. You can only delete your own posts.');
+                } else {
+                    alert('Error deleting: ' + error.message);
+                }
+            }
+        }
+        
+        function editPost(type, id) {
+            if (activeMenu) { activeMenu.classList.remove('show'); activeMenu = null; }
+            const viewMap = {
+                visitor: () => editVisitorInline(id),
+                ticket: () => editTicketInline(id),
+                marketplace: () => editMarketplaceInline(id),
+                communityshare: () => editCommunityShareInline(id),
+                event: () => editEventInline(id),
+                security: () => editSecurityAlertInline(id),
+                lostfound: () => editLostFoundInline(id),
+                announcement: () => viewAnnouncement(id)
+            };
+            if (viewMap[type]) viewMap[type]();
+        }
+        async function editTicketInline(ticketId) {
+            try {
+                const doc = await db.collection('tickets').doc(ticketId).get();
+                if (!doc.exists) { alert('Ticket not found'); return; }
+                const data = doc.data();
+
+                // Only owner or admin can edit
+                if (data.residentId !== currentUser.uid && userData.role !== 'admin') {
+                    alert('You can only edit your own tickets.');
+                    return;
+                }
+                // Cannot edit closed/resolved tickets
+                if (data.status === 'closed' || data.status === 'resolved') {
+                    alert('Closed or resolved tickets cannot be edited.');
+                    return;
+                }
+
+                const html = `
+                    <h3 style="margin-bottom:16px;font-size:17px;font-weight:700;">✏️ Edit Ticket</h3>
+                    <div class="input-group">
+                        <label>Title *</label>
+                        <input type="text" id="editTicketTitle" value="${(data.title || '').replace(/"/g, '&quot;')}" 
+                               style="width:100%;padding:10px 12px;border:1px solid #e0e0e0;border-radius:8px;font-size:14px;">
+                    </div>
+                    <div class="input-group" style="margin-top:12px;">
+                        <label>Description *</label>
+                        <textarea id="editTicketDesc" rows="4"
+                                  style="width:100%;padding:10px 12px;border:1px solid #e0e0e0;border-radius:8px;font-size:14px;resize:vertical;">${data.description || ''}</textarea>
+                    </div>
+                    <div class="input-group" style="margin-top:12px;">
+                        <label>Location</label>
+                        <input type="text" id="editTicketLocation" value="${(data.location || '').replace(/"/g, '&quot;')}"
+                               style="width:100%;padding:10px 12px;border:1px solid #e0e0e0;border-radius:8px;font-size:14px;">
+                    </div>
+                    <div style="display:flex;gap:10px;margin-top:16px;">
+                        <button onclick="saveTicketEdit('${ticketId}')" 
+                                style="flex:1;background:#667eea;color:white;border:none;padding:12px;border-radius:8px;font-size:14px;font-weight:600;cursor:pointer;">
+                            💾 Save Changes
+                        </button>
+                        <button onclick="closeMarketplaceModal()" 
+                                style="flex:1;background:#f5f5f5;color:#333;border:1px solid #e0e0e0;padding:12px;border-radius:8px;font-size:14px;cursor:pointer;">
+                            Cancel
+                        </button>
+                    </div>
+                `;
+                document.getElementById('marketplaceModalBody').innerHTML = html;
+                document.getElementById('marketplaceModal').classList.add('show');
+            } catch (error) {
+                console.error('Error loading ticket for edit:', error);
+                alert('Error: ' + error.message);
+            }
+        }
+
+        async function saveTicketEdit(ticketId) {
+            const title = document.getElementById('editTicketTitle').value.trim();
+            const desc  = document.getElementById('editTicketDesc').value.trim();
+            const loc   = document.getElementById('editTicketLocation').value.trim();
+
+            if (!title || !desc) {
+                alert('Title and Description are required.');
+                return;
+            }
+            try {
+                await db.collection('tickets').doc(ticketId).update({
+                    title: title,
+                    description: desc,
+                    location: loc,
+                    updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+                });
+                closeMarketplaceModal();
+                loadTickets();
+                alert('✅ Ticket updated successfully!');
+            } catch (error) {
+                console.error('Error updating ticket:', error);
+                if (error.code === 'permission-denied') {
+                    alert('Permission denied. You can only edit your own tickets.');
+                } else {
+                    alert('Error updating ticket: ' + error.message);
+                }
+            }
+        }
+
+
+        
+        // ========== EDIT MARKETPLACE ITEM ==========
+        async function editMarketplaceInline(itemId) {
+            try {
+                const doc = await db.collection('marketplace').doc(itemId).get();
+                if (!doc.exists) { alert('Item not found'); return; }
+                const data = doc.data();
+
+                // Only owner or admin can edit
+                if (data.sellerId !== currentUser.uid && userData.role !== 'admin') {
+                    alert('You can only edit your own listings.');
+                    return;
+                }
+
+                // Pre-fill contact from saved data
+                const savedContact = data.sellerPhone || data.sellerEmail || '';
+
+                const modalHtml = `
+                    <h3 style="margin-bottom:16px;font-size:17px;font-weight:700;">✏️ Edit Listing</h3>
+
+                    <div class="input-group">
+                        <label>Title *</label>
+                        <input type="text" id="editMpTitle"
+                               value="${(data.title || '').replace(/"/g, '&quot;')}"
+                               style="width:100%;padding:10px 12px;border:1px solid #e0e0e0;border-radius:8px;font-size:14px;">
+                    </div>
+
+                    <div style="display:flex;gap:12px;margin-top:12px;">
+                        <div class="input-group" style="flex:1;">
+                            <label>Price ($) *</label>
+                            <input type="number" id="editMpPrice" min="0" step="0.01"
+                                   value="${data.price || ''}"
+                                   style="width:100%;padding:10px 12px;border:1px solid #e0e0e0;border-radius:8px;font-size:14px;">
+                        </div>
+                        <div class="input-group" style="flex:1;">
+                            <label>Category</label>
+                            <select id="editMpCategory"
+                                    style="width:100%;padding:10px 12px;border:1px solid #e0e0e0;border-radius:8px;font-size:14px;background:white;">
+                                <option value="furniture"    ${data.category==='furniture'    ?'selected':''}>🪑 Furniture</option>
+                                <option value="electronics"  ${data.category==='electronics'  ?'selected':''}>📱 Electronics</option>
+                                <option value="clothing"     ${data.category==='clothing'     ?'selected':''}>👕 Clothing</option>
+                                <option value="appliances"   ${data.category==='appliances'   ?'selected':''}>🏠 Appliances</option>
+                                <option value="sports"       ${data.category==='sports'       ?'selected':''}>⚽ Sports</option>
+                                <option value="books"        ${data.category==='books'        ?'selected':''}>📚 Books</option>
+                                <option value="toys"         ${data.category==='toys'         ?'selected':''}>🧸 Toys</option>
+                                <option value="other"        ${data.category==='other'        ?'selected':''}>📦 Other</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <div class="input-group" style="margin-top:12px;">
+                        <label>Description *</label>
+                        <textarea id="editMpDesc" rows="4"
+                                  style="width:100%;padding:10px 12px;border:1px solid #e0e0e0;border-radius:8px;font-size:14px;resize:vertical;">${data.description || ''}</textarea>
+                    </div>
+
+                    <div class="input-group" style="margin-top:12px;">
+                        <label>Contact (Phone or Email) *</label>
+                        <input type="text" id="editMpContact"
+                               value="${savedContact.replace(/"/g, '&quot;')}"
+                               placeholder="Enter your Phone Number or email"
+                               style="width:100%;padding:10px 12px;border:1px solid #e0e0e0;border-radius:8px;font-size:14px;">
+                    </div>
+
+                    <div style="display:flex;gap:10px;margin-top:18px;">
+                        <button onclick="saveMarketplaceEdit('${itemId}')"
+                                style="flex:1;background:#667eea;color:white;border:none;padding:12px;border-radius:8px;font-size:14px;font-weight:600;cursor:pointer;">
+                            💾 Save Changes
+                        </button>
+                        <button onclick="closeMarketplaceModal()"
+                                style="flex:1;background:#f5f5f5;color:#333;border:1px solid #e0e0e0;padding:12px;border-radius:8px;font-size:14px;cursor:pointer;">
+                            Cancel
+                        </button>
+                    </div>
+                `;
+
+                document.getElementById('marketplaceModalBody').innerHTML = modalHtml;
+                document.getElementById('marketplaceModal').classList.add('show');
+
+            } catch (error) {
+                console.error('Error loading item for edit:', error);
+                alert('Error: ' + error.message);
+            }
+        }
+
+        async function saveMarketplaceEdit(itemId) {
+            const title    = document.getElementById('editMpTitle').value.trim();
+            const price    = document.getElementById('editMpPrice').value;
+            const category = document.getElementById('editMpCategory').value;
+            const desc     = document.getElementById('editMpDesc').value.trim();
+            const contact  = document.getElementById('editMpContact').value.trim();
+
+            if (!title || !price || !desc || !contact) {
+                alert('Please fill in all required fields (Title, Price, Description, Contact).');
+                return;
+            }
+
+            const isEmail = contact.includes('@');
+
+            try {
+                await db.collection('marketplace').doc(itemId).update({
+                    title:       title,
+                    price:       parseFloat(price),
+                    category:    category,
+                    description: desc,
+                    sellerEmail: isEmail ? contact : '',
+                    sellerPhone: isEmail ? '' : contact,
+                    updatedAt:   firebase.firestore.FieldValue.serverTimestamp()
+                });
+                closeMarketplaceModal();
+                loadMarketplace();
+                alert('✅ Listing updated successfully!');
+            } catch (error) {
+                console.error('Error updating marketplace item:', error);
+                if (error.code === 'permission-denied') {
+                    alert('Permission denied. You can only edit your own listings.');
+                } else {
+                    alert('Error updating listing: ' + error.message);
+                }
+            }
+        }
+
+
+        // ========== EDIT: COMMUNITY SHARE ==========
+        async function editCommunityShareInline(itemId) {
+            try {
+                const doc = await db.collection('communityshare').doc(itemId).get();
+                if (!doc.exists) { alert('Item not found'); return; }
+                const data = doc.data();
+                if (data.ownerId !== currentUser.uid && userData.role !== 'admin') {
+                    alert('You can only edit your own posts.'); return;
+                }
+                const savedContact = data.ownerPhone || data.ownerEmail || '';
+                const modalHtml = `
+                    <h3 style="margin-bottom:16px;font-size:17px;font-weight:700;">✏️ Edit Community Share</h3>
+                    <div class="input-group">
+                        <label>Type</label>
+                        <select id="editCsType" style="width:100%;padding:10px 12px;border:1px solid #e0e0e0;border-radius:8px;font-size:14px;background:white;">
+                            <option value="offer" ${data.type==='offer'?'selected':''}>🎁 Available to Lend / Give</option>
+                            <option value="need"  ${data.type==='need' ?'selected':''}>🙏 Need to Borrow</option>
+                        </select>
+                    </div>
+                    <div class="input-group" style="margin-top:12px;">
+                        <label>Title *</label>
+                        <input type="text" id="editCsTitle" value="${(data.title||'').replace(/"/g,'&quot;')}"
+                               style="width:100%;padding:10px 12px;border:1px solid #e0e0e0;border-radius:8px;font-size:14px;">
+                    </div>
+                    <div class="input-group" style="margin-top:12px;">
+                        <label>Description *</label>
+                        <textarea id="editCsDesc" rows="4"
+                                  style="width:100%;padding:10px 12px;border:1px solid #e0e0e0;border-radius:8px;font-size:14px;resize:vertical;">${data.description||''}</textarea>
+                    </div>
+                    <div class="input-group" style="margin-top:12px;">
+                        <label>Available Until</label>
+                        <input type="date" id="editCsAvail"
+                               value="${data.availableUntil ? (data.availableUntil.toDate ? data.availableUntil.toDate().toISOString().split('T')[0] : '') : ''}"
+                               style="width:100%;padding:10px 12px;border:1px solid #e0e0e0;border-radius:8px;font-size:14px;">
+                    </div>
+                    <div class="input-group" style="margin-top:12px;">
+                        <label>Contact (Phone or Email) *</label>
+                        <input type="text" id="editCsContact" value="${savedContact.replace(/"/g,'&quot;')}"
+                               placeholder="Enter your Phone Number or email"
+                               style="width:100%;padding:10px 12px;border:1px solid #e0e0e0;border-radius:8px;font-size:14px;">
+                    </div>
+                    <div style="display:flex;gap:10px;margin-top:18px;">
+                        <button onclick="saveCommunityShareEdit('${itemId}')"
+                                style="flex:1;background:#667eea;color:white;border:none;padding:12px;border-radius:8px;font-size:14px;font-weight:600;cursor:pointer;">💾 Save Changes</button>
+                        <button onclick="closeMarketplaceModal()"
+                                style="flex:1;background:#f5f5f5;color:#333;border:1px solid #e0e0e0;padding:12px;border-radius:8px;font-size:14px;cursor:pointer;">Cancel</button>
+                    </div>`;
+                document.getElementById('marketplaceModalBody').innerHTML = modalHtml;
+                document.getElementById('marketplaceModal').classList.add('show');
+            } catch(e) { alert('Error: ' + e.message); }
+        }
+
+        async function saveCommunityShareEdit(itemId) {
+            const type    = document.getElementById('editCsType').value;
+            const title   = document.getElementById('editCsTitle').value.trim();
+            const desc    = document.getElementById('editCsDesc').value.trim();
+            const avail   = document.getElementById('editCsAvail').value;
+            const contact = document.getElementById('editCsContact').value.trim();
+            if (!title || !desc || !contact) { alert('Please fill in Title, Description and Contact.'); return; }
+            const isEmail = contact.includes('@');
+            try {
+                await db.collection('communityshare').doc(itemId).update({
+                    type, title, description: desc,
+                    availableUntil: avail ? firebase.firestore.Timestamp.fromDate(new Date(avail)) : null,
+                    ownerEmail: isEmail ? contact : '',
+                    ownerPhone: isEmail ? '' : contact,
+                    updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+                });
+                closeMarketplaceModal(); loadCommunityShare();
+                alert('✅ Post updated successfully!');
+            } catch(e) {
+                alert(e.code === 'permission-denied' ? 'Permission denied. You can only edit your own posts.' : 'Error: ' + e.message);
+            }
+        }
+
+        // ========== EDIT: SECURITY ALERT ==========
+        async function editSecurityAlertInline(alertId) {
+            try {
+                const doc = await db.collection('security_alerts').doc(alertId).get();
+                if (!doc.exists) { alert('Alert not found'); return; }
+                const data = doc.data();
+                if (data.reportedBy !== currentUser.uid && userData.role !== 'admin') {
+                    alert('You can only edit your own alerts.'); return;
+                }
+                const dtVal = data.incidentDateTime
+                    ? data.incidentDateTime.toDate().toISOString().slice(0,16) : '';
+                const typeOpts = [
+                    ['suspicious_activity','👀 Suspicious Activity'],
+                    ['theft','🚔 Theft'],['vandalism','🔨 Vandalism'],
+                    ['noise','🔊 Noise Disturbance'],
+                    ['safety_hazard','⚠️ Safety Hazard'],['other','📝 Other']
+                ].map(([v,l]) => `<option value="${v}" ${data.type===v?'selected':''}>${l}</option>`).join('');
+                const modalHtml = `
+                    <h3 style="margin-bottom:16px;font-size:17px;font-weight:700;">✏️ Edit Security Alert</h3>
+                    <div class="input-group">
+                        <label>Alert Type</label>
+                        <select id="editSaType" style="width:100%;padding:10px 12px;border:1px solid #e0e0e0;border-radius:8px;font-size:14px;background:white;">${typeOpts}</select>
+                    </div>
+                    <div class="input-group" style="margin-top:12px;">
+                        <label>Title *</label>
+                        <input type="text" id="editSaTitle" value="${(data.title||'').replace(/"/g,'&quot;')}"
+                               style="width:100%;padding:10px 12px;border:1px solid #e0e0e0;border-radius:8px;font-size:14px;">
+                    </div>
+                    <div class="input-group" style="margin-top:12px;">
+                        <label>Description *</label>
+                        <textarea id="editSaDesc" rows="4"
+                                  style="width:100%;padding:10px 12px;border:1px solid #e0e0e0;border-radius:8px;font-size:14px;resize:vertical;">${data.description||''}</textarea>
+                    </div>
+                    <div style="display:flex;gap:12px;margin-top:12px;">
+                        <div class="input-group" style="flex:1;">
+                            <label>Location *</label>
+                            <input type="text" id="editSaLoc" value="${(data.location||'').replace(/"/g,'&quot;')}"
+                                   style="width:100%;padding:10px 12px;border:1px solid #e0e0e0;border-radius:8px;font-size:14px;">
+                        </div>
+                        <div class="input-group" style="flex:1;">
+                            <label>Date & Time *</label>
+                            <input type="datetime-local" id="editSaDt" value="${dtVal}"
+                                   style="width:100%;padding:10px 12px;border:1px solid #e0e0e0;border-radius:8px;font-size:14px;">
+                        </div>
+                    </div>
+                    <div style="display:flex;gap:10px;margin-top:18px;">
+                        <button onclick="saveSecurityAlertEdit('${alertId}')"
+                                style="flex:1;background:#667eea;color:white;border:none;padding:12px;border-radius:8px;font-size:14px;font-weight:600;cursor:pointer;">💾 Save Changes</button>
+                        <button onclick="closeMarketplaceModal()"
+                                style="flex:1;background:#f5f5f5;color:#333;border:1px solid #e0e0e0;padding:12px;border-radius:8px;font-size:14px;cursor:pointer;">Cancel</button>
+                    </div>`;
+                document.getElementById('marketplaceModalBody').innerHTML = modalHtml;
+                document.getElementById('marketplaceModal').classList.add('show');
+            } catch(e) { alert('Error: ' + e.message); }
+        }
+
+        async function saveSecurityAlertEdit(alertId) {
+            const type  = document.getElementById('editSaType').value;
+            const title = document.getElementById('editSaTitle').value.trim();
+            const desc  = document.getElementById('editSaDesc').value.trim();
+            const loc   = document.getElementById('editSaLoc').value.trim();
+            const dt    = document.getElementById('editSaDt').value;
+            if (!title || !desc || !loc || !dt) { alert('Please fill in all required fields.'); return; }
+            try {
+                await db.collection('security_alerts').doc(alertId).update({
+                    type, title, description: desc, location: loc,
+                    incidentDateTime: firebase.firestore.Timestamp.fromDate(new Date(dt)),
+                    updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+                });
+                closeMarketplaceModal(); loadSecurityAlerts();
+                alert('✅ Alert updated successfully!');
+            } catch(e) {
+                alert(e.code === 'permission-denied' ? 'Permission denied. You can only edit your own alerts.' : 'Error: ' + e.message);
+            }
+        }
+
+        // ========== EDIT: EVENT ==========
+        async function editEventInline(eventId) {
+            try {
+                const doc = await db.collection('events').doc(eventId).get();
+                if (!doc.exists) { alert('Event not found'); return; }
+                const data = doc.data();
+                if (data.organizerId !== currentUser.uid && userData.role !== 'admin') {
+                    alert('You can only edit your own events.'); return;
+                }
+                const eventDt = data.eventDate ? data.eventDate.toDate() : null;
+                const dateVal = eventDt ? eventDt.toISOString().split('T')[0] : '';
+                const timeVal = eventDt ? eventDt.toTimeString().slice(0,5) : '';
+                const savedContact = data.organizerPhone || data.organizerEmail || '';
+                const modalHtml = `
+                    <h3 style="margin-bottom:16px;font-size:17px;font-weight:700;">✏️ Edit Event</h3>
+                    <div class="input-group">
+                        <label>Event Title *</label>
+                        <input type="text" id="editEvTitle" value="${(data.title||'').replace(/"/g,'&quot;')}"
+                               style="width:100%;padding:10px 12px;border:1px solid #e0e0e0;border-radius:8px;font-size:14px;">
+                    </div>
+                    <div class="input-group" style="margin-top:12px;">
+                        <label>Description *</label>
+                        <textarea id="editEvDesc" rows="3"
+                                  style="width:100%;padding:10px 12px;border:1px solid #e0e0e0;border-radius:8px;font-size:14px;resize:vertical;">${data.description||''}</textarea>
+                    </div>
+                    <div style="display:flex;gap:12px;margin-top:12px;">
+                        <div class="input-group" style="flex:1;">
+                            <label>Date *</label>
+                            <input type="date" id="editEvDate" value="${dateVal}"
+                                   style="width:100%;padding:10px 12px;border:1px solid #e0e0e0;border-radius:8px;font-size:14px;">
+                        </div>
+                        <div class="input-group" style="flex:1;">
+                            <label>Time</label>
+                            <input type="time" id="editEvTime" value="${timeVal}"
+                                   style="width:100%;padding:10px 12px;border:1px solid #e0e0e0;border-radius:8px;font-size:14px;">
+                        </div>
+                    </div>
+                    <div class="input-group" style="margin-top:12px;">
+                        <label>Location *</label>
+                        <input type="text" id="editEvLoc" value="${(data.location||'').replace(/"/g,'&quot;')}"
+                               style="width:100%;padding:10px 12px;border:1px solid #e0e0e0;border-radius:8px;font-size:14px;">
+                    </div>
+                    <div class="input-group" style="margin-top:12px;">
+                        <label>Contact (Phone or Email) *</label>
+                        <input type="text" id="editEvContact" value="${savedContact.replace(/"/g,'&quot;')}"
+                               placeholder="Enter your Phone Number or email"
+                               style="width:100%;padding:10px 12px;border:1px solid #e0e0e0;border-radius:8px;font-size:14px;">
+                    </div>
+                    <div style="display:flex;gap:10px;margin-top:18px;">
+                        <button onclick="saveEventEdit('${eventId}')"
+                                style="flex:1;background:#667eea;color:white;border:none;padding:12px;border-radius:8px;font-size:14px;font-weight:600;cursor:pointer;">💾 Save Changes</button>
+                        <button onclick="closeMarketplaceModal()"
+                                style="flex:1;background:#f5f5f5;color:#333;border:1px solid #e0e0e0;padding:12px;border-radius:8px;font-size:14px;cursor:pointer;">Cancel</button>
+                    </div>`;
+                document.getElementById('marketplaceModalBody').innerHTML = modalHtml;
+                document.getElementById('marketplaceModal').classList.add('show');
+            } catch(e) { alert('Error: ' + e.message); }
+        }
+
+        async function saveEventEdit(eventId) {
+            const title   = document.getElementById('editEvTitle').value.trim();
+            const desc    = document.getElementById('editEvDesc').value.trim();
+            const date    = document.getElementById('editEvDate').value;
+            const time    = document.getElementById('editEvTime').value;
+            const loc     = document.getElementById('editEvLoc').value.trim();
+            const contact = document.getElementById('editEvContact').value.trim();
+            if (!title || !desc || !date || !loc || !contact) { alert('Please fill in all required fields.'); return; }
+            const isEmail = contact.includes('@');
+            const combined = new Date(date + 'T' + (time || '00:00'));
+            try {
+                await db.collection('events').doc(eventId).update({
+                    title, description: desc,
+                    eventDate: firebase.firestore.Timestamp.fromDate(combined),
+                    location: loc,
+                    organizerEmail: isEmail ? contact : '',
+                    organizerPhone: isEmail ? '' : contact,
+                    updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+                });
+                closeMarketplaceModal(); loadEvents();
+                alert('✅ Event updated successfully!');
+            } catch(e) {
+                alert(e.code === 'permission-denied' ? 'Permission denied. You can only edit your own events.' : 'Error: ' + e.message);
+            }
+        }
+
+        // ========== EDIT: LOST & FOUND ==========
+        async function editLostFoundInline(itemId) {
+            try {
+                const doc = await db.collection('lost_and_found').doc(itemId).get();
+                if (!doc.exists) { alert('Item not found'); return; }
+                const data = doc.data();
+                if (data.postedBy !== currentUser.uid && userData.role !== 'admin') {
+                    alert('You can only edit your own posts.'); return;
+                }
+                const dateVal = data.date ? data.date.toDate().toISOString().split('T')[0] : '';
+                const savedContact = data.ownerPhone || data.ownerEmail || data.contact || '';
+                const catOpts = [
+                    ['pet','🐕 Pet'],['keys','🔑 Keys'],['wallet','👛 Wallet/Purse'],
+                    ['phone','📱 Phone/Electronics'],['package','📦 Package/Mail'],
+                    ['clothing','👕 Clothing'],['jewelry','💍 Jewelry'],['other','📦 Other']
+                ].map(([v,l]) => `<option value="${v}" ${data.category===v?'selected':''}>${l}</option>`).join('');
+                const modalHtml = `
+                    <h3 style="margin-bottom:16px;font-size:17px;font-weight:700;">✏️ Edit Lost & Found</h3>
+                    <div style="display:flex;gap:12px;">
+                        <div class="input-group" style="flex:1;">
+                            <label>Type</label>
+                            <select id="editLfType" style="width:100%;padding:10px 12px;border:1px solid #e0e0e0;border-radius:8px;font-size:14px;background:white;">
+                                <option value="lost"  ${data.type==='lost' ?'selected':''}>😟 Lost</option>
+                                <option value="found" ${data.type==='found'?'selected':''}>🎉 Found</option>
+                            </select>
+                        </div>
+                        <div class="input-group" style="flex:1;">
+                            <label>Category</label>
+                            <select id="editLfCat" style="width:100%;padding:10px 12px;border:1px solid #e0e0e0;border-radius:8px;font-size:14px;background:white;">${catOpts}</select>
+                        </div>
+                    </div>
+                    <div class="input-group" style="margin-top:12px;">
+                        <label>Title *</label>
+                        <input type="text" id="editLfTitle" value="${(data.title||'').replace(/"/g,'&quot;')}"
+                               style="width:100%;padding:10px 12px;border:1px solid #e0e0e0;border-radius:8px;font-size:14px;">
+                    </div>
+                    <div class="input-group" style="margin-top:12px;">
+                        <label>Description *</label>
+                        <textarea id="editLfDesc" rows="3"
+                                  style="width:100%;padding:10px 12px;border:1px solid #e0e0e0;border-radius:8px;font-size:14px;resize:vertical;">${data.description||''}</textarea>
+                    </div>
+                    <div style="display:flex;gap:12px;margin-top:12px;">
+                        <div class="input-group" style="flex:1;">
+                            <label>Location</label>
+                            <input type="text" id="editLfLoc" value="${(data.location||'').replace(/"/g,'&quot;')}"
+                                   style="width:100%;padding:10px 12px;border:1px solid #e0e0e0;border-radius:8px;font-size:14px;">
+                        </div>
+                        <div class="input-group" style="flex:1;">
+                            <label>Date</label>
+                            <input type="date" id="editLfDate" value="${dateVal}"
+                                   style="width:100%;padding:10px 12px;border:1px solid #e0e0e0;border-radius:8px;font-size:14px;">
+                        </div>
+                    </div>
+                    <div class="input-group" style="margin-top:12px;">
+                        <label>Contact *</label>
+                        <input type="text" id="editLfContact" value="${savedContact.replace(/"/g,'&quot;')}"
+                               placeholder="Enter your Phone Number or email"
+                               style="width:100%;padding:10px 12px;border:1px solid #e0e0e0;border-radius:8px;font-size:14px;">
+                    </div>
+                    <div style="display:flex;gap:10px;margin-top:18px;">
+                        <button onclick="saveLostFoundEdit('${itemId}')"
+                                style="flex:1;background:#667eea;color:white;border:none;padding:12px;border-radius:8px;font-size:14px;font-weight:600;cursor:pointer;">💾 Save Changes</button>
+                        <button onclick="closeMarketplaceModal()"
+                                style="flex:1;background:#f5f5f5;color:#333;border:1px solid #e0e0e0;padding:12px;border-radius:8px;font-size:14px;cursor:pointer;">Cancel</button>
+                    </div>`;
+                document.getElementById('marketplaceModalBody').innerHTML = modalHtml;
+                document.getElementById('marketplaceModal').classList.add('show');
+            } catch(e) { alert('Error: ' + e.message); }
+        }
+
+        async function saveLostFoundEdit(itemId) {
+            const type    = document.getElementById('editLfType').value;
+            const cat     = document.getElementById('editLfCat').value;
+            const title   = document.getElementById('editLfTitle').value.trim();
+            const desc    = document.getElementById('editLfDesc').value.trim();
+            const loc     = document.getElementById('editLfLoc').value.trim();
+            const date    = document.getElementById('editLfDate').value;
+            const contact = document.getElementById('editLfContact').value.trim();
+            if (!title || !desc || !contact) { alert('Please fill in Title, Description and Contact.'); return; }
+            const isEmail = contact.includes('@');
+            try {
+                await db.collection('lost_and_found').doc(itemId).update({
+                    type, category: cat, title, description: desc,
+                    location: loc || 'Not specified',
+                    date: date ? firebase.firestore.Timestamp.fromDate(new Date(date)) : null,
+                    ownerEmail: isEmail ? contact : '',
+                    ownerPhone: isEmail ? '' : contact,
+                    contact: contact,
+                    updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+                });
+                closeMarketplaceModal(); loadLostAndFound();
+                alert('✅ Post updated successfully!');
+            } catch(e) {
+                alert(e.code === 'permission-denied' ? 'Permission denied. You can only edit your own posts.' : 'Error: ' + e.message);
+            }
+        }
+
+
+        async function editVisitorInline(id) {
+            try {
+                const doc = await db.collection('visitors').doc(id).get();
+                if (!doc.exists) { alert('Visitor not found'); return; }
+                const data = doc.data();
+                const newName = prompt('Visitor Name:', data.visitorName || '');
+                if (newName === null) return;
+                const newPhone = prompt('Visitor Phone:', data.visitorPhone || '');
+                if (newPhone === null) return;
+                const newVehicle = prompt('Vehicle Number:', data.vehicleNumber || '');
+                if (newVehicle === null) return;
+                const newPurpose = prompt('Purpose:', data.purpose || '');
+                if (newPurpose === null) return;
+                await db.collection('visitors').doc(id).update({
+                    visitorName: newName, visitorPhone: newPhone, vehicleNumber: newVehicle, purpose: newPurpose,
+                    updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+                });
+                alert('✅ Visitor updated');
+                loadVisitors();
+            } catch (error) { console.error('Error:', error); alert('Error: ' + error.message); }
+        }
+
         function toggleUserMenu() {
             document.getElementById('dropdownMenu').classList.toggle('show');
         }
@@ -2202,6 +3194,25 @@
                 document.getElementById('dropdownMenu').classList.remove('show');
             }
         });
+
+        // Programmatic tab navigation (no event needed — used by deep links)
+        function navigateToTab(tabName) {
+            document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
+            const content = document.getElementById(tabName + 'Content');
+            if (content) content.classList.add('active');
+            document.querySelectorAll('.tab-btn').forEach(btn => {
+                btn.classList.toggle('active', btn.dataset.tab === tabName || btn.getAttribute('onclick')?.includes("'" + tabName + "'"));
+            });
+            currentTab = tabName;
+            const fab = document.getElementById('fab');
+            if (fab) {
+                if (['visitors','tickets','marketplace','communityshare','events','security','lostandfound'].includes(tabName)) {
+                    fab.classList.remove('hidden');
+                } else {
+                    fab.classList.add('hidden');
+                }
+            }
+        }
 
         function switchTab(tabName) {
             // Update buttons
@@ -2383,11 +3394,17 @@
                 snapshot.forEach(doc => {
                     const data = doc.data();
                     const date = data.createdAt ? data.createdAt.toDate().toLocaleDateString() : 'Recent';
+                    const isAdm = userData.role === 'admin';
                     
                     html += `
                         <div class="card" onclick="viewAnnouncement('${doc.id}')" style="cursor: pointer;">
-                            <div class="card-title">${data.title || 'Announcement'}</div>
-                            <div class="card-subtitle">${date} • ${data.author || 'Admin'}</div>
+                            <div class="card-header">
+                                <div style="flex:1;">
+                                    <div class="card-title">${data.title || 'Announcement'}</div>
+                                    <div class="card-subtitle">${date} • 👤 Admin</div>
+                                </div>
+                                ${postMenuHtml(doc.id, 'announcement', isAdm, isAdm)}
+                            </div>
                             <div class="card-content" style="display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden;">${data.message || data.content || ''}</div>
                             ${data.category ? `<span class="badge badge-${data.category}">${data.category}</span>` : ''}
                         </div>
@@ -2662,8 +3679,13 @@
                     
                     html += `
                         <div class="card" onclick="viewVisitorQR('${data.id}', '${data.visitorName || 'Visitor'}', '${data.qrCode || ''}', '${date}')">
-                            <div class="card-title">${data.visitorName || 'Visitor'}</div>
-                            <div class="card-subtitle">Visit: ${date}</div>
+                            <div class="card-header">
+                                <div style="flex:1;">
+                                    <div class="card-title">${data.visitorName || 'Visitor'}</div>
+                                    <div class="card-subtitle">Visit: ${date}</div>
+                                </div>
+                                ${postMenuHtml(data.id, 'visitor', isOwner, userData.role === 'admin')}
+                            </div>
                             ${!isOwner ? `<div style="font-size: 12px; color: #999; margin-top: 5px;">👤 ${data.residentName || 'Unknown'} • Unit ${data.residentUnit || 'N/A'}</div>` : ''}
                             <div class="card-content">
                                 ${data.visitorPhone ? `<div><strong>Phone:</strong> ${data.visitorPhone}</div>` : ''}
@@ -2695,9 +3717,9 @@
             
             try {
                 // MULTI-TENANT: Get tickets from user's community only
+                // All residents can see all community tickets (not just their own)
                 const snapshot = await db.collection('tickets')
                     .where('communityId', '==', userCommunityId)
-                    .where('residentId', '==', currentUser.uid)
                     .get();
 
                 if (snapshot.empty) {
@@ -2723,11 +3745,27 @@
                 let html = '';
                 tickets.forEach(data => {
                     const date = data.createdAt ? data.createdAt.toDate().toLocaleDateString() : 'Recent';
+                    const isOwner = data.residentId === currentUser.uid || data.createdBy === currentUser.uid;
                     
+                    // Closed/resolved tickets are faded to show completion
+                    const isClosed = data.status === 'closed' || data.status === 'resolved';
+                    const cardStyle = isClosed
+                        ? 'cursor:pointer;opacity:0.55;filter:grayscale(0.3);'
+                        : 'cursor:pointer;';
+                    const closedBanner = isClosed
+                        ? `<div style="font-size:11px;color:#4CAF50;font-weight:600;margin-bottom:4px;">✅ COMPLETED</div>`
+                        : '';
+
                     html += `
-                        <div class="card" onclick="viewTicket('${data.id}')" style="cursor: pointer;">
-                            <div class="card-title">${data.title || 'Support Ticket'}</div>
-                            <div class="card-subtitle">${date} • ${data.category || 'General'}</div>
+                        <div class="card" onclick="viewTicket('${data.id}')" style="${cardStyle}">
+                            <div class="card-header">
+                                <div style="flex:1;">
+                                    ${closedBanner}
+                                    <div class="card-title">${data.title || 'Support Ticket'}</div>
+                                    <div class="card-subtitle">${date} • ${data.category || 'General'} • By ${data.residentName || 'Resident'}</div>
+                                </div>
+                                ${postMenuHtml(data.id, 'ticket', isOwner, userData.role === 'admin')}
+                            </div>
                             <div class="card-content" style="display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden;">${data.description || ''}</div>
                             <span class="badge badge-${data.status || 'open'}">${data.status || 'open'}</span>
                         </div>
@@ -2826,9 +3864,14 @@
                 
                 html += `
                     <div class="card" onclick="viewMarketplaceItem('${data.id}')" style="cursor: pointer;">
-                        <div class="card-title">${data.title || 'Item for Sale'}</div>
-                        <div class="card-subtitle">
-                            <strong style="color: #667eea; font-size: 18px;">$${data.price || '0'}</strong>
+                        <div class="card-header">
+                            <div style="flex:1;">
+                                <div class="card-title">${data.title || 'Item for Sale'}</div>
+                                <div class="card-subtitle">
+                                    <strong style="color: #667eea; font-size: 18px;">$${data.price || '0'}</strong>
+                                </div>
+                            </div>
+                            ${postMenuHtml(data.id, 'marketplace', isOwner, userData.role === 'admin')}
                         </div>
                         <div class="card-content" style="margin-top: 10px;">
                             ${data.description || 'No description'}
@@ -3177,7 +4220,7 @@
             }
 
             try {
-                await db.collection('tickets').add({
+                const tkRef = await db.collection('tickets').add({
                     communityId: userCommunityId, // MULTI-TENANT: Add community ID
                     residentId: currentUser.uid,
                     residentName: userData.displayName,
@@ -3193,6 +4236,12 @@
                     createdAt: firebase.firestore.FieldValue.serverTimestamp()
                 });
 
+                await sendCommunityNotification(
+                    'ticket',
+                    `🔧 New Support Ticket: ${title}`,
+                    `${userData.displayName || 'Someone'} submitted a ticket`,
+                    { postId: tkRef.id, postType: 'ticket' }
+                );
                 closeModal();
                 loadTickets();
                 alert('Ticket submitted successfully!');
@@ -3248,15 +4297,15 @@
 
                 console.log('Item Data to Save:', itemData);
                 
-                await db.collection('marketplace').add(itemData);
+                const mpRef = await db.collection('marketplace').add(itemData);
 
-                // DISABLED: Send push notification to community
-                // await sendCommunityNotification(
-                //     'marketplace',
-                //     '🏪 New Marketplace Item',
-                //     `${userData.displayName || 'Someone'} posted: ${title}`,
-                //     { itemTitle: title, category: category }
-                // );
+                // Send push notification to community
+                await sendCommunityNotification(
+                    'marketplace',
+                    '🏪 New Marketplace Listing',
+                    `${userData.displayName || 'Someone'} posted: ${title}`,
+                    { postId: mpRef.id, postType: 'marketplace', itemTitle: title, category: category }
+                );
 
                 submitBtn.disabled = false;
                 submitBtn.textContent = originalText;
@@ -3289,99 +4338,23 @@
         async function viewMarketplaceItem(itemId) {
             try {
                 const doc = await db.collection('marketplace').doc(itemId).get();
-                if (!doc.exists) {
-                    alert('Item not found');
-                    return;
-                }
-
+                if (!doc.exists) { alert('Item not found'); return; }
                 const data = doc.data();
-                const date = data.createdAt ? data.createdAt.toDate().toLocaleString() : 'Unknown';
                 const isOwner = data.sellerId === currentUser.uid;
                 const comments = data.comments || [];
-
-                let html = `
-                    <div style="margin-bottom: 25px;">
-                        <h3 style="font-size: 22px; margin-bottom: 10px; color: #333;">${data.title || 'Item for Sale'}</h3>
-                        <div style="font-size: 28px; font-weight: 700; color: #667eea; margin-bottom: 15px;">$${data.price || '0'}</div>
-                        
-                        ${data.category ? `<span class="badge" style="background: #e3f2fd; color: #1976d2; font-size: 13px;">${data.category}</span>` : ''}
-                        
-                        <div style="margin-top: 15px; padding: 15px; background: #f8f9fa; border-radius: 8px;">
-                            <div style="font-weight: 600; margin-bottom: 8px;">Description:</div>
-                            <div style="line-height: 1.6;">${data.description || 'No description provided'}</div>
-                        </div>
-
-                        <div style="margin-top: 15px; padding: 15px; background: #e8f4f8; border-radius: 8px;">
-                            <div style="font-weight: 600; margin-bottom: 8px;">Seller Information:</div>
-                            <div style="line-height: 1.8;">
-                                <strong>Name:</strong> ${data.sellerName || 'Unknown'}<br>
-                                <strong>Unit:</strong> ${data.unitNumber || 'N/A'}<br>
-                                <strong>Phone:</strong> ${data.sellerPhone || 'Not provided'}<br>
-                                <strong>Email:</strong> ${data.sellerEmail || 'Not provided'}<br>
-                                <strong>Posted:</strong> ${date}
-                            </div>
-                        </div>
-
-                        ${!isOwner ? `
-                            <button class="btn" style="width: 100%; margin-top: 15px;" onclick="copySellerContact('${data.sellerPhone || ''}', '${data.sellerEmail || ''}', '${data.sellerName || 'Seller'}')">
-                                📞 Copy Contact Info
-                            </button>
-                        ` : ''}
-
-                        ${isOwner ? `
-                            <button class="btn" style="width: 100%; margin-top: 15px; background: #f44336;" onclick="if(confirm('Delete this item?')) { deleteMarketplaceItem('${itemId}'); closeMarketplaceModal(); }">
-                                🗑️ Delete Item
-                            </button>
-                        ` : ''}
-                    </div>
-
-                    <div style="border-top: 2px solid #e0e0e0; padding-top: 20px; margin-top: 20px;">
-                        <h4 style="font-size: 18px; margin-bottom: 15px; color: #333;">💬 Comments (${comments.length})</h4>
-                        
-                        <div id="commentsList" style="max-height: 300px; overflow-y: auto; margin-bottom: 15px;">
-                `;
-
-                if (comments.length === 0) {
-                    html += `<div style="text-align: center; color: #999; padding: 20px;">No comments yet. Be the first to comment!</div>`;
-                } else {
-                    comments.sort((a, b) => {
-                        const dateA = a.timestamp ? a.timestamp.toMillis() : 0;
-                        const dateB = b.timestamp ? b.timestamp.toMillis() : 0;
-                        return dateA - dateB;
-                    });
-
-                    comments.forEach(comment => {
-                        const commentDate = comment.timestamp ? comment.timestamp.toDate().toLocaleString() : 'Unknown';
-                        html += `
-                            <div style="background: #f8f9fa; padding: 12px; border-radius: 8px; margin-bottom: 10px; border-left: 3px solid #667eea;">
-                                <div style="font-weight: 600; color: #667eea; margin-bottom: 5px;">
-                                    ${comment.userName || 'Unknown'} 
-                                    <span style="font-weight: normal; color: #999; font-size: 12px;">• ${commentDate}</span>
-                                </div>
-                                <div style="color: #333; line-height: 1.5;">${comment.message || ''}</div>
-                            </div>
-                        `;
-                    });
-                }
-
-                html += `
-                        </div>
-
-                        <div class="input-group" style="margin-bottom: 0;">
-                            <textarea id="commentInput" placeholder="Write a comment..." 
-                                      style="width:100%;padding:12px;border:2px solid #e0e0e0;border-radius:8px;min-height:80px;font-family:inherit;resize:vertical;"></textarea>
-                        </div>
-                        <button class="btn" style="width: 100%; margin-top: 10px;" onclick="addMarketplaceComment('${itemId}')">
-                            💬 Post Comment
-                        </button>
-                    </div>
-                `;
-
+                const delAction = "if(confirm('Delete?')){deleteMarketplaceItem('" + itemId + "');closeMarketplaceModal();}";
+                
+                let html = postHeaderHtml(data.sellerName, data.unitNumber, data.createdAt, isOwner, delAction);
+                html += '<div style="font-size:22px;font-weight:700;color:#667eea;margin-bottom:10px;">$' + (data.price || '0') + '</div>';
+                if (data.category) html += '<span style="background:#e3f2fd;color:#1976d2;padding:3px 10px;border-radius:10px;font-size:12px;font-weight:600;display:inline-block;margin-bottom:10px;">' + data.category + '</span>';
+                html += '<div style="font-size:14px;color:#333;line-height:1.6;margin-bottom:12px;">' + (data.description || 'No description') + '</div>';
+                html += commentsSectionHtml(comments, 'marketplace', itemId, 'viewMarketplaceItem', 'loadMarketplace');
+                
                 document.getElementById('marketplaceModalBody').innerHTML = html;
                 document.getElementById('marketplaceModal').classList.add('show');
             } catch (error) {
-                console.error('Error loading item details:', error);
-                alert('Error loading item: ' + error.message);
+                console.error('Error:', error);
+                alert('Error: ' + error.message);
             }
         }
 
@@ -3395,26 +4368,18 @@
                 const doc = await db.collection('announcements').doc(announcementId).get();
                 if (!doc.exists) { alert('Announcement not found'); return; }
                 const data = doc.data();
-                const date = data.createdAt ? data.createdAt.toDate().toLocaleString() : 'Unknown';
-                const isAdmin = userData.role === 'admin';
-
-                let html = `
-                    <div style="margin-bottom: 25px;">
-                        <h3 style="font-size: 22px; margin-bottom: 10px; color: #333;">📢 ${data.title || 'Announcement'}</h3>
-                        <div style="font-size: 13px; color: #999; margin-bottom: 15px;">📅 ${date} • 👤 ${data.author || data.createdByName || 'Admin'}</div>
-                        ${data.category ? `<span class="badge" style="background: #e3f2fd; color: #1976d2; font-size: 13px; margin-bottom: 15px; display: inline-block;">${data.category}</span>` : ''}
-                        <div style="padding: 15px; background: #f8f9fa; border-radius: 8px; line-height: 1.8; white-space: pre-wrap;">${data.message || data.content || 'No content'}</div>
-                        ${isAdmin ? `
-                            <button class="btn" style="width: 100%; margin-top: 15px; background: #f44336;" onclick="if(confirm('Delete this announcement?')) { db.collection('announcements').doc('${announcementId}').delete().then(() => { closeMarketplaceModal(); loadAnnouncements(); }); }">
-                                🗑️ Delete Announcement
-                            </button>
-                        ` : ''}
-                    </div>
-                `;
+                const isAdm = userData.role === 'admin';
+                const delAction = "if(confirm('Delete?')){db.collection('announcements').doc('" + announcementId + "').delete().then(()=>{closeMarketplaceModal();loadAnnouncements();});}";
+                
+                let html = postHeaderHtml('Admin', 'Community', data.createdAt, isAdm, delAction);
+                html += '<div style="font-weight:600;font-size:16px;color:#333;margin-bottom:8px;">📢 ' + (data.title || 'Announcement') + '</div>';
+                if (data.category) html += '<span style="background:#e3f2fd;color:#1976d2;padding:3px 10px;border-radius:10px;font-size:12px;font-weight:600;display:inline-block;margin-bottom:8px;">' + data.category + '</span>';
+                html += '<div style="font-size:14px;color:#333;line-height:1.6;white-space:pre-wrap;">' + (data.message || data.content || 'No content') + '</div>';
+                
                 document.getElementById('marketplaceModalBody').innerHTML = html;
                 document.getElementById('marketplaceModal').classList.add('show');
             } catch (error) {
-                console.error('Error loading announcement:', error);
+                console.error('Error:', error);
                 alert('Error: ' + error.message);
             }
         }
@@ -3425,48 +4390,31 @@
                 const doc = await db.collection('tickets').doc(ticketId).get();
                 if (!doc.exists) { alert('Ticket not found'); return; }
                 const data = doc.data();
-                const date = data.createdAt ? data.createdAt.toDate().toLocaleString() : 'Unknown';
                 const isOwner = data.residentId === currentUser.uid;
+                const comments = data.comments || [];
                 const statusColors = { open: '#2196F3', 'in-progress': '#FF9800', resolved: '#4CAF50', closed: '#9E9E9E' };
                 const statusColor = statusColors[data.status] || '#2196F3';
-
-                let html = `
-                    <div style="margin-bottom: 25px;">
-                        <h3 style="font-size: 22px; margin-bottom: 10px; color: #333;">🔧 ${data.title || 'Support Ticket'}</h3>
-                        <div style="display: flex; gap: 10px; align-items: center; margin-bottom: 15px;">
-                            <span style="background: ${statusColor}; color: white; padding: 4px 14px; border-radius: 12px; font-size: 13px; font-weight: 600; text-transform: uppercase;">${data.status || 'open'}</span>
-                            <span style="font-size: 13px; color: #999;">📅 ${date}</span>
-                        </div>
-                        ${data.category ? `<span class="badge" style="background: #e3f2fd; color: #1976d2; font-size: 13px; margin-bottom: 15px; display: inline-block;">${data.category}</span>` : ''}
-
-                        <div style="padding: 15px; background: #f8f9fa; border-radius: 8px; margin-bottom: 15px;">
-                            <div style="font-weight: 600; margin-bottom: 8px;">Description:</div>
-                            <div style="line-height: 1.6; white-space: pre-wrap;">${data.description || 'No description'}</div>
-                        </div>
-
-                        ${data.adminResponse ? `
-                            <div style="padding: 15px; background: #e8f5e9; border-radius: 8px; border-left: 4px solid #4CAF50; margin-bottom: 15px;">
-                                <div style="font-weight: 600; margin-bottom: 8px; color: #2E7D32;">💬 Admin Response:</div>
-                                <div style="line-height: 1.6;">${data.adminResponse}</div>
-                                ${data.respondedAt ? `<div style="font-size: 12px; color: #999; margin-top: 8px;">${data.respondedAt.toDate().toLocaleString()}</div>` : ''}
-                            </div>
-                        ` : `
-                            <div style="padding: 15px; background: #fff3e0; border-radius: 8px; border-left: 4px solid #FF9800; margin-bottom: 15px;">
-                                <div style="color: #E65100;">⏳ Awaiting admin response</div>
-                            </div>
-                        `}
-
-                        ${isOwner && data.status !== 'closed' ? `
-                            <button class="btn" style="width: 100%; margin-top: 15px; background: #f44336;" onclick="if(confirm('Delete this ticket?')) { db.collection('tickets').doc('${ticketId}').delete().then(() => { closeMarketplaceModal(); loadTickets(); }); }">
-                                🗑️ Delete Ticket
-                            </button>
-                        ` : ''}
-                    </div>
-                `;
+                const delAction = "if(confirm('Delete?')){db.collection('tickets').doc('" + ticketId + "').delete().then(()=>{closeMarketplaceModal();loadTickets();});}";
+                
+                let html = postHeaderHtml(data.residentName, data.unitNumber, data.createdAt, isOwner && data.status !== 'closed', delAction);
+                html += '<span style="background:' + statusColor + ';color:white;padding:3px 10px;border-radius:10px;font-size:12px;font-weight:600;text-transform:uppercase;display:inline-block;margin-bottom:8px;">' + (data.status || 'open') + '</span>';
+                if (data.category) html += ' <span style="background:#e3f2fd;color:#1976d2;padding:3px 10px;border-radius:10px;font-size:12px;font-weight:600;">' + data.category + '</span>';
+                html += '<div style="font-weight:600;font-size:16px;color:#333;margin:8px 0;">' + (data.title || 'Support Ticket') + '</div>';
+                html += '<div style="font-size:14px;color:#333;line-height:1.6;margin-bottom:12px;white-space:pre-wrap;">' + (data.description || 'No description') + '</div>';
+                
+                // Admin response section (kept)
+                if (data.adminResponse) {
+                    html += '<div style="padding:12px;background:#e8f5e9;border-radius:8px;border-left:3px solid #4CAF50;margin-bottom:12px;"><div style="font-weight:600;font-size:13px;color:#2E7D32;margin-bottom:4px;">💬 Admin Response:</div><div style="font-size:13px;line-height:1.5;">' + data.adminResponse + '</div></div>';
+                } else {
+                    html += '<div style="padding:10px;background:#fff3e0;border-radius:8px;border-left:3px solid #FF9800;margin-bottom:12px;font-size:13px;color:#E65100;">⏳ Awaiting admin response</div>';
+                }
+                
+                html += commentsSectionHtml(comments, 'tickets', ticketId, 'viewTicket', 'loadTickets');
+                
                 document.getElementById('marketplaceModalBody').innerHTML = html;
                 document.getElementById('marketplaceModal').classList.add('show');
             } catch (error) {
-                console.error('Error loading ticket:', error);
+                console.error('Error:', error);
                 alert('Error: ' + error.message);
             }
         }
@@ -3478,42 +4426,22 @@
                 if (!doc.exists) { alert('Alert not found'); return; }
                 const data = doc.data();
                 const dateStr = data.incidentDateTime ? data.incidentDateTime.toDate().toLocaleString() : 'Unknown';
-                const posted = data.createdAt ? data.createdAt.toDate().toLocaleString() : 'Unknown';
                 const isOwner = data.reportedBy === currentUser.uid;
+                const comments = data.comments || [];
                 const typeLabels = { suspicious_activity: '👀 Suspicious Activity', theft: '🚔 Theft', vandalism: '🔨 Vandalism', noise: '🔊 Noise Disturbance', safety_hazard: '⚠️ Safety Hazard', other: '📝 Other' };
-
-                let html = `
-                    <div style="margin-bottom: 25px;">
-                        <h3 style="font-size: 22px; margin-bottom: 10px; color: #333;">🚨 ${data.title || 'Security Alert'}</h3>
-                        <span style="background: #ffebee; color: #c62828; padding: 4px 14px; border-radius: 12px; font-size: 13px; font-weight: 600; display: inline-block; margin-bottom: 15px;">${typeLabels[data.type] || '🚨 Alert'}</span>
-
-                        <div style="padding: 15px; background: #fff3e0; border-radius: 8px; margin-bottom: 15px;">
-                            <div style="font-size: 16px; font-weight: 600; color: #e65100;">📅 ${dateStr}</div>
-                            <div style="margin-top: 5px;">📍 ${data.location || 'Location not specified'}</div>
-                        </div>
-
-                        <div style="padding: 15px; background: #f8f9fa; border-radius: 8px; margin-bottom: 15px;">
-                            <div style="font-weight: 600; margin-bottom: 8px;">Description:</div>
-                            <div style="line-height: 1.6; white-space: pre-wrap;">${data.description || 'No description'}</div>
-                        </div>
-
-                        <div style="padding: 15px; background: #e8f4f8; border-radius: 8px; margin-bottom: 15px;">
-                            <div style="font-weight: 600; margin-bottom: 8px;">Reported by:</div>
-                            <div>👤 ${data.reportedByName || 'Unknown'} • Unit ${data.unitNumber || 'N/A'}</div>
-                            <div style="font-size: 12px; color: #999; margin-top: 5px;">Posted: ${posted}</div>
-                        </div>
-
-                        ${isOwner ? `
-                            <button class="btn" style="width: 100%; margin-top: 15px; background: #f44336;" onclick="if(confirm('Delete this alert?')) { db.collection('security_alerts').doc('${alertId}').delete().then(() => { closeMarketplaceModal(); loadSecurityAlerts(); }); }">
-                                🗑️ Delete Alert
-                            </button>
-                        ` : ''}
-                    </div>
-                `;
+                const delAction = "if(confirm('Delete?')){db.collection('security_alerts').doc('" + alertId + "').delete().then(()=>{closeMarketplaceModal();loadSecurityAlerts();});}";
+                
+                let html = postHeaderHtml(data.reportedByName, data.unitNumber, data.createdAt, isOwner, delAction);
+                html += '<span style="background:#ffebee;color:#c62828;padding:3px 10px;border-radius:10px;font-size:12px;font-weight:600;display:inline-block;margin-bottom:10px;">' + (typeLabels[data.type] || '🚨 Alert') + '</span>';
+                html += '<div style="font-weight:600;font-size:16px;color:#333;margin-bottom:8px;">' + (data.title || 'Security Alert') + '</div>';
+                html += '<div style="font-size:13px;color:#666;margin-bottom:8px;">📅 ' + dateStr + ' • 📍 ' + (data.location || 'Unknown') + '</div>';
+                html += '<div style="font-size:14px;color:#333;line-height:1.6;margin-bottom:12px;">' + (data.description || '') + '</div>';
+                html += commentsSectionHtml(comments, 'security_alerts', alertId, 'viewSecurityAlert', 'loadSecurityAlerts');
+                
                 document.getElementById('marketplaceModalBody').innerHTML = html;
                 document.getElementById('marketplaceModal').classList.add('show');
             } catch (error) {
-                console.error('Error loading security alert:', error);
+                console.error('Error:', error);
                 alert('Error: ' + error.message);
             }
         }
@@ -3525,54 +4453,25 @@
                 if (!doc.exists) { alert('Item not found'); return; }
                 const data = doc.data();
                 const dateStr = data.date ? data.date.toDate().toLocaleDateString() : 'Date unknown';
-                const posted = data.createdAt ? data.createdAt.toDate().toLocaleString() : 'Unknown';
                 const isOwner = data.postedBy === currentUser.uid;
+                const comments = data.comments || [];
                 const categoryIcons = { pet: '🐕', keys: '🔑', wallet: '👛', phone: '📱', 'package': '📦', clothing: '👕', jewelry: '💍', other: '📦' };
                 const typeBadge = data.type === 'lost'
-                    ? '<span style="background:#dc3545;color:white;padding:6px 16px;border-radius:12px;font-size:13px;font-weight:600;">❌ LOST</span>'
-                    : '<span style="background:#28a745;color:white;padding:6px 16px;border-radius:12px;font-size:13px;font-weight:600;">✅ FOUND</span>';
-
-                let html = `
-                    <div style="margin-bottom: 25px;">
-                        <div style="display:flex;justify-content:space-between;align-items:start;margin-bottom:15px;">
-                            <h3 style="font-size: 22px; color: #333;">${(categoryIcons[data.category] || '📦')} ${data.title || 'Item'}</h3>
-                            ${typeBadge}
-                        </div>
-
-                        <div style="padding: 15px; background: #e3f2fd; border-radius: 8px; margin-bottom: 15px;">
-                            <div style="font-size: 16px; font-weight: 600; color: #1976d2;">📅 ${dateStr}</div>
-                            <div style="margin-top: 5px;">📍 ${data.location || 'Location not specified'}</div>
-                        </div>
-
-                        <div style="padding: 15px; background: #f8f9fa; border-radius: 8px; margin-bottom: 15px;">
-                            <div style="font-weight: 600; margin-bottom: 8px;">Description:</div>
-                            <div style="line-height: 1.6; white-space: pre-wrap;">${data.description || 'No description'}</div>
-                        </div>
-
-                        <div style="padding: 15px; background: #e8f4f8; border-radius: 8px; margin-bottom: 15px;">
-                            <div style="font-weight: 600; margin-bottom: 8px;">Contact Information:</div>
-                            <div>👤 ${data.postedByName || 'Unknown'} • Unit ${data.unitNumber || 'N/A'}</div>
-                            <div style="margin-top: 8px; font-size: 16px;">📞 ${data.contact || 'Not provided'}</div>
-                            <div style="font-size: 12px; color: #999; margin-top: 5px;">Posted: ${posted}</div>
-                        </div>
-
-                        ${data.contact ? `
-                            <button class="btn" style="width: 100%; margin-bottom: 10px;" onclick="copyToClipboard('${data.contact}'); alert('✅ Contact info copied!');">
-                                📋 Copy Contact Info
-                            </button>
-                        ` : ''}
-
-                        ${isOwner ? `
-                            <button class="btn" style="width: 100%; background: #f44336;" onclick="if(confirm('Delete this item?')) { db.collection('lost_and_found').doc('${itemId}').delete().then(() => { closeMarketplaceModal(); loadLostAndFound(); }); }">
-                                🗑️ Delete Post
-                            </button>
-                        ` : ''}
-                    </div>
-                `;
+                    ? '<span style="background:#dc3545;color:white;padding:3px 10px;border-radius:10px;font-size:12px;font-weight:600;">❌ LOST</span>'
+                    : '<span style="background:#28a745;color:white;padding:3px 10px;border-radius:10px;font-size:12px;font-weight:600;">✅ FOUND</span>';
+                const delAction = "if(confirm('Delete?')){db.collection('lost_and_found').doc('" + itemId + "').delete().then(()=>{closeMarketplaceModal();loadLostAndFound();});}";
+                
+                let html = postHeaderHtml(data.postedByName, data.unitNumber, data.createdAt, isOwner, delAction);
+                html += typeBadge + ' ' + (categoryIcons[data.category] || '📦');
+                html += '<div style="font-weight:600;font-size:16px;color:#333;margin:8px 0;">' + (data.title || 'Item') + '</div>';
+                html += '<div style="font-size:13px;color:#666;margin-bottom:8px;">📅 ' + dateStr + ' • 📍 ' + (data.location || 'Unknown') + '</div>';
+                html += '<div style="font-size:14px;color:#333;line-height:1.6;margin-bottom:12px;">' + (data.description || '') + '</div>';
+                html += commentsSectionHtml(comments, 'lost_and_found', itemId, 'viewLostFoundItem', 'loadLostAndFound');
+                
                 document.getElementById('marketplaceModalBody').innerHTML = html;
                 document.getElementById('marketplaceModal').classList.add('show');
             } catch (error) {
-                console.error('Error loading item:', error);
+                console.error('Error:', error);
                 alert('Error: ' + error.message);
             }
         }
@@ -3688,13 +4587,17 @@
                     const typeLabel = data.type === 'need' ? 'Need to Borrow' : 'Available to Lend';
                     const typeBg = data.type === 'need' ? '#fff3e0' : '#e8f5e9';
                     const typeColor = data.type === 'need' ? '#e65100' : '#2e7d32';
+                    const isOwner = data.ownerId === currentUser.uid;
                     
                     html += `
                         <div class="card" onclick="viewCommunityShareItem('${data.id}')" style="cursor: pointer;">
-                            <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 8px;">
-                                <span style="background: ${typeBg}; color: ${typeColor}; padding: 4px 10px; border-radius: 12px; font-size: 11px; font-weight: 600;">
-                                    ${typeIcon} ${typeLabel}
-                                </span>
+                            <div class="card-header">
+                                <div style="display: flex; align-items: center; gap: 8px;">
+                                    <span style="background: ${typeBg}; color: ${typeColor}; padding: 4px 10px; border-radius: 12px; font-size: 11px; font-weight: 600;">
+                                        ${typeIcon} ${typeLabel}
+                                    </span>
+                                </div>
+                                ${postMenuHtml(data.id, 'communityshare', isOwner, userData.role === 'admin')}
                             </div>
                             <div class="card-title">${data.title || 'Item'}</div>
                             <div class="card-content" style="margin-top: 10px;">
@@ -3725,109 +4628,28 @@
         async function viewCommunityShareItem(itemId) {
             try {
                 const doc = await db.collection('communityshare').doc(itemId).get();
-                if (!doc.exists) {
-                    alert('Item not found');
-                    return;
-                }
-
+                if (!doc.exists) { alert('Item not found'); return; }
                 const data = doc.data();
-                const date = data.createdAt ? data.createdAt.toDate().toLocaleString() : 'Unknown';
                 const isOwner = data.ownerId === currentUser.uid;
                 const comments = data.comments || [];
                 const typeIcon = data.type === 'need' ? '🙏' : '🎁';
                 const typeLabel = data.type === 'need' ? 'Need to Borrow' : 'Available to Lend';
                 const typeBg = data.type === 'need' ? '#fff3e0' : '#e8f5e9';
                 const typeColor = data.type === 'need' ? '#e65100' : '#2e7d32';
-
-                let html = `
-                    <div style="margin-bottom: 25px;">
-                        <span style="background: ${typeBg}; color: ${typeColor}; padding: 6px 14px; border-radius: 14px; font-size: 12px; font-weight: 600; display: inline-block; margin-bottom: 15px;">
-                            ${typeIcon} ${typeLabel}
-                        </span>
-                        
-                        <h3 style="font-size: 22px; margin-bottom: 15px; color: #333;">${data.title || 'Item'}</h3>
-                        
-                        <div style="margin-top: 15px; padding: 15px; background: #f8f9fa; border-radius: 8px;">
-                            <div style="font-weight: 600; margin-bottom: 8px;">Description:</div>
-                            <div style="line-height: 1.6;">${data.description || 'No description provided'}</div>
-                        </div>
-
-                        ${data.availableUntil ? `
-                            <div style="margin-top: 15px; padding: 15px; background: #e3f2fd; border-radius: 8px;">
-                                <strong>Available Until:</strong> ${data.availableUntil.toDate().toLocaleDateString()}
-                            </div>
-                        ` : ''}
-
-                        <div style="margin-top: 15px; padding: 15px; background: #e8f4f8; border-radius: 8px;">
-                            <div style="font-weight: 600; margin-bottom: 8px;">Owner Information:</div>
-                            <div style="line-height: 1.8;">
-                                <strong>Name:</strong> ${data.ownerName || 'Unknown'}<br>
-                                <strong>Unit:</strong> ${data.unitNumber || 'N/A'}<br>
-                                <strong>Phone:</strong> ${data.ownerPhone || 'Not provided'}<br>
-                                <strong>Posted:</strong> ${date}
-                            </div>
-                        </div>
-
-                        ${!isOwner ? `
-                            <button class="btn" style="width: 100%; margin-top: 15px;" onclick="copyOwnerContact('${data.ownerPhone || ''}', '${data.ownerEmail || ''}', '${data.ownerName || 'Owner'}')">
-                                📞 Copy Contact Info
-                            </button>
-                        ` : ''}
-
-                        ${isOwner ? `
-                            <button class="btn" style="width: 100%; margin-top: 15px; background: #f44336;" onclick="if(confirm('Delete this item?')) { deleteCommunityShareItem('${itemId}'); closeMarketplaceModal(); }">
-                                🗑️ Delete Item
-                            </button>
-                        ` : ''}
-                    </div>
-
-                    <div style="border-top: 2px solid #e0e0e0; padding-top: 20px; margin-top: 20px;">
-                        <h4 style="font-size: 18px; margin-bottom: 15px; color: #333;">💬 Comments (${comments.length})</h4>
-                        
-                        <div id="commentsList" style="max-height: 300px; overflow-y: auto; margin-bottom: 15px;">
-                `;
-
-                if (comments.length === 0) {
-                    html += `<div style="text-align: center; color: #999; padding: 20px;">No comments yet. Be the first!</div>`;
-                } else {
-                    comments.sort((a, b) => {
-                        const dateA = a.timestamp ? a.timestamp.toMillis() : 0;
-                        const dateB = b.timestamp ? b.timestamp.toMillis() : 0;
-                        return dateA - dateB;
-                    });
-
-                    comments.forEach(comment => {
-                        const commentDate = comment.timestamp ? comment.timestamp.toDate().toLocaleString() : 'Unknown';
-                        html += `
-                            <div style="background: #f8f9fa; padding: 12px; border-radius: 8px; margin-bottom: 10px; border-left: 3px solid #667eea;">
-                                <div style="font-weight: 600; color: #667eea; margin-bottom: 5px;">
-                                    ${comment.userName || 'Unknown'} 
-                                    <span style="font-weight: normal; color: #999; font-size: 12px;">• ${commentDate}</span>
-                                </div>
-                                <div style="color: #333; line-height: 1.5;">${comment.message || ''}</div>
-                            </div>
-                        `;
-                    });
-                }
-
-                html += `
-                        </div>
-
-                        <div class="input-group" style="margin-bottom: 0;">
-                            <textarea id="commentInput" placeholder="Write a comment..." 
-                                      style="width:100%;padding:12px;border:2px solid #e0e0e0;border-radius:8px;min-height:80px;font-family:inherit;resize:vertical;"></textarea>
-                        </div>
-                        <button class="btn" style="width: 100%; margin-top: 10px;" onclick="addCommunityShareComment('${itemId}')">
-                            💬 Post Comment
-                        </button>
-                    </div>
-                `;
-
+                const delAction = "if(confirm('Delete?')){deleteCommunityShareItem('" + itemId + "');closeMarketplaceModal();}";
+                
+                let html = postHeaderHtml(data.ownerName, data.unitNumber, data.createdAt, isOwner, delAction);
+                html += '<span style="background:' + typeBg + ';color:' + typeColor + ';padding:3px 10px;border-radius:10px;font-size:12px;font-weight:600;display:inline-block;margin-bottom:10px;">' + typeIcon + ' ' + typeLabel + '</span>';
+                html += '<div style="font-weight:600;font-size:16px;color:#333;margin-bottom:8px;">' + (data.title || 'Item') + '</div>';
+                html += '<div style="font-size:14px;color:#333;line-height:1.6;margin-bottom:12px;">' + (data.description || 'No description') + '</div>';
+                if (data.availableUntil) html += '<div style="font-size:12px;color:#666;margin-bottom:8px;">⏰ Available until: ' + data.availableUntil.toDate().toLocaleDateString() + '</div>';
+                html += commentsSectionHtml(comments, 'communityshare', itemId, 'viewCommunityShareItem', 'loadCommunityShare');
+                
                 document.getElementById('marketplaceModalBody').innerHTML = html;
                 document.getElementById('marketplaceModal').classList.add('show');
             } catch (error) {
-                console.error('Error loading item details:', error);
-                alert('Error loading item: ' + error.message);
+                console.error('Error:', error);
+                alert('Error: ' + error.message);
             }
         }
 
@@ -3890,7 +4712,7 @@
             try {
                 const isEmail = contact.includes('@');
                 
-                await db.collection('communityshare').add({
+                const csRef = await db.collection('communityshare').add({
                     communityId: userCommunityId, // MULTI-TENANT: Add community ID
                     ownerId: currentUser.uid,
                     ownerName: userData.displayName || 'Unknown',
@@ -3908,12 +4730,12 @@
 
                 // DISABLED: Send push notification to community
                 const typeLabel = type === 'offer' ? 'offering' : 'looking for';
-                // await sendCommunityNotification(
-                //     'community_share',
-                //     `🤝 Community Share - ${type === 'offer' ? 'Offer' : 'Request'}`,
-                //     `${userData.displayName || 'Someone'} is ${typeLabel}: ${title}`,
-                //     { shareTitle: title, shareType: type }
-                // );
+                await sendCommunityNotification(
+                    'community_share',
+                    `🤝 Community Share - ${shareType === 'offer' ? 'Offer' : 'Request'}`,
+                    `${userData.displayName || 'Someone'} shared: ${$title}`,
+                    { postId: csRef.id, postType: 'communityshare' }
+                );
 
                 closeModal();
                 loadCommunityShare();
@@ -3994,7 +4816,16 @@
                 const residentData = !residentQuery.empty ? residentQuery.docs[0].data() : {};
                 
                 // Update basic info
-                document.getElementById('profileAvatarLarge').textContent = (userDataFromDb.name || 'U').charAt(0).toUpperCase();
+                // Show profile picture or initial letter
+                const avatarEl = document.getElementById('profileAvatarLarge');
+                if (userDataFromDb.profilePicUrl) {
+                    avatarEl.innerHTML = `<img src="${userDataFromDb.profilePicUrl}" alt="Profile"
+                        onerror="this.parentElement.innerHTML='${(userDataFromDb.name||'U')[0].toUpperCase()}<span class=\"avatar-upload-hint\">📷 Change</span>'">
+                        <span class="avatar-upload-hint">📷 Change</span>`;
+                } else {
+                    avatarEl.innerHTML = (userDataFromDb.name || 'U').charAt(0).toUpperCase() +
+                        '<span class="avatar-upload-hint">📷 Change</span>';
+                }
                 document.getElementById('profileName').textContent = userDataFromDb.name || 'Unknown';
                 document.getElementById('profileUnit').textContent = 'Unit ' + (userDataFromDb.unitNumber || 'N/A');
                 document.getElementById('profileEmail').textContent = userDataFromDb.email || 'Not provided';
@@ -4120,7 +4951,10 @@
                 }
                 
                 // Find resident document
-                const residentQuery = await db.collection('residents').where('userId', '==', currentUser.uid).get();
+                const residentQuery = await db.collection('residents')
+                    .where('userId', '==', currentUser.uid)
+                    .where('communityId', '==', userData.communityId)
+                    .get();
                 
                 if (residentQuery.empty) {
                     alert('Resident profile not found');
@@ -4469,7 +5303,10 @@
                     const timeStr = eventDate ? eventDate.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'}) : '';
                     const rsvpCount = data.rsvps ? data.rsvps.length : 0;
                     const commentCount = data.comments ? data.comments.length : 0;
-                    html += '<div class="card" onclick="viewEvent(\'' + data.id + '\')" style="cursor: pointer;' + (isPast ? ' opacity: 0.6;' : '') + '"><div class="card-title">' + (data.title || 'Event') + '</div><div class="card-subtitle">📅 ' + dateStr + (timeStr ? ' • ⏰ ' + timeStr : '') + '</div><div class="card-content" style="margin-top: 10px;">' + (data.description || '') + (data.location ? '<div style="margin-top: 8px;"><strong>📍</strong> ' + data.location + '</div>' : '') + '</div><div style="margin-top: 12px; padding-top: 12px; border-top: 1px solid #f0f0f0; font-size: 13px; color: #666;">👤 ' + (data.organizerName || 'Unknown') + ' • Unit ' + (data.unitNumber || 'N/A') + (rsvpCount > 0 ? ' • ✅ ' + rsvpCount + ' RSVP' + (rsvpCount > 1 ? 's' : '') : '') + (commentCount > 0 ? ' • 💬 ' + commentCount + ' comment' + (commentCount > 1 ? 's' : '') : '') + '</div></div>';
+                    const isOrganizer = data.organizerId === currentUser.uid;
+                    const isAdm = userData.role === 'admin';
+                    
+                    html += '<div class="card" onclick="viewEvent(\'' + data.id + '\')" style="cursor:pointer;' + (isPast ? 'opacity:0.6;' : '') + '"><div class="card-header"><div style="flex:1;"><div class="card-title">' + (data.title || 'Event') + '</div><div class="card-subtitle">📅 ' + dateStr + (timeStr ? ' • ⏰ ' + timeStr : '') + '</div></div>' + postMenuHtml(data.id, 'event', isOrganizer, isAdm) + '</div><div class="card-content" style="margin-top:10px;">' + (data.description || '') + (data.location ? '<div style="margin-top:8px;"><strong>📍</strong> ' + data.location + '</div>' : '') + '</div><div style="margin-top:12px;padding-top:12px;border-top:1px solid #f0f0f0;font-size:13px;color:#666;">👤 ' + (data.organizerName || 'Unknown') + ' • Unit ' + (data.unitNumber || 'N/A') + (rsvpCount > 0 ? ' • ✅ ' + rsvpCount + ' RSVP' + (rsvpCount > 1 ? 's' : '') : '') + (commentCount > 0 ? ' • 💬 ' + commentCount + ' comment' + (commentCount > 1 ? 's' : '') : '') + '</div></div>';
                 });
                 container.innerHTML = html;
             } catch (error) {
@@ -4525,33 +5362,20 @@
                 const rsvps = data.rsvps || [];
                 const hasRSVPd = rsvps.some(r => r.userId === currentUser.uid);
                 const comments = data.comments || [];
+                const delAction = "if(confirm('Delete?')){deleteEvent('" + eventId + "');closeMarketplaceModal();}";
                 
-                let html = '<div style="margin-bottom: 25px;"><h3 style="font-size: 22px; margin-bottom: 15px; color: #333;">' + (data.title || 'Event') + '</h3><div style="margin-bottom: 15px; padding: 15px; background: #e3f2fd; border-radius: 8px;"><div style="font-size: 18px; font-weight: 600; color: #1976d2;">📅 ' + dateStr + (timeStr ? ' • ⏰ ' + timeStr : '') + '</div>' + (data.location ? '<div style="margin-top: 5px;">📍 ' + data.location + '</div>' : '') + '</div><div style="padding: 15px; background: #f8f9fa; border-radius: 8px; margin-bottom: 15px;"><strong>About:</strong><div style="margin-top: 8px;">' + (data.description || '') + '</div></div><div style="padding: 15px; background: #e8f4f8; border-radius: 8px; margin-bottom: 15px;"><strong>Organized by:</strong><div>' + (data.organizerName || 'Unknown') + ' • Unit ' + (data.unitNumber || 'N/A') + '</div>' + (data.organizerPhone ? '<div style="margin-top: 5px;">📞 ' + data.organizerPhone + '</div>' : '') + '</div>' + (!isOrganizer ? '<button class="btn" style="width: 100%; margin-bottom: 10px;" onclick="toggleRSVP(\'' + eventId + '\', ' + hasRSVPd + ')">' + (hasRSVPd ? '✅ You are Going!' : '✓ RSVP') + '</button>' : '') + (isOrganizer ? '<button class="btn" style="width: 100%; background: #f44336;" onclick="if(confirm(\'Delete event?\')) { deleteEvent(\'' + eventId + '\'); closeMarketplaceModal(); }">🗑️ Delete</button>' : '') + (rsvps.length > 0 ? '<div style="padding: 15px; background: #f8f9fa; border-radius: 8px; margin-top: 15px;"><strong>✅ Going (' + rsvps.length + '):</strong>' + rsvps.map(r => '<div style="padding: 5px 0;">• ' + (r.userName || 'Resident') + '</div>').join('') + '</div>' : '') + '</div>';
-
-                // Add comments section
-                html += '<div style="border-top: 2px solid #e0e0e0; padding-top: 20px; margin-top: 20px;"><h4 style="font-size: 18px; margin-bottom: 15px; color: #333;">💬 Comments (' + comments.length + ')</h4><div id="commentsList" style="max-height: 300px; overflow-y: auto; margin-bottom: 15px;">';
-
-                if (comments.length === 0) {
-                    html += '<div style="text-align: center; color: #999; padding: 20px;">No comments yet. Be the first to comment!</div>';
-                } else {
-                    comments.sort((a, b) => {
-                        const dateA = a.timestamp ? a.timestamp.toMillis() : 0;
-                        const dateB = b.timestamp ? b.timestamp.toMillis() : 0;
-                        return dateA - dateB;
-                    });
-
-                    comments.forEach(comment => {
-                        const commentDate = comment.timestamp ? comment.timestamp.toDate().toLocaleString() : 'Unknown';
-                        html += '<div style="background: #f8f9fa; padding: 12px; border-radius: 8px; margin-bottom: 10px; border-left: 3px solid #667eea;"><div style="font-weight: 600; color: #667eea; margin-bottom: 5px;">' + (comment.userName || 'Unknown') + ' <span style="font-weight: normal; color: #999; font-size: 12px;">• ' + commentDate + '</span></div><div style="color: #333; line-height: 1.5;">' + (comment.message || '') + '</div></div>';
-                    });
-                }
-
-                html += '</div><div class="input-group" style="margin-bottom: 0;"><textarea id="commentInput" placeholder="Write a comment or ask a question..." style="width:100%;padding:12px;border:2px solid #e0e0e0;border-radius:8px;min-height:80px;font-family:inherit;resize:vertical;"></textarea></div><button class="btn" style="width: 100%; margin-top: 10px;" onclick="addEventComment(\'' + eventId + '\')">💬 Post Comment</button></div>';
-
+                let html = postHeaderHtml(data.organizerName, data.unitNumber, data.createdAt, isOrganizer, delAction);
+                html += '<div style="font-weight:600;font-size:16px;color:#333;margin-bottom:8px;">' + (data.title || 'Event') + '</div>';
+                html += '<div style="padding:10px 14px;background:#e3f2fd;border-radius:8px;margin-bottom:10px;font-size:14px;"><span style="font-weight:600;color:#1976d2;">📅 ' + dateStr + (timeStr ? ' • ⏰ ' + timeStr : '') + '</span>' + (data.location ? '<br>📍 ' + data.location : '') + '</div>';
+                html += '<div style="font-size:14px;color:#333;line-height:1.6;margin-bottom:12px;">' + (data.description || '') + '</div>';
+                if (!isOrganizer) html += '<button class="btn" style="width:100%;margin-bottom:10px;" onclick="toggleRSVP(\'' + eventId + '\',' + hasRSVPd + ')">' + (hasRSVPd ? '✅ You are Going!' : '✓ RSVP') + '</button>';
+                if (rsvps.length > 0) html += '<div style="font-size:13px;color:#666;margin-bottom:8px;">✅ Going (' + rsvps.length + '): ' + rsvps.map(r => r.userName || 'Resident').join(', ') + '</div>';
+                html += commentsSectionHtml(comments, 'events', eventId, 'viewEvent', 'loadEvents');
+                
                 document.getElementById('marketplaceModalBody').innerHTML = html;
                 document.getElementById('marketplaceModal').classList.add('show');
             } catch (error) {
-                console.error('Error loading event:', error);
+                console.error('Error:', error);
                 alert('Error: ' + error.message);
             }
         }
@@ -4647,15 +5471,15 @@
                 
                 console.log('Event data to save:', eventData);
                 
-                await db.collection('events').add(eventData);
+                const evRef = await db.collection('events').add(eventData);
                 
                 // DISABLED: Send push notification to community
-                // await sendCommunityNotification(
-                //     'event',
-                //     '🎉 New Community Event',
-                //     `${userData.displayName || 'Someone'} created: ${titleVal}`,
-                //     { eventTitle: titleVal, location: locVal }
-                // );
+                await sendCommunityNotification(
+                    'event',
+                    '🎉 New Community Event',
+                    `${userData.displayName || 'Someone'} created: ${titleVal}`,
+                    { postId: evRef.id, postType: 'event' }
+                );
                 
                 console.log('Event created successfully!');
                 closeModal();
@@ -4694,7 +5518,7 @@
             }
 
             try {
-                await db.collection('security_alerts').add({
+                const saRef = await db.collection('security_alerts').add({
                     communityId: userCommunityId,
                     type: type,
                     title: title,
@@ -4708,6 +5532,12 @@
                     createdAt: firebase.firestore.FieldValue.serverTimestamp()
                 });
 
+                await sendCommunityNotification(
+                    'security',
+                    `🚨 Security Alert: ${title}`,
+                    `${userData.displayName || 'Someone'} reported: ${description.substring(0, 80)}`,
+                    { postId: saRef.id, postType: 'security' }
+                );
                 closeModal();
                 loadSecurityAlerts();
                 alert('✅ Security alert reported');
@@ -4735,7 +5565,9 @@
                 items.forEach(data => {
                     const dateStr = data.incidentDateTime ? data.incidentDateTime.toDate().toLocaleString() : 'Unknown';
                     const posted = data.createdAt ? data.createdAt.toDate().toLocaleDateString() : 'Recently';
-                    html += '<div class="card" onclick="viewSecurityAlert(\'' + data.id + '\')" style="cursor: pointer;"><div class="card-title">' + (typeIcons[data.type] || '🚨') + ' ' + data.title + '</div><div class="card-subtitle">📅 ' + dateStr + ' • 📍 ' + data.location + '</div><div class="card-content" style="margin-top: 10px;display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden;">' + data.description + '</div><div style="margin-top: 12px; padding-top: 12px; border-top: 1px solid #f0f0f0; font-size: 13px; color: #666;">👤 ' + data.reportedByName + ' • Unit ' + data.unitNumber + ' • Posted ' + posted + '</div></div>';
+                    const isOwner = data.reportedBy === currentUser.uid;
+                    const isAdm = userData.role === 'admin';
+                    html += '<div class="card" onclick="viewSecurityAlert(\'' + data.id + '\')" style="cursor:pointer;"><div class="card-header"><div style="flex:1;"><div class="card-title">' + (typeIcons[data.type] || '🚨') + ' ' + data.title + '</div><div class="card-subtitle">📅 ' + dateStr + ' • 📍 ' + data.location + '</div></div>' + postMenuHtml(data.id, 'security', isOwner, isAdm) + '</div><div class="card-content" style="margin-top:10px;display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden;">' + data.description + '</div><div style="margin-top:12px;padding-top:12px;border-top:1px solid #f0f0f0;font-size:13px;color:#666;">👤 ' + data.reportedByName + ' • Unit ' + data.unitNumber + ' • Posted ' + posted + '</div></div>';
                 });
                 container.innerHTML = html;
             } catch (error) {
@@ -4761,7 +5593,7 @@
             }
 
             try {
-                await db.collection('lost_and_found').add({
+                const lfRef = await db.collection('lost_and_found').add({
                     communityId: userCommunityId,
                     type: type,
                     category: category,
@@ -4777,6 +5609,12 @@
                     createdAt: firebase.firestore.FieldValue.serverTimestamp()
                 });
 
+                await sendCommunityNotification(
+                    'lostfound',
+                    `${type === 'lost' ? '😟 Item Lost' : '🎉 Item Found'}: ${title}`,
+                    `${userData.displayName || 'Someone'} posted in Lost & Found`,
+                    { postId: lfRef.id, postType: 'lostfound' }
+                );
                 closeModal();
                 loadLostAndFound();
                 alert('✅ Posted successfully');
@@ -4804,7 +5642,9 @@
                 items.forEach(data => {
                     const typeBadge = data.type === 'lost' ? '<span style="background:#dc3545;color:white;padding:4px 12px;border-radius:12px;font-size:12px;font-weight:600;">❌ LOST</span>' : '<span style="background:#28a745;color:white;padding:4px 12px;border-radius:12px;font-size:12px;font-weight:600;">✅ FOUND</span>';
                     const dateStr = data.date ? data.date.toDate().toLocaleDateString() : 'Date unknown';
-                    html += '<div class="card" onclick="viewLostFoundItem(\'' + data.id + '\')" style="cursor: pointer;"><div style="display:flex;justify-content:space-between;align-items:start;margin-bottom:10px;"><div class="card-title">' + (categoryIcons[data.category] || '📦') + ' ' + data.title + '</div>' + typeBadge + '</div><div class="card-subtitle">📅 ' + dateStr + ' • 📍 ' + data.location + '</div><div class="card-content" style="margin-top: 10px;display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden;">' + data.description + '</div><div style="margin-top: 12px; padding-top: 12px; border-top: 1px solid #f0f0f0; font-size: 13px; color: #666;">👤 ' + data.postedByName + ' • Unit ' + data.unitNumber + '</div></div>';
+                    const isOwner = data.postedBy === currentUser.uid;
+                    const isAdm = userData.role === 'admin';
+                    html += '<div class="card" onclick="viewLostFoundItem(\'' + data.id + '\')" style="cursor:pointer;"><div class="card-header"><div style="flex:1;"><div style="display:flex;justify-content:space-between;align-items:start;margin-bottom:10px;"><div class="card-title">' + (categoryIcons[data.category] || '📦') + ' ' + data.title + '</div>' + typeBadge + '</div><div class="card-subtitle">📅 ' + dateStr + ' • 📍 ' + data.location + '</div></div>' + postMenuHtml(data.id, 'lostfound', isOwner, isAdm) + '</div><div class="card-content" style="margin-top:10px;display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden;">' + data.description + '</div><div style="margin-top:12px;padding-top:12px;border-top:1px solid #f0f0f0;font-size:13px;color:#666;">👤 ' + data.postedByName + ' • Unit ' + data.unitNumber + '</div></div>';
                 });
                 container.innerHTML = html;
             } catch (error) {
@@ -4980,14 +5820,129 @@
 
         // ========== END TERMS FUNCTIONS ==========
 
-    </script>
+    
+        // ============================================================
+        // PROFILE PICTURE UPLOAD
+        // ============================================================
+        async function handleProfilePicChange(event) {
+            const file = event.target.files[0];
+            if (!file) return;
+
+            // Validate size (max 2MB)
+            if (file.size > 2 * 1024 * 1024) {
+                alert('Image must be under 2MB. Please choose a smaller image.');
+                return;
+            }
+
+            // Show uploading state on avatar
+            const avatarEl = document.getElementById('profileAvatarLarge');
+            const originalContent = avatarEl.innerHTML;
+            avatarEl.innerHTML = '<div style="font-size:13px;color:#667eea;text-align:center;">Uploading...</div>';
+
+            try {
+                // Step 1: Get presigned URL from Cloud Function
+                const getUploadUrl = firebase.functions().httpsCallable('getUploadUrl');
+                const result = await getUploadUrl({
+                    fileName:    file.name,
+                    contentType: file.type,
+                    folder:      'profiles'
+                });
+                const { presignedUrl, publicUrl, key } = result.data;
+
+                // Step 2: Upload directly to R2 (no Firebase bandwidth used)
+                const uploadResponse = await fetch(presignedUrl, {
+                    method: 'PUT',
+                    headers: { 'Content-Type': file.type },
+                    body: file
+                });
+
+                if (!uploadResponse.ok) {
+                    throw new Error('Upload to storage failed: ' + uploadResponse.status);
+                }
+
+                // Step 3: Save URL and key to Firestore user document
+                await db.collection('users').doc(currentUser.uid).update({
+                    profilePicUrl: publicUrl,
+                    profilePicKey: key,
+                    profilePicUpdatedAt: firebase.firestore.FieldValue.serverTimestamp()
+                });
+
+                // Step 4: Update UI immediately — no reload needed
+                avatarEl.innerHTML = `<img src="${publicUrl}" alt="Profile"
+                    onerror="this.parentElement.textContent='${(userData.displayName||'U')[0].toUpperCase()}'">
+                    <span class="avatar-upload-hint">📷 Change</span>`;
+
+                // Update nav avatar too
+                const navAvatar = document.getElementById('userAvatar');
+                navAvatar.innerHTML = `<img class="nav-avatar-img" src="${publicUrl}"
+                    onerror="this.parentElement.textContent='${(userData.displayName||'U')[0].toUpperCase()}'" alt="">`;
+
+                // Update local userData cache
+                userData.profilePicUrl = publicUrl;
+
+                console.log('✅ Profile picture updated:', publicUrl);
+                alert('✅ Profile picture updated!');
+
+            } catch (error) {
+                console.error('❌ Profile pic upload error:', error);
+                avatarEl.innerHTML = originalContent;
+                if (error.code === 'functions/unauthenticated') {
+                    alert('Please log in again to upload a photo.');
+                } else {
+                    alert('Upload failed: ' + (error.message || 'Please try again.'));
+                }
+            }
+
+            // Clear input so same file can be selected again
+            event.target.value = '';
+        }
+
+        // ── Shared upload helper (reused by all features in Phase 2) ──
+        // Returns { publicUrl, key } or throws on error
+        async function uploadFileToR2(file, folder, maxSizeMB = 5) {
+            if (file.size > maxSizeMB * 1024 * 1024) {
+                throw new Error(`File must be under ${maxSizeMB}MB.`);
+            }
+
+            const allowedTypes = ['image/jpeg','image/jpg','image/png','image/gif','image/webp','application/pdf'];
+            if (!allowedTypes.includes(file.type)) {
+                throw new Error('Only images (JPEG, PNG, GIF, WebP) and PDFs are allowed.');
+            }
+
+            const getUploadUrl = firebase.functions().httpsCallable('getUploadUrl');
+            const result = await getUploadUrl({
+                fileName:    file.name,
+                contentType: file.type,
+                folder:      folder
+            });
+            const { presignedUrl, publicUrl, key } = result.data;
+
+            const uploadResponse = await fetch(presignedUrl, {
+                method: 'PUT',
+                headers: { 'Content-Type': file.type },
+                body: file
+            });
+
+            if (!uploadResponse.ok) {
+                throw new Error('Storage upload failed: ' + uploadResponse.status);
+            }
+
+            return { publicUrl, key };
+        }
+
+</script>
 
 
     <!-- Profile Modal -->
     <div class="profile-modal" id="profileModal">
         <div class="profile-content">
             <div class="profile-header">
-                <div class="profile-avatar-large" id="profileAvatarLarge">U</div>
+                <div class="profile-avatar-large" id="profileAvatarLarge"
+                     onclick="document.getElementById('profilePicInput').click()"
+                     title="Tap to change profile picture">
+                    U
+                    <span class="avatar-upload-hint">📷 Change</span>
+                </div>
                 <h2 id="profileName">Loading...</h2>
                 <p id="profileUnit">Unit ---</p>
             </div>
