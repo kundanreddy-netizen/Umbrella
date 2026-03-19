@@ -988,43 +988,209 @@
         }
 
         .profile-avatar-large {
-            width: 100px;
-            height: 100px;
+            width: 120px;
+            height: 120px;
             border-radius: 50%;
             background: white;
             color: #667eea;
-            font-size: 48px;
+            font-size: 52px;
             font-weight: 700;
             display: flex;
             align-items: center;
             justify-content: center;
-            margin: 0 auto 15px;
+            margin: 0 auto 8px;
             overflow: hidden;
-            cursor: pointer;
             position: relative;
-            border: 3px solid rgba(255,255,255,0.5);
-            transition: opacity 0.2s;
+            border: 4px solid rgba(255,255,255,0.9);
+            box-shadow: 0 4px 20px rgba(0,0,0,0.25);
         }
-        .profile-avatar-large:hover { opacity: 0.85; }
+        /* Avatar initial/image span — fills the full circle */
+        #profileAvatarInitial {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            width: 120px;
+            height: 120px;
+            border-radius: 50%;
+            overflow: hidden;
+            position: absolute;
+            top: 0; left: 0;
+        }
+        #profileAvatarInitial img {
+            width: 120px;
+            height: 120px;
+            object-fit: cover;
+            border-radius: 50%;
+            display: block;
+        }
+        /* Edit icon button — bottom right of avatar */
+        .avatar-edit-btn {
+            position: absolute;
+            bottom: 4px;
+            right: 4px;
+            width: 30px;
+            height: 30px;
+            border-radius: 50%;
+            background: #1877f2;
+            border: 2px solid white;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            font-size: 13px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.3);
+            transition: background 0.2s, transform 0.15s;
+            z-index: 2;
+        }
+        .avatar-edit-btn:hover { background: #1565c0; transform: scale(1.1); }
         .profile-avatar-large img {
             width: 100%;
             height: 100%;
             object-fit: cover;
             border-radius: 50%;
+            cursor: pointer;
         }
-        .profile-avatar-large .avatar-upload-hint {
-            position: absolute;
-            bottom: 0;
-            left: 0;
-            right: 0;
-            background: rgba(0,0,0,0.55);
+        /* Crop/reposition modal */
+        .crop-modal-overlay {
+            display: none;
+            position: fixed;
+            inset: 0;
+            background: rgba(0,0,0,0.92);
+            z-index: 9999;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+        }
+        .crop-modal-overlay.show { display: flex; }
+        .crop-modal-header {
             color: white;
-            font-size: 10px;
+            font-size: 17px;
             font-weight: 600;
+            margin-bottom: 20px;
             text-align: center;
-            padding: 3px 0;
-            border-radius: 0 0 50px 50px;
         }
+        .crop-modal-header p {
+            font-size: 13px;
+            color: rgba(255,255,255,0.65);
+            font-weight: 400;
+            margin-top: 4px;
+        }
+        .crop-canvas-wrapper {
+            position: relative;
+            width: 300px;
+            height: 300px;
+            border-radius: 50%;
+            overflow: hidden;
+            border: 3px solid #1877f2;
+            box-shadow: 0 0 0 9999px rgba(0,0,0,0.6);
+            cursor: grab;
+            touch-action: none;
+        }
+        .crop-canvas-wrapper:active { cursor: grabbing; }
+        .crop-canvas-wrapper canvas {
+            display: block;
+            position: absolute;
+            top: 0; left: 0;
+        }
+        .crop-controls {
+            margin-top: 24px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 14px;
+            width: 300px;
+        }
+        .crop-zoom-row {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            width: 100%;
+        }
+        .crop-zoom-row span { color: white; font-size: 18px; }
+        .crop-zoom-row input[type=range] {
+            flex: 1;
+            height: 4px;
+            accent-color: #1877f2;
+        }
+        .crop-action-row {
+            display: flex;
+            gap: 12px;
+            width: 100%;
+        }
+        .crop-btn {
+            flex: 1;
+            padding: 12px;
+            border: none;
+            border-radius: 8px;
+            font-size: 15px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: opacity 0.2s;
+        }
+        .crop-btn:hover { opacity: 0.88; }
+        .crop-btn-cancel { background: #444; color: white; }
+        .crop-btn-save   { background: #1877f2; color: white; }
+        /* Photo viewer modal — for viewing other residents' pics */
+        .photo-viewer-overlay {
+            display: none;
+            position: fixed;
+            inset: 0;
+            background: rgba(0,0,0,0.88);
+            z-index: 9998;
+            align-items: center;
+            justify-content: center;
+            flex-direction: column;
+        }
+        .photo-viewer-overlay.show { display: flex; }
+        .photo-viewer-img {
+            max-width: min(90vw, 480px);
+            max-height: 80vh;
+            border-radius: 12px;
+            box-shadow: 0 8px 40px rgba(0,0,0,0.6);
+            object-fit: contain;
+        }
+        .photo-viewer-name {
+            color: white;
+            font-size: 16px;
+            font-weight: 600;
+            margin-top: 16px;
+        }
+        .photo-viewer-close {
+            position: absolute;
+            top: 20px;
+            right: 20px;
+            background: rgba(255,255,255,0.15);
+            border: none;
+            color: white;
+            font-size: 22px;
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        .photo-viewer-close:hover { background: rgba(255,255,255,0.25); }
+        /* Directory avatar */
+        .dir-avatar {
+            width: 48px;
+            height: 48px;
+            border-radius: 50%;
+            background: linear-gradient(135deg, #667eea, #764ba2);
+            color: white;
+            font-size: 20px;
+            font-weight: 700;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            flex-shrink: 0;
+            overflow: hidden;
+            cursor: pointer;
+            transition: transform 0.15s;
+        }
+        .dir-avatar:hover { transform: scale(1.08); }
+        .dir-avatar img { width:100%; height:100%; object-fit:cover; border-radius:50%; }
         .nav-avatar-img {
             width: 100%;
             height: 100%;
@@ -2058,11 +2224,13 @@
                     // Update UI
                     // Update nav avatar — show photo or initial
                 const navAvatar = document.getElementById('userAvatar');
+                const navInitial = (userDataFromDb.name || 'U').charAt(0).toUpperCase();
                 if (userDataFromDb.profilePicUrl) {
                     navAvatar.innerHTML = `<img class="nav-avatar-img" src="${userDataFromDb.profilePicUrl}"
-                        onerror="this.parentElement.textContent='${(userDataFromDb.name||'U')[0].toUpperCase()}'" alt="">`;
+                        style="width:36px;height:36px;object-fit:cover;border-radius:50%;"
+                        onerror="this.parentElement.textContent='${navInitial}'" alt="">`;
                 } else {
-                    navAvatar.textContent = (userDataFromDb.name || 'U').charAt(0).toUpperCase();
+                    navAvatar.textContent = navInitial;
                 }
                     
                     // Load and display community name
@@ -3507,11 +3675,23 @@
                     details += `<div><strong>Email:</strong> ${data.email}</div>`;
                 }
 
+                // Build directory avatar
+                const dirInitial = (data.name || '?').charAt(0).toUpperCase();
+                const dirAvatarHtml = data.profilePicUrl
+                    ? `<div class="dir-avatar" onclick="openPhotoViewer('${data.profilePicUrl}','${(data.name||'Resident').replace(/'/g,"\\'")}')">
+                           <img src="${data.profilePicUrl}" alt="${data.name || ''}"
+                                onerror="this.parentElement.textContent='${dirInitial}'">
+                       </div>`
+                    : `<div class="dir-avatar" style="cursor:default;">${dirInitial}</div>`;
+
                 html += `
-                    <div class="card">
-                        <div class="card-title">${data.name || 'Resident'}</div>
-                        <div class="card-subtitle">Unit ${data.unitNumber || 'N/A'}</div>
-                        <div class="card-content">${details || '<div style="color: #999;">Contact info hidden by resident</div>'}</div>
+                    <div class="card" style="display:flex;gap:14px;align-items:center;">
+                        ${dirAvatarHtml}
+                        <div style="flex:1;">
+                            <div class="card-title" style="margin-bottom:2px;">${data.name || 'Resident'}</div>
+                            <div class="card-subtitle">Unit ${data.unitNumber || 'N/A'}</div>
+                            <div class="card-content" style="margin-top:6px;">${details || '<div style="color: #999;">Contact info hidden by resident</div>'}</div>
+                        </div>
                     </div>
                 `;
             });
@@ -4818,15 +4998,17 @@
                 
                 // Update basic info
                 // Show profile picture or initial letter
-                const avatarEl = document.getElementById('profileAvatarLarge');
+                const initial = (userDataFromDb.name || 'U').charAt(0).toUpperCase();
+                const avatarInitial = document.getElementById('profileAvatarInitial');
                 if (userDataFromDb.profilePicUrl) {
-                    avatarEl.innerHTML = `<img src="${userDataFromDb.profilePicUrl}" alt="Profile"
-                        onerror="this.parentElement.innerHTML='${(userDataFromDb.name||'U')[0].toUpperCase()}<span class=\"avatar-upload-hint\">📷 Change</span>'">
-                        <span class="avatar-upload-hint">📷 Change</span>`;
+                    avatarInitial.innerHTML = `<img src="${userDataFromDb.profilePicUrl}" alt="Profile"
+                        onerror="this.innerHTML='${initial}'">`;
                 } else {
-                    avatarEl.innerHTML = (userDataFromDb.name || 'U').charAt(0).toUpperCase() +
-                        '<span class="avatar-upload-hint">📷 Change</span>';
+                    avatarInitial.textContent = initial;
                 }
+                // Edit button always visible on own profile
+                const editBtn = document.getElementById('avatarEditBtn');
+                if (editBtn) editBtn.style.display = 'flex';
                 document.getElementById('profileName').textContent = userDataFromDb.name || 'Unknown';
                 document.getElementById('profileUnit').textContent = 'Unit ' + (userDataFromDb.unitNumber || 'N/A');
                 document.getElementById('profileEmail').textContent = userDataFromDb.email || 'Not provided';
@@ -5823,95 +6005,211 @@
 
     
         // ============================================================
-        // PROFILE PICTURE UPLOAD
+        // PROFILE PICTURE — FACEBOOK-STYLE CROP & REPOSITION
         // ============================================================
-        async function handleProfilePicChange(event) {
+        let _cropState = null;
+
+        function handleProfilePicChange(event) {
             const file = event.target.files[0];
             if (!file) return;
-
-            // Validate size (max 2MB)
             if (file.size > 5 * 1024 * 1024) {
-                alert('Image must be under 5MB. Please choose a smaller image.');
+                alert('Image must be under 5MB.');
+                event.target.value = '';
                 return;
             }
+            const reader = new FileReader();
+            reader.onload = e => openCropModal(e.target.result);
+            reader.readAsDataURL(file);
+            event.target.value = '';
+        }
 
-            // Show uploading state on avatar
-            const avatarEl = document.getElementById('profileAvatarLarge');
-            const originalContent = avatarEl.innerHTML;
-            avatarEl.innerHTML = '<div style="font-size:13px;color:#667eea;text-align:center;">Uploading...</div>';
+        function openCropModal(dataUrl) {
+            const img = new Image();
+            img.onload = () => {
+                const canvas = document.getElementById('cropCanvas');
+                const S = 300;
+                canvas.width = canvas.height = S;
+                const scale = Math.max(S / img.width, S / img.height);
+                _cropState = {
+                    img, scale, minScale: scale,
+                    offsetX: (S - img.width  * scale) / 2,
+                    offsetY: (S - img.height * scale) / 2,
+                    dragging: false, startX: 0, startY: 0, lastTouchDist: null
+                };
+                document.getElementById('cropZoomSlider').value = 1;
+                drawCrop();
+                setupCropEvents();
+                document.getElementById('cropModalOverlay').classList.add('show');
+            };
+            img.src = dataUrl;
+        }
 
+        function drawCrop() {
+            if (!_cropState) return;
+            const { img, scale, offsetX, offsetY } = _cropState;
+            const canvas = document.getElementById('cropCanvas');
+            const ctx = canvas.getContext('2d');
+            ctx.clearRect(0, 0, 300, 300);
+            ctx.drawImage(img, offsetX, offsetY, img.width * scale, img.height * scale);
+        }
+
+        function clampOffset() {
+            const { img, scale } = _cropState;
+            const W = img.width * scale, H = img.height * scale;
+            _cropState.offsetX = Math.min(0, Math.max(300 - W, _cropState.offsetX));
+            _cropState.offsetY = Math.min(0, Math.max(300 - H, _cropState.offsetY));
+        }
+
+        function onZoomSlider(val) {
+            if (!_cropState) return;
+            const newScale = _cropState.minScale * parseFloat(val);
+            const cx = 150, cy = 150;
+            _cropState.offsetX = cx - (cx - _cropState.offsetX) * (newScale / _cropState.scale);
+            _cropState.offsetY = cy - (cy - _cropState.offsetY) * (newScale / _cropState.scale);
+            _cropState.scale   = newScale;
+            clampOffset(); drawCrop();
+        }
+
+        function setupCropEvents() {
+            const wrapper = document.getElementById('cropCanvasWrapper');
+            const fresh   = wrapper.cloneNode(true);
+            wrapper.parentNode.replaceChild(fresh, wrapper);
+
+            fresh.addEventListener('mousedown', e => {
+                _cropState.dragging = true;
+                _cropState.startX = e.clientX - _cropState.offsetX;
+                _cropState.startY = e.clientY - _cropState.offsetY;
+            });
+            fresh.addEventListener('mousemove', e => {
+                if (!_cropState.dragging) return;
+                _cropState.offsetX = e.clientX - _cropState.startX;
+                _cropState.offsetY = e.clientY - _cropState.startY;
+                clampOffset(); drawCrop();
+            });
+            fresh.addEventListener('mouseup',    () => { _cropState.dragging = false; });
+            fresh.addEventListener('mouseleave', () => { _cropState.dragging = false; });
+            fresh.addEventListener('wheel', e => {
+                e.preventDefault();
+                const delta    = e.deltaY > 0 ? -0.05 : 0.05;
+                const newScale = Math.max(_cropState.minScale, _cropState.scale * (1 + delta));
+                const lx = e.offsetX, ly = e.offsetY;
+                _cropState.offsetX = lx - (lx - _cropState.offsetX) * (newScale / _cropState.scale);
+                _cropState.offsetY = ly - (ly - _cropState.offsetY) * (newScale / _cropState.scale);
+                _cropState.scale   = newScale;
+                document.getElementById('cropZoomSlider').value = newScale / _cropState.minScale;
+                clampOffset(); drawCrop();
+            }, { passive: false });
+            fresh.addEventListener('touchstart', e => {
+                e.preventDefault();
+                if (e.touches.length === 1) {
+                    _cropState.dragging = true;
+                    _cropState.startX = e.touches[0].clientX - _cropState.offsetX;
+                    _cropState.startY = e.touches[0].clientY - _cropState.offsetY;
+                    _cropState.lastTouchDist = null;
+                } else if (e.touches.length === 2) {
+                    _cropState.dragging = false;
+                    _cropState.lastTouchDist = Math.hypot(
+                        e.touches[0].clientX - e.touches[1].clientX,
+                        e.touches[0].clientY - e.touches[1].clientY);
+                }
+            }, { passive: false });
+            fresh.addEventListener('touchmove', e => {
+                e.preventDefault();
+                if (e.touches.length === 1 && _cropState.dragging) {
+                    _cropState.offsetX = e.touches[0].clientX - _cropState.startX;
+                    _cropState.offsetY = e.touches[0].clientY - _cropState.startY;
+                    clampOffset(); drawCrop();
+                } else if (e.touches.length === 2 && _cropState.lastTouchDist) {
+                    const dist = Math.hypot(
+                        e.touches[0].clientX - e.touches[1].clientX,
+                        e.touches[0].clientY - e.touches[1].clientY);
+                    const newScale = Math.max(_cropState.minScale, _cropState.scale * (dist / _cropState.lastTouchDist));
+                    const rect = fresh.getBoundingClientRect();
+                    const cx   = (e.touches[0].clientX + e.touches[1].clientX) / 2 - rect.left;
+                    const cy   = (e.touches[0].clientY + e.touches[1].clientY) / 2 - rect.top;
+                    _cropState.offsetX = cx - (cx - _cropState.offsetX) * (newScale / _cropState.scale);
+                    _cropState.offsetY = cy - (cy - _cropState.offsetY) * (newScale / _cropState.scale);
+                    _cropState.scale   = newScale;
+                    _cropState.lastTouchDist = dist;
+                    document.getElementById('cropZoomSlider').value = newScale / _cropState.minScale;
+                    clampOffset(); drawCrop();
+                }
+            }, { passive: false });
+            fresh.addEventListener('touchend', () => { _cropState.dragging = false; _cropState.lastTouchDist = null; });
+        }
+
+        function closeCropModal() {
+            document.getElementById('cropModalOverlay').classList.remove('show');
+            _cropState = null;
+        }
+
+        async function saveCroppedPic() {
+            if (!_cropState) return;
+            const saveBtn = document.querySelector('.crop-btn-save');
+            saveBtn.textContent = 'Saving...';
+            saveBtn.disabled = true;
             try {
-                // Step 1: Get presigned URL from Cloud Function
-                console.log('[Upload] Requesting presigned URL...');
-                const getUploadUrl = firebase.functions().httpsCallable('getUploadUrl');
-                let result;
+                const canvas = document.getElementById('cropCanvas');
+                const blob   = await new Promise(res => canvas.toBlob(res, 'image/jpeg', 0.88));
+                const file   = new File([blob], 'profile.jpg', { type: 'image/jpeg' });
+
+                let cfResult;
                 try {
-                    result = await getUploadUrl({
-                        fileName:    file.name,
-                        contentType: file.type,
-                        folder:      'profiles'
-                    });
-                } catch (cfError) {
-                    console.error('[Upload] Cloud Function error:', cfError);
-                    throw new Error('Could not get upload URL: ' + (cfError.message || cfError.code));
+                    const fn = firebase.functions().httpsCallable('getUploadUrl');
+                    cfResult = await fn({ fileName: 'profile.jpg', contentType: 'image/jpeg', folder: 'profiles' });
+                } catch (cfErr) {
+                    throw new Error('Could not get upload URL: ' + (cfErr.message || cfErr.code));
                 }
-                const { presignedUrl, publicUrl, key } = result.data;
-                console.log('[Upload] Presigned URL received, uploading to R2...');
+                const { presignedUrl, publicUrl, key } = cfResult.data;
 
-                // Step 2: Upload directly to R2 (no Firebase bandwidth used)
-                let uploadResponse;
+                let uploadResp;
                 try {
-                    uploadResponse = await fetch(presignedUrl, {
-                        method: 'PUT',
-                        headers: { 'Content-Type': file.type },
-                        body: file
+                    uploadResp = await fetch(presignedUrl, {
+                        method: 'PUT', headers: { 'Content-Type': 'image/jpeg' }, body: file
                     });
-                } catch (fetchError) {
-                    console.error('[Upload] Fetch/CORS error:', fetchError);
-                    throw new Error('Storage upload blocked (CORS). Check R2 CORS policy. Details: ' + fetchError.message);
+                } catch (fetchErr) {
+                    throw new Error('CORS blocked — add R2 CORS policy for kundanreddy-netizen.github.io');
                 }
+                if (!uploadResp.ok) throw new Error('Upload failed: ' + uploadResp.status);
 
-                if (!uploadResponse.ok) {
-                    throw new Error('Upload to storage failed with status: ' + uploadResponse.status);
-                }
-                console.log('[Upload] R2 upload successful!');
-
-                // Step 3: Save URL and key to Firestore user document
                 await db.collection('users').doc(currentUser.uid).update({
                     profilePicUrl: publicUrl,
                     profilePicKey: key,
                     profilePicUpdatedAt: firebase.firestore.FieldValue.serverTimestamp()
                 });
 
-                // Step 4: Update UI immediately — no reload needed
-                avatarEl.innerHTML = `<img src="${publicUrl}" alt="Profile"
-                    onerror="this.parentElement.textContent='${(userData.displayName||'U')[0].toUpperCase()}'">
-                    <span class="avatar-upload-hint">📷 Change</span>`;
+                const initial = (userData.displayName || 'U')[0].toUpperCase();
+                document.getElementById('profileAvatarInitial').innerHTML =
+                    `<img src="${publicUrl}" alt="Profile"
+                      onerror="this.innerHTML='${initial}'">`;
 
-                // Update nav avatar too
-                const navAvatar = document.getElementById('userAvatar');
-                navAvatar.innerHTML = `<img class="nav-avatar-img" src="${publicUrl}"
-                    onerror="this.parentElement.textContent='${(userData.displayName||'U')[0].toUpperCase()}'" alt="">`;
+                const nav = document.getElementById('userAvatar');
+                nav.innerHTML = `<img class="nav-avatar-img" src="${publicUrl}"
+                    style="width:36px;height:36px;object-fit:cover;border-radius:50%;"
+                    onerror="this.parentElement.textContent='${initial}'" alt="">`;
 
-                // Update local userData cache
                 userData.profilePicUrl = publicUrl;
+                closeCropModal();
+                console.log('✅ Profile picture saved');
 
-                console.log('✅ Profile picture updated:', publicUrl);
-                alert('✅ Profile picture updated!');
-
-            } catch (error) {
-                console.error('❌ Profile pic upload error:', error);
-                avatarEl.innerHTML = originalContent;
-                if (error.code === 'functions/unauthenticated') {
-                    alert('Please log in again to upload a photo.');
-                } else {
-                    alert('Upload failed: ' + (error.message || 'Please try again.'));
-                }
+            } catch (err) {
+                console.error('❌ Crop save error:', err);
+                alert('Upload failed: ' + err.message);
+                saveBtn.textContent = 'Save Photo';
+                saveBtn.disabled = false;
             }
-
-            // Clear input so same file can be selected again
-            event.target.value = '';
         }
+
+        function openPhotoViewer(url, name) {
+            document.getElementById('photoViewerImg').src = url;
+            document.getElementById('photoViewerName').textContent = name || '';
+            document.getElementById('photoViewerOverlay').classList.add('show');
+        }
+        function closePhotoViewer() {
+            document.getElementById('photoViewerOverlay').classList.remove('show');
+            document.getElementById('photoViewerImg').src = '';
+        }
+
 
         // ── Shared upload helper (reused by all features in Phase 2) ──
         // Returns { publicUrl, key } or throws on error
@@ -5953,11 +6251,12 @@
     <div class="profile-modal" id="profileModal">
         <div class="profile-content">
             <div class="profile-header">
-                <div class="profile-avatar-large" id="profileAvatarLarge"
-                     onclick="document.getElementById('profilePicInput').click()"
-                     title="Tap to change profile picture">
-                    U
-                    <span class="avatar-upload-hint">📷 Change</span>
+                <div class="profile-avatar-large" id="profileAvatarLarge">
+                    <span id="profileAvatarInitial">U</span>
+                    <!-- Edit button — only shown for own profile -->
+                    <div class="avatar-edit-btn" id="avatarEditBtn"
+                         onclick="document.getElementById('profilePicInput').click()"
+                         title="Edit profile picture">✏️</div>
                 </div>
                 <h2 id="profileName">Loading...</h2>
                 <p id="profileUnit">Unit ---</p>
@@ -6349,6 +6648,37 @@
 
             <div style="margin-top: 40px; padding: 20px; background: #f8f9fa; border-radius: 8px;">
                 <p style="margin: 0;"><strong>By clicking "I Accept" you acknowledge that you have read, understood, and agree to be bound by these Terms of Service and Privacy Policy.</strong></p>
+            </div>
+        </div>
+    </div>
+
+
+    <!-- ══ Photo Viewer Modal (view other residents' pics) ══ -->
+    <div class="photo-viewer-overlay" id="photoViewerOverlay" onclick="closePhotoViewer()">
+        <button class="photo-viewer-close" onclick="closePhotoViewer()">✕</button>
+        <img class="photo-viewer-img" id="photoViewerImg" src="" alt="">
+        <div class="photo-viewer-name" id="photoViewerName"></div>
+    </div>
+
+    <!-- ══ Crop / Reposition Modal ══ -->
+    <div class="crop-modal-overlay" id="cropModalOverlay">
+        <div class="crop-modal-header">
+            <div>Edit Profile Picture</div>
+            <p>Drag to reposition · Scroll or pinch to zoom</p>
+        </div>
+        <div class="crop-canvas-wrapper" id="cropCanvasWrapper">
+            <canvas id="cropCanvas" width="300" height="300"></canvas>
+        </div>
+        <div class="crop-controls">
+            <div class="crop-zoom-row">
+                <span>🔍</span>
+                <input type="range" id="cropZoomSlider" min="1" max="4" step="0.01" value="1"
+                       oninput="onZoomSlider(this.value)">
+                <span>⊕</span>
+            </div>
+            <div class="crop-action-row">
+                <button class="crop-btn crop-btn-cancel" onclick="closeCropModal()">Cancel</button>
+                <button class="crop-btn crop-btn-save"   onclick="saveCroppedPic()">Save Photo</button>
             </div>
         </div>
     </div>
