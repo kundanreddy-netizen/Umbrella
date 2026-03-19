@@ -544,33 +544,27 @@
         .modal {
             display: none;
             position: fixed;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            background: rgba(0,0,0,0.5);
+            top: 0; left: 0;
+            width: 100%; height: 100%;
+            background: rgba(0,0,0,0.55);
             z-index: 1000;
-            overflow-y: auto;
-            align-items: center;
+            align-items: flex-end;
             justify-content: center;
-            padding: 20px;
+            padding: 0;
         }
-
-        .modal.show {
-            display: flex;
-        }
+        .modal.show { display: flex; }
 
         .modal-content {
             background: white;
-            border-radius: 20px;
+            border-radius: 24px 24px 0 0;
             width: 100%;
-            max-width: 480px;
-            max-height: 90vh;
-            overflow-y: auto;
+            max-width: 540px;
+            max-height: 92vh;
             padding: 0;
-            box-shadow: 0 8px 30px rgba(0,0,0,0.2);
+            box-shadow: 0 -4px 30px rgba(0,0,0,0.18);
             display: flex;
             flex-direction: column;
+            overflow: hidden;
         }
         /* Modal scrollable body */
         .modal-body-scroll {
@@ -642,19 +636,18 @@
         .reply-btn:hover { color: #667eea; }
         /* Fixed comment input bar at bottom of modal */
         .modal-comment-bar {
-            position: sticky;
-            bottom: 0;
             background: white;
             border-top: 1px solid #F0F0F0;
-            padding: 10px 14px;
+            padding: 12px 16px 16px;
+            flex-shrink: 0;
         }
         .modal-comment-input-row {
             display: flex;
-            gap: 8px;
+            gap: 10px;
             align-items: center;
             background: #F5F5F5;
-            border-radius: 12px;
-            padding: 10px 14px;
+            border-radius: 24px;
+            padding: 11px 16px;
         }
         .modal-comment-input-row input {
             flex: 1;
@@ -679,16 +672,20 @@
             background: #667eea;
             color: white;
             border: none;
-            border-radius: 8px;
-            padding: 7px 14px;
+            border-radius: 20px;
+            padding: 9px 20px;
             font-size: 14px;
-            font-weight: 600;
+            font-weight: 700;
             cursor: pointer;
             flex-shrink: 0;
-            opacity: 0.5;
-            transition: opacity 0.2s;
+            opacity: 0.45;
+            transition: opacity 0.2s, transform 0.1s;
+            display: flex;
+            align-items: center;
+            gap: 5px;
         }
         .modal-post-btn.active { opacity: 1; }
+        .modal-post-btn.active:active { transform: scale(0.96); }
         /* Reply input inline */
         .reply-input-row {
             display: flex;
@@ -721,11 +718,29 @@
             display: flex;
             justify-content: space-between;
             align-items: center;
-            margin-bottom: 15px;
-            padding-bottom: 12px;
-            border-bottom: 1px solid #f0f0f0;
+            padding: 16px 20px 14px;
+            border-bottom: 1px solid #F2F0F0;
+            flex-shrink: 0;
         }
-
+        .modal-title {
+            font-size: 17px;
+            font-weight: 700;
+            color: #0D0D0D;
+            margin: 0;
+        }
+        .modal-close {
+            width: 30px; height: 30px;
+            border-radius: 50%;
+            background: #F2F2F2;
+            border: none;
+            font-size: 16px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: #555;
+            line-height: 1;
+        }
         .modal-title {
             font-size: 18px;
             font-weight: 700;
@@ -1898,11 +1913,12 @@
     <!-- Modal for Creating Content -->
     <div class="modal" id="createModal">
         <div class="modal-content">
+            <div style="width:36px;height:4px;background:#E0E0E0;border-radius:2px;margin:10px auto 4px;flex-shrink:0;"></div>
             <div class="modal-header">
                 <h2 class="modal-title" id="modalTitle">Create</h2>
                 <button class="modal-close" onclick="closeModal()">&times;</button>
             </div>
-            <div id="modalBody">
+            <div id="modalBody" style="overflow-y:auto;padding:20px;">
                 <!-- Dynamic content will be loaded here -->
             </div>
         </div>
@@ -1924,11 +1940,14 @@
     <!-- Marketplace Item Detail Modal -->
     <div class="modal" id="marketplaceModal">
         <div class="modal-content">
-            <div class="modal-header" style="padding:16px 20px 12px;border-bottom:1px solid #F0F0F0;flex-shrink:0;">
+            <!-- Drag handle -->
+            <div style="width:36px;height:4px;background:#E0E0E0;border-radius:2px;margin:10px auto 4px;flex-shrink:0;"></div>
+            <div class="modal-header">
                 <h2 class="modal-title">Details</h2>
                 <button class="modal-close" onclick="closeMarketplaceModal()">&times;</button>
             </div>
-            <div id="marketplaceModalBody">
+            <!-- Scrollable body + sticky comment bar live inside here -->
+            <div id="marketplaceModalBody" style="display:flex;flex-direction:column;flex:1;overflow:hidden;">
                 <!-- Item details and comments will be displayed here -->
             </div>
         </div>
@@ -2925,13 +2944,15 @@
         // postHeaderHtml — modal post header, MyGate style
         function postHeaderHtml(name, unit, date, isOwner, deleteAction, userId) {
             const ago = date ? timeAgo(date instanceof Date ? date : date.toDate()) : '';
-            return '<div style="display:flex;align-items:center;gap:12px;margin-bottom:16px;padding-bottom:14px;border-bottom:1px solid #F0F0F0;">' +
-                avatarHtml(name, 48, userId) +
+            return '<div style="display:flex;align-items:center;gap:14px;margin-bottom:18px;">' +
+                avatarHtml(name, 52, userId) +
                 '<div style="flex:1;min-width:0;">' +
-                  '<div style="font-weight:700;font-size:16px;color:#0D0D0D;line-height:1.2;">' + (name || 'Unknown') + '</div>' +
-                  '<div style="font-size:13px;color:#888;margin-top:3px;">Unit ' + (unit || 'N/A') + (ago ? ' · ' + ago : '') + '</div>' +
+                  '<div style="font-weight:700;font-size:17px;color:#0D0D0D;line-height:1.2;">' + (name || 'Unknown') + '</div>' +
+                  '<div style="font-size:13px;color:#888;margin-top:4px;">Unit ' + (unit || 'N/A') + (ago ? ' · ' + ago : '') + '</div>' +
                 '</div>' +
-                (isOwner ? '<button onclick="' + deleteAction + '" style="background:none;border:none;cursor:pointer;font-size:16px;padding:6px;color:#bbb;" title="Delete">🗑️</button>' : '') +
+                (isOwner ? '<button onclick="' + deleteAction + '" style="background:none;border:none;cursor:pointer;padding:6px;color:#CCC;" title="Delete">' +
+                  '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6l-1 14H6L5 6"></path><path d="M10 11v6M14 11v6"></path><path d="M9 6V4h6v2"></path></svg>' +
+                '</button>' : '') +
                 '</div>';
         }
         
@@ -2948,7 +2969,7 @@
             let html = '';
 
             // ── Action bar: Like / Comment / Share ──
-            html += '<div class="post-action-bar">' +
+            html += '<div class="post-action-bar" style="margin-top:16px;">' +
                 '<button class="post-action-btn ' + (hasLiked ? 'liked' : '') + '" id="likeBtn-' + did + '" onclick="toggleLike(\'' + coll + '\',\'' + did + '\',' + viewFnName + ',' + loadFnName + ')">' +
                   '<svg width="18" height="18" viewBox="0 0 24 24" fill="' + (hasLiked ? '#667eea' : 'none') + '" stroke="' + (hasLiked ? '#667eea' : 'currentColor') + '" stroke-width="2"><path d="M14 9V5a3 3 0 0 0-3-3l-4 10v11h11.28a2 2 0 0 0 2-1.7l1.38-9a2 2 0 0 0-2-2.3zM7 22H4a2 2 0 0 1-2-2v-7a2 2 0 0 1 2-2h3"></path></svg>' +
                   (likes.length > 0 ? likes.length + ' ' : '') + 'Like' +
@@ -3024,7 +3045,7 @@
                     '</div>';
                 });
             } else {
-                html += '<div style="text-align:center;padding:20px 0;color:#CCC;font-size:14px;">No comments yet — be the first!</div>';
+                html += '<div style="text-align:center;padding:28px 0 16px;color:#C8C4D8;font-size:14px;font-weight:500;">No comments yet — be the first!</div>';
             }
             html += '</div>'; // close comments-area
 
@@ -4936,13 +4957,17 @@
                 const comments = data.comments || [];
                 const delAction = "if(confirm('Delete?')){deleteMarketplaceItem('" + itemId + "');closeMarketplaceModal();}";
                 
-                let html = postHeaderHtml(data.sellerName, data.unitNumber, data.createdAt, isOwner, delAction, data.sellerId);
-                html += '<div style="font-size:22px;font-weight:700;color:#667eea;margin-bottom:10px;">$' + (data.price || '0') + '</div>';
-                if (data.category) html += '<span style="background:#e3f2fd;color:#1976d2;padding:3px 10px;border-radius:10px;font-size:12px;font-weight:600;display:inline-block;margin-bottom:10px;">' + data.category + '</span>';
-                html += '<div style="font-size:14px;color:#333;line-height:1.6;margin-bottom:12px;">' + (data.description || 'No description') + '</div>';
-                html += commentsSectionHtml(comments, 'marketplace', itemId, 'viewMarketplaceItem', 'loadMarketplace', data);
+                // Scrollable content wrapper + sticky comment bar
+                let scrollHtml = '<div style="flex:1;overflow-y:auto;padding:16px 20px 8px;">';
+                scrollHtml += postHeaderHtml(data.sellerName, data.unitNumber, data.createdAt, isOwner, delAction, data.sellerId);
+                scrollHtml += '<div style="font-size:26px;font-weight:800;color:#667eea;margin-bottom:8px;">$' + (data.price || '0') + '</div>';
+                if (data.category) scrollHtml += '<span style="background:#EEF2FF;color:#667eea;padding:4px 12px;border-radius:20px;font-size:12px;font-weight:600;display:inline-block;margin-bottom:10px;">' + data.category + '</span>';
+                scrollHtml += '<div style="font-size:15px;color:#1A1A1A;line-height:1.6;margin-bottom:4px;">' + (data.description || 'No description') + '</div>';
+                // Action bar + views + comments list
+                scrollHtml += commentsSectionHtml(comments, 'marketplace', itemId, 'viewMarketplaceItem', 'loadMarketplace', data);
+                scrollHtml += '</div>';
                 
-                document.getElementById('marketplaceModalBody').innerHTML = html;
+                document.getElementById('marketplaceModalBody').innerHTML = scrollHtml;
                 document.getElementById('marketplaceModal').classList.add('show');
             } catch (error) {
                 console.error('Error:', error);
@@ -5004,7 +5029,7 @@
                 
                 html += commentsSectionHtml(comments, 'tickets', ticketId, 'viewTicket', 'loadTickets', data);
                 
-                document.getElementById('marketplaceModalBody').innerHTML = html;
+                document.getElementById('marketplaceModalBody').innerHTML = '<div style="flex:1;overflow-y:auto;padding:16px 20px 8px;">' + html + '</div>';
                 document.getElementById('marketplaceModal').classList.add('show');
             } catch (error) {
                 console.error('Error:', error);
@@ -5032,7 +5057,7 @@
                 html += '<div style="font-size:14px;color:#333;line-height:1.6;margin-bottom:12px;">' + (data.description || '') + '</div>';
                 html += commentsSectionHtml(comments, 'security_alerts', alertId, 'viewSecurityAlert', 'loadSecurityAlerts', data);
                 
-                document.getElementById('marketplaceModalBody').innerHTML = html;
+                document.getElementById('marketplaceModalBody').innerHTML = '<div style="flex:1;overflow-y:auto;padding:16px 20px 8px;">' + html + '</div>';
                 document.getElementById('marketplaceModal').classList.add('show');
             } catch (error) {
                 console.error('Error:', error);
@@ -5063,7 +5088,7 @@
                 html += '<div style="font-size:14px;color:#333;line-height:1.6;margin-bottom:12px;">' + (data.description || '') + '</div>';
                 html += commentsSectionHtml(comments, 'lost_and_found', itemId, 'viewLostFoundItem', 'loadLostAndFound', data);
                 
-                document.getElementById('marketplaceModalBody').innerHTML = html;
+                document.getElementById('marketplaceModalBody').innerHTML = '<div style="flex:1;overflow-y:auto;padding:16px 20px 8px;">' + html + '</div>';
                 document.getElementById('marketplaceModal').classList.add('show');
             } catch (error) {
                 console.error('Error:', error);
@@ -5244,7 +5269,7 @@
                 if (data.availableUntil) html += '<div style="font-size:12px;color:#666;margin-bottom:8px;">⏰ Available until: ' + data.availableUntil.toDate().toLocaleDateString() + '</div>';
                 html += commentsSectionHtml(comments, 'communityshare', itemId, 'viewCommunityShareItem', 'loadCommunityShare', data);
                 
-                document.getElementById('marketplaceModalBody').innerHTML = html;
+                document.getElementById('marketplaceModalBody').innerHTML = '<div style="flex:1;overflow-y:auto;padding:16px 20px 8px;">' + html + '</div>';
                 document.getElementById('marketplaceModal').classList.add('show');
             } catch (error) {
                 console.error('Error:', error);
@@ -5997,7 +6022,7 @@
                 if (rsvps.length > 0) html += '<div style="font-size:13px;color:#666;margin-bottom:8px;">✅ Going (' + rsvps.length + '): ' + rsvps.map(r => r.userName || 'Resident').join(', ') + '</div>';
                 html += commentsSectionHtml(comments, 'events', eventId, 'viewEvent', 'loadEvents', data);
                 
-                document.getElementById('marketplaceModalBody').innerHTML = html;
+                document.getElementById('marketplaceModalBody').innerHTML = '<div style="flex:1;overflow-y:auto;padding:16px 20px 8px;">' + html + '</div>';
                 document.getElementById('marketplaceModal').classList.add('show');
             } catch (error) {
                 console.error('Error:', error);
