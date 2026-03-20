@@ -4968,7 +4968,10 @@
                 // Scroll area + sticky comment bar (two-child flex column)
                 let scrollHtml = '<div style="flex:1;overflow-y:auto;padding:16px 20px 8px;">';
                 scrollHtml += postHeaderHtml(data.sellerName, data.unitNumber, data.createdAt, isOwner, delAction, data.sellerId);
-                scrollHtml += '<div style="font-size:28px;font-weight:800;color:#667eea;margin-bottom:8px;">$' + (data.price || '0') + '</div>';
+                scrollHtml += '<div style="display:flex;align-items:baseline;gap:12px;margin-bottom:6px;">' +
+                    '<span style="font-size:28px;font-weight:800;color:#667eea;">$' + (data.price || '0') + '</span>' +
+                    '<span style="font-size:20px;font-weight:700;color:#0D0D0D;">' + (data.title || '') + '</span>' +
+                    '</div>';
                 if (data.category) scrollHtml += '<span style="background:#EEF2FF;color:#667eea;padding:4px 14px;border-radius:20px;font-size:13px;font-weight:600;display:inline-block;margin-bottom:12px;">' + data.category + '</span>';
                 scrollHtml += '<div style="font-size:15px;color:#1A1A1A;line-height:1.6;margin-bottom:8px;">' + (data.description || 'No description') + '</div>';
                 scrollHtml += commentsSectionHtml(comments, 'marketplace', itemId, 'viewMarketplaceItem', 'loadMarketplace', data);
