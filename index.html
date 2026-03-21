@@ -4016,7 +4016,7 @@
                             <div style="display:flex;align-items:center;gap:12px;">
                                 ${avatarHtml('Admin', 52, null, null)}
                                 <div style="flex:1;min-width:0;">
-                                    <div style="font-weight:700;font-size:16px;color:#0D0D0D;">${data.title || 'Announcement'}</div>
+                                    <div style="font-weight:600;font-size:15px;color:#0D0D0D;margin-top:6px;">${data.title || 'Announcement'}</div>
                                     <div class="feed-meta">Admin · ${date}</div>
                                 </div>
                                 ${postMenuHtml(doc.id, 'announcement', isAdm, isAdm)}
@@ -4556,8 +4556,8 @@
                             ${postMenuHtml(data.id, 'marketplace', isOwner, userData.role === 'admin')}
                         </div>
                         <div class="feed-body">
-                            <div style="font-size:16px;font-weight:700;color:#0D0D0D;margin-bottom:3px;">${data.title || 'Item'}</div>
-                            <div style="font-size:15px;font-weight:700;color:#667eea;margin-bottom:5px;">$${data.price || '0'}</div>
+                            <div style="font-weight:600;font-size:15px;color:#0D0D0D;margin-bottom:3px;">${data.title || 'Item'}</div>
+                            <div style="font-size:14px;font-weight:600;color:#667eea;margin-bottom:5px;">$${data.price || '0'}</div>
                             <div style="font-size:14px;color:#555;line-height:1.5;">${data.description || ''}</div>
                         </div>
                         <div class="feed-footer">
@@ -6283,6 +6283,15 @@
 
         async function loadSecurityAlerts() {
             const container = document.getElementById('securityContent');
+            // typeLabels must be defined here for the list card rendering
+            const typeLabels = {
+                suspicious_activity: 'Suspicious Activity',
+                theft: 'Theft',
+                vandalism: 'Vandalism',
+                noise: 'Noise Disturbance',
+                safety_hazard: 'Safety Hazard',
+                other: 'Other'
+            };
             try {
                 const snapshot = await db.collection('security_alerts')
                     .where('communityId', '==', userCommunityId)
