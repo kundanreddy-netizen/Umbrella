@@ -4413,6 +4413,11 @@
                 const tickets = [];
                 snapshot.forEach(doc => tickets.push({ id: doc.id, ...doc.data() }));
                 tickets.sort((a, b) => {
+                    // Closed/resolved go to the bottom
+                    const aDone = a.status === 'resolved' || a.status === 'closed';
+                    const bDone = b.status === 'resolved' || b.status === 'closed';
+                    if (aDone !== bDone) return aDone ? 1 : -1;
+                    // Within each group: newest first
                     const dateA = a.createdAt ? a.createdAt.toMillis() : 0;
                     const dateB = b.createdAt ? b.createdAt.toMillis() : 0;
                     return dateB - dateA;
@@ -6002,8 +6007,20 @@
                     return;
                 }
                 
-                // Sort newest first (reverse chronological)
-                items.sort((a, b) => (b.eventDate ? b.eventDate.toMillis() : 0) - (a.eventDate ? a.eventDate.toMillis() : 0));
+                // Sort: upcoming events soonest→farthest, then past events at bottom (oldest last)
+                items.sort((a, b) => {
+                    const now = Date.now();
+                    const aMs = a.eventDate ? a.eventDate.toMillis() : 0;
+                    const bMs = b.eventDate ? b.eventDate.toMillis() : 0;
+                    const aPast = aMs < now;
+                    const bPast = bMs < now;
+                    // Both upcoming: soonest first
+                    if (!aPast && !bPast) return aMs - bMs;
+                    // Both past: most recent past first (closest to now)
+                    if (aPast && bPast) return bMs - aMs;
+                    // Past goes below upcoming
+                    return aPast ? 1 : -1;
+                });
                 
                 let html = '';
                 items.forEach(data => {
