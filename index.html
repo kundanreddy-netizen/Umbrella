@@ -1740,6 +1740,79 @@
             pointer-events: none;
         }
 
+
+        /* ── MEDIA EDITOR MODALS ── */
+        .media-editor-overlay {
+            display: none;
+            position: fixed;
+            inset: 0;
+            background: rgba(0,0,0,0.92);
+            z-index: 19999;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+        }
+        .media-editor-overlay.show { display: flex; }
+        .media-editor-header {
+            color: white;
+            font-size: 17px;
+            font-weight: 600;
+            margin-bottom: 16px;
+            text-align: center;
+        }
+        .media-editor-header p { font-size: 12px; color: rgba(255,255,255,0.55); margin-top: 4px; }
+        /* Image crop reuses crop-canvas-wrapper + crop-controls styles */
+        /* Video trim */
+        .video-trim-preview {
+            width: min(90vw, 420px);
+            max-height: 260px;
+            border-radius: 12px;
+            background: #000;
+            display: block;
+            object-fit: contain;
+        }
+        .video-trim-controls {
+            width: min(90vw, 420px);
+            margin-top: 18px;
+            color: white;
+        }
+        .video-trim-row {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            margin-bottom: 10px;
+            font-size: 13px;
+        }
+        .video-trim-row label { width: 70px; color: rgba(255,255,255,0.7); }
+        .video-trim-row input[type=range] {
+            flex: 1;
+            accent-color: #667eea;
+        }
+        .video-trim-row span { width: 36px; text-align: right; font-size: 12px; color: #aaa; }
+        .video-trim-duration {
+            font-size: 12px;
+            color: rgba(255,255,255,0.5);
+            text-align: center;
+            margin-bottom: 14px;
+        }
+        .media-editor-actions {
+            display: flex;
+            gap: 12px;
+            width: min(90vw, 420px);
+            margin-top: 16px;
+        }
+        .media-editor-btn {
+            flex: 1;
+            padding: 13px;
+            border: none;
+            border-radius: 10px;
+            font-size: 15px;
+            font-weight: 600;
+            cursor: pointer;
+        }
+        .media-editor-btn-cancel { background: #444; color: white; }
+        .media-editor-btn-save   { background: #667eea; color: white; }
+
         .card-header { display: flex; justify-content: space-between; align-items: flex-start; gap: 8px; }
 
         /* ══════════════════════════════════════
@@ -3417,6 +3490,7 @@
                 const doc = await db.collection('tickets').doc(ticketId).get();
                 if (!doc.exists) { alert('Ticket not found'); return; }
                 const data = doc.data();
+                window._editData = data; // store for preloadMediaState
 
                 // Only owner or admin can edit
                 if (data.residentId !== currentUser.uid && userData.role !== 'admin') {
@@ -3446,6 +3520,7 @@
                         <input type="text" id="editTicketLocation" value="${(data.location || '').replace(/"/g, '&quot;')}"
                                style="width:100%;padding:10px 12px;border:1px solid #e0e0e0;border-radius:8px;font-size:14px;">
                     </div>
+                    ${mediaUploadHtml('edit-tk','tickets')}
                     <div style="display:flex;gap:10px;margin-top:16px;">
                         <button onclick="saveTicketEdit('${ticketId}')" 
                                 style="flex:1;background:#667eea;color:white;border:none;padding:12px;border-radius:8px;font-size:14px;font-weight:600;cursor:pointer;">
@@ -3459,6 +3534,7 @@
                 `;
                 document.getElementById('marketplaceModalBody').innerHTML = '<div style="flex:1;overflow-y:auto;padding:16px 20px 8px;">' + html + '</div>';
                 document.getElementById('marketplaceModal').classList.add('show');
+                setTimeout(()=>preloadMediaState('edit-tk', (window._editData||{}).mediaUrls||[]),200);
             } catch (error) {
                 console.error('Error loading ticket for edit:', error);
                 alert('Error: ' + error.message);
@@ -3479,8 +3555,10 @@
                     title: title,
                     description: desc,
                     location: loc,
+                    mediaUrls: getMediaUrls('edit-tk'),
                     updatedAt: firebase.firestore.FieldValue.serverTimestamp()
                 });
+                clearMediaState('edit-tk');
                 closeMarketplaceModal();
                 loadTickets();
                 alert('✅ Ticket updated successfully!');
@@ -3502,6 +3580,7 @@
                 const doc = await db.collection('marketplace').doc(itemId).get();
                 if (!doc.exists) { alert('Item not found'); return; }
                 const data = doc.data();
+                window._editData = data; // store for preloadMediaState
 
                 // Only owner or admin can edit
                 if (data.sellerId !== currentUser.uid && userData.role !== 'admin') {
@@ -3559,6 +3638,7 @@
                                style="width:100%;padding:10px 12px;border:1px solid #e0e0e0;border-radius:8px;font-size:14px;">
                     </div>
 
+                    ${mediaUploadHtml('edit-mp','marketplace')}
                     <div style="display:flex;gap:10px;margin-top:18px;">
                         <button onclick="saveMarketplaceEdit('${itemId}')"
                                 style="flex:1;background:#667eea;color:white;border:none;padding:12px;border-radius:8px;font-size:14px;font-weight:600;cursor:pointer;">
@@ -3573,6 +3653,7 @@
 
                 document.getElementById('marketplaceModalBody').innerHTML = '<div style="flex:1;overflow-y:auto;padding:16px 20px 8px;">' + modalHtml + '</div>';
                 document.getElementById('marketplaceModal').classList.add('show');
+                setTimeout(()=>preloadMediaState('edit-mp', (window._editData||{}).mediaUrls||[]),200);
 
             } catch (error) {
                 console.error('Error loading item for edit:', error);
@@ -3602,8 +3683,10 @@
                     description: desc,
                     sellerEmail: isEmail ? contact : '',
                     sellerPhone: isEmail ? '' : contact,
+                    mediaUrls:   getMediaUrls('edit-mp'),
                     updatedAt:   firebase.firestore.FieldValue.serverTimestamp()
                 });
+                clearMediaState('edit-mp');
                 closeMarketplaceModal();
                 loadMarketplace();
                 alert('✅ Listing updated successfully!');
@@ -3624,6 +3707,7 @@
                 const doc = await db.collection('communityshare').doc(itemId).get();
                 if (!doc.exists) { alert('Item not found'); return; }
                 const data = doc.data();
+                window._editData = data; // store for preloadMediaState
                 if (data.ownerId !== currentUser.uid && userData.role !== 'admin') {
                     alert('You can only edit your own posts.'); return;
                 }
@@ -3659,6 +3743,7 @@
                                placeholder="Enter your Phone Number or email"
                                style="width:100%;padding:10px 12px;border:1px solid #e0e0e0;border-radius:8px;font-size:14px;">
                     </div>
+                    ${mediaUploadHtml('edit-cs','communityshare')}
                     <div style="display:flex;gap:10px;margin-top:18px;">
                         <button onclick="saveCommunityShareEdit('${itemId}')"
                                 style="flex:1;background:#667eea;color:white;border:none;padding:12px;border-radius:8px;font-size:14px;font-weight:600;cursor:pointer;">💾 Save Changes</button>
@@ -3667,6 +3752,7 @@
                     </div>`;
                 document.getElementById('marketplaceModalBody').innerHTML = '<div style="flex:1;overflow-y:auto;padding:16px 20px 8px;">' + modalHtml + '</div>';
                 document.getElementById('marketplaceModal').classList.add('show');
+                setTimeout(()=>preloadMediaState('edit-cs', (window._editData||{}).mediaUrls||[]),200);
             } catch(e) { alert('Error: ' + e.message); }
         }
 
@@ -3684,8 +3770,10 @@
                     availableUntil: avail ? firebase.firestore.Timestamp.fromDate(new Date(avail)) : null,
                     ownerEmail: isEmail ? contact : '',
                     ownerPhone: isEmail ? '' : contact,
+                    mediaUrls: getMediaUrls('edit-cs'),
                     updatedAt: firebase.firestore.FieldValue.serverTimestamp()
                 });
+                clearMediaState('edit-cs');
                 closeMarketplaceModal(); loadCommunityShare();
                 alert('✅ Post updated successfully!');
             } catch(e) {
@@ -3699,6 +3787,7 @@
                 const doc = await db.collection('security_alerts').doc(alertId).get();
                 if (!doc.exists) { alert('Alert not found'); return; }
                 const data = doc.data();
+                window._editData = data; // store for preloadMediaState
                 if (data.reportedBy !== currentUser.uid && userData.role !== 'admin') {
                     alert('You can only edit your own alerts.'); return;
                 }
@@ -3738,6 +3827,7 @@
                                    style="width:100%;padding:10px 12px;border:1px solid #e0e0e0;border-radius:8px;font-size:14px;">
                         </div>
                     </div>
+                    ${mediaUploadHtml('edit-sa','security')}
                     <div style="display:flex;gap:10px;margin-top:18px;">
                         <button onclick="saveSecurityAlertEdit('${alertId}')"
                                 style="flex:1;background:#667eea;color:white;border:none;padding:12px;border-radius:8px;font-size:14px;font-weight:600;cursor:pointer;">💾 Save Changes</button>
@@ -3746,6 +3836,7 @@
                     </div>`;
                 document.getElementById('marketplaceModalBody').innerHTML = '<div style="flex:1;overflow-y:auto;padding:16px 20px 8px;">' + modalHtml + '</div>';
                 document.getElementById('marketplaceModal').classList.add('show');
+                setTimeout(()=>preloadMediaState('edit-sa', (window._editData||{}).mediaUrls||[]),200);
             } catch(e) { alert('Error: ' + e.message); }
         }
 
@@ -3760,8 +3851,10 @@
                 await db.collection('security_alerts').doc(alertId).update({
                     type, title, description: desc, location: loc,
                     incidentDateTime: firebase.firestore.Timestamp.fromDate(new Date(dt)),
+                    mediaUrls: getMediaUrls('edit-sa'),
                     updatedAt: firebase.firestore.FieldValue.serverTimestamp()
                 });
+                clearMediaState('edit-sa');
                 closeMarketplaceModal(); loadSecurityAlerts();
                 alert('✅ Alert updated successfully!');
             } catch(e) {
@@ -3775,6 +3868,7 @@
                 const doc = await db.collection('events').doc(eventId).get();
                 if (!doc.exists) { alert('Event not found'); return; }
                 const data = doc.data();
+                window._editData = data; // store for preloadMediaState
                 if (data.organizerId !== currentUser.uid && userData.role !== 'admin') {
                     alert('You can only edit your own events.'); return;
                 }
@@ -3817,6 +3911,7 @@
                                placeholder="Enter your Phone Number or email"
                                style="width:100%;padding:10px 12px;border:1px solid #e0e0e0;border-radius:8px;font-size:14px;">
                     </div>
+                    ${mediaUploadHtml('edit-ev','events')}
                     <div style="display:flex;gap:10px;margin-top:18px;">
                         <button onclick="saveEventEdit('${eventId}')"
                                 style="flex:1;background:#667eea;color:white;border:none;padding:12px;border-radius:8px;font-size:14px;font-weight:600;cursor:pointer;">💾 Save Changes</button>
@@ -3825,6 +3920,7 @@
                     </div>`;
                 document.getElementById('marketplaceModalBody').innerHTML = '<div style="flex:1;overflow-y:auto;padding:16px 20px 8px;">' + modalHtml + '</div>';
                 document.getElementById('marketplaceModal').classList.add('show');
+                setTimeout(()=>preloadMediaState('edit-ev', (window._editData||{}).mediaUrls||[]),200);
             } catch(e) { alert('Error: ' + e.message); }
         }
 
@@ -3845,8 +3941,10 @@
                     location: loc,
                     organizerEmail: isEmail ? contact : '',
                     organizerPhone: isEmail ? '' : contact,
+                    mediaUrls: getMediaUrls('edit-ev'),
                     updatedAt: firebase.firestore.FieldValue.serverTimestamp()
                 });
+                clearMediaState('edit-ev');
                 closeMarketplaceModal(); loadEvents();
                 alert('✅ Event updated successfully!');
             } catch(e) {
@@ -3860,6 +3958,7 @@
                 const doc = await db.collection('lost_and_found').doc(itemId).get();
                 if (!doc.exists) { alert('Item not found'); return; }
                 const data = doc.data();
+                window._editData = data; // store for preloadMediaState
                 if (data.postedBy !== currentUser.uid && userData.role !== 'admin') {
                     alert('You can only edit your own posts.'); return;
                 }
@@ -3913,6 +4012,7 @@
                                placeholder="Enter your Phone Number or email"
                                style="width:100%;padding:10px 12px;border:1px solid #e0e0e0;border-radius:8px;font-size:14px;">
                     </div>
+                    ${mediaUploadHtml('edit-lf','lostfound')}
                     <div style="display:flex;gap:10px;margin-top:18px;">
                         <button onclick="saveLostFoundEdit('${itemId}')"
                                 style="flex:1;background:#667eea;color:white;border:none;padding:12px;border-radius:8px;font-size:14px;font-weight:600;cursor:pointer;">💾 Save Changes</button>
@@ -3921,6 +4021,7 @@
                     </div>`;
                 document.getElementById('marketplaceModalBody').innerHTML = '<div style="flex:1;overflow-y:auto;padding:16px 20px 8px;">' + modalHtml + '</div>';
                 document.getElementById('marketplaceModal').classList.add('show');
+                setTimeout(()=>preloadMediaState('edit-lf', (window._editData||{}).mediaUrls||[]),200);
             } catch(e) { alert('Error: ' + e.message); }
         }
 
@@ -3942,8 +4043,10 @@
                     ownerEmail: isEmail ? contact : '',
                     ownerPhone: isEmail ? '' : contact,
                     contact: contact,
+                    mediaUrls: getMediaUrls('edit-lf'),
                     updatedAt: firebase.firestore.FieldValue.serverTimestamp()
                 });
+                clearMediaState('edit-lf');
                 closeMarketplaceModal(); loadLostAndFound();
                 alert('✅ Post updated successfully!');
             } catch(e) {
@@ -4862,7 +4965,7 @@
                         <label>Location</label>
                         <input type="text" id="ticketLocation" placeholder="Unit 101, Lobby, etc.">
                     </div>
-                    ${mediaUploadHtml('tk-upload')}
+                    ${mediaUploadHtml('tk-upload','tickets')}
                     <button class="btn" onclick="createTicket()">Submit Ticket</button>
                 `;
             } else if (currentTab === 'marketplace') {
@@ -4897,7 +5000,7 @@
                         <label>Your Contact (Phone or Email)</label>
                         <input type="text" id="sellerContact" placeholder="555-1234 or email@example.com" value="${userData.phone || userData.email || ''}">
                     </div>
-                    ${mediaUploadHtml('mp-upload')}
+                    ${mediaUploadHtml('mp-upload','marketplace')}
                     <button class="btn" onclick="createMarketplaceItem()">Post Item</button>
                 `;
             } else if (currentTab === 'communityshare') {
@@ -4926,7 +5029,7 @@
                         <label>Your Contact (Phone or Email)</label>
                         <input type="text" id="shareContact" placeholder="555-1234 or email@example.com" value="${userData.phone || userData.email || ''}">
                     </div>
-                    ${mediaUploadHtml('cs-upload')}
+                    ${mediaUploadHtml('cs-upload','communityshare')}
                     <button class="btn" onclick="createCommunityShareItem()">Post</button>
                 `;
             } else if (currentTab === 'events') {
@@ -4956,7 +5059,7 @@
                         <label>Your Contact (Phone or Email) *</label>
                         <input type="text" id="eventContact" placeholder="555-1234 or email@example.com" value="${userData.phone || userData.email || ''}">
                     </div>
-                    ${mediaUploadHtml('ev-upload')}
+                    ${mediaUploadHtml('ev-upload','events')}
                     <button class="btn" onclick="createCommunityEvent()">Create Event</button>
                 `;
             } else if (currentTab === 'security') {
@@ -4989,7 +5092,7 @@
                         <label>Date & Time *</label>
                         <input type="datetime-local" id="securityDateTime" style="width:100%;padding:12px;border:2px solid #e0e0e0;border-radius:8px;">
                     </div>
-                    ${mediaUploadHtml('sa-upload')}
+                    ${mediaUploadHtml('sa-upload','security')}
                     <button class="btn" onclick="createSecurityAlert()">Report Alert</button>
                 `;
             } else if (currentTab === 'lostandfound') {
@@ -5035,7 +5138,7 @@
                         <label>Contact Info *</label>
                         <input type="text" id="lostfoundContact" placeholder="Phone or email" value="${userData.phone || userData.email || ''}">
                     </div>
-                    ${mediaUploadHtml('lf-upload')}
+                    ${mediaUploadHtml('lf-upload','lostfound')}
                     <button class="btn" onclick="createLostFound()">Post</button>
                 `;
             }
@@ -7374,11 +7477,11 @@
         const _mediaState = {};
 
         // Render the upload widget HTML string
-        function mediaUploadHtml(uploadId) {
+        function mediaUploadHtml(uploadId, folder) {
             return `
                 <div class="input-group" style="margin-top:12px;">
                     <label>Photos / Video <span style="color:#AAA;font-weight:400;">(up to 3 photos or 1 video, 15s max)</span></label>
-                    <div class="media-upload-zone" onclick="triggerMediaPicker('${uploadId}')">
+                    <div class="media-upload-zone" onclick="triggerMediaPicker('${uploadId}')" data-folder="${folder}">
                         <div class="muz-icon">📷</div>
                         <span class="muz-label">Tap to add photos or video</span>
                         <div class="muz-sub">Up to 3 items · photos + 1 video · max 25MB each · video max 15s</div>
@@ -7422,45 +7525,19 @@
             // Total limit: max 3 items combined (photos + video)
             if (state.files.length >= 3) { alert('Maximum 3 media items reached.'); return; }
 
-            // Video rules: max 1 video per post + duration check
+            // Video rules: max 1 video per post
             if (isVideo) {
                 if (state.files.some(f => f.type.startsWith('video/'))) {
                     alert('Only 1 video allowed per post. Remove the existing video first.');
                     return;
                 }
-                const ok = await checkVideoDuration(file, 15);
-                if (!ok) { alert('Video must be 15 seconds or shorter.'); return; }
+                // Open trim editor — upload happens after user confirms trim
+                openVideoTrimEditor(file, uploadId);
+                return;
             }
 
-            // Show uploading state
-            const progress = document.getElementById(uploadId + '-progress');
-            if (progress) progress.textContent = '⏳ Uploading...';
-
-            try {
-                const folder = 'posts';
-                const fn = firebase.functions().httpsCallable('getUploadUrl');
-                const result = await fn({ fileName: file.name, contentType: file.type, folder: folder });
-                const { presignedUrl, publicUrl, key } = result.data;
-
-                await fetch(presignedUrl, {
-                    method: 'PUT',
-                    headers: { 'Content-Type': file.type },
-                    body: file
-                });
-
-                // Add to state
-                state.files.push(file);
-                state.urls.push({ url: publicUrl, key: key, type: isVideo ? 'video' : 'image' });
-
-                // Render preview
-                renderMediaPreviews(uploadId);
-                if (progress) progress.textContent = '';
-
-            } catch (e) {
-                console.error('Media upload error:', e);
-                if (progress) progress.textContent = '';
-                alert('Upload failed: ' + e.message);
-            }
+            // For images: open crop editor — upload happens after user confirms crop
+            openMediaCropEditor(file, uploadId);
         }
 
         // Check video duration using a temporary video element
@@ -7526,6 +7603,21 @@
             return state ? state.urls : [];
         }
 
+
+        // Pre-populate media state from existing saved mediaUrls (used in edit forms)
+        function preloadMediaState(uploadId, existingUrls) {
+            if (!existingUrls || existingUrls.length === 0) return;
+            _mediaState[uploadId] = {
+                files: existingUrls.map(() => ({ name: 'existing', type: 'image/jpeg' })),
+                urls: existingUrls.map(m => ({
+                    url:  typeof m === 'string' ? m : m.url,
+                    key:  typeof m === 'string' ? '' : (m.key || ''),
+                    type: (typeof m === 'object' && m.type) ? m.type : 'image'
+                }))
+            };
+            renderMediaPreviews(uploadId);
+        }
+
         // Clear upload state after successful post
         function clearMediaState(uploadId) {
             delete _mediaState[uploadId];
@@ -7586,6 +7678,284 @@
         function modalMediaHtml(mediaUrls) {
             return mediaCarouselHtml(mediaUrls,
                 'modal-media-carousel', 'modal-media-slide', 'modal-media-track', 'modal-media-dots', false);
+        }
+
+
+        // ════════════════════════════════════════════════════════
+        // IMAGE CROP EDITOR — intercepts image before R2 upload
+        // ════════════════════════════════════════════════════════
+        let _mediaCropState = null;  // { file, uploadId, cropState }
+
+        // Called from handleMediaFiles instead of uploading directly
+        function openMediaCropEditor(file, uploadId) {
+            const reader = new FileReader();
+            reader.onload = e => {
+                const img = new Image();
+                img.onload = () => {
+                    const S = 300;
+                    const canvas = document.getElementById('mediaCropCanvas');
+                    canvas.width = canvas.height = S;
+                    const scale = Math.max(S / img.width, S / img.height);
+                    const cs = {
+                        img, scale, minScale: scale,
+                        offsetX: (S - img.width * scale) / 2,
+                        offsetY: (S - img.height * scale) / 2,
+                        dragging: false, startX: 0, startY: 0, lastTouchDist: null
+                    };
+                    _mediaCropState = { file, uploadId, cs };
+                    document.getElementById('mediaCropZoom').value = 1;
+                    drawMediaCrop();
+                    setupMediaCropEvents();
+                    document.getElementById('mediaCropOverlay').classList.add('show');
+                };
+                img.src = e.target.result;
+            };
+            reader.readAsDataURL(file);
+        }
+
+        function drawMediaCrop() {
+            if (!_mediaCropState) return;
+            const { cs } = _mediaCropState;
+            const canvas = document.getElementById('mediaCropCanvas');
+            const ctx = canvas.getContext('2d');
+            ctx.clearRect(0, 0, 300, 300);
+            ctx.drawImage(cs.img, cs.offsetX, cs.offsetY, cs.img.width * cs.scale, cs.img.height * cs.scale);
+        }
+
+        function clampMediaCrop() {
+            const { cs } = _mediaCropState;
+            const W = cs.img.width * cs.scale, H = cs.img.height * cs.scale;
+            cs.offsetX = Math.min(0, Math.max(300 - W, cs.offsetX));
+            cs.offsetY = Math.min(0, Math.max(300 - H, cs.offsetY));
+        }
+
+        function onMediaCropZoom(val) {
+            if (!_mediaCropState) return;
+            const { cs } = _mediaCropState;
+            const newScale = cs.minScale * parseFloat(val);
+            cs.offsetX = 150 - (150 - cs.offsetX) * (newScale / cs.scale);
+            cs.offsetY = 150 - (150 - cs.offsetY) * (newScale / cs.scale);
+            cs.scale = newScale;
+            clampMediaCrop(); drawMediaCrop();
+        }
+
+        function setupMediaCropEvents() {
+            const wrapper = document.getElementById('mediaCropWrapper');
+            const fresh = wrapper.cloneNode(true);
+            wrapper.parentNode.replaceChild(fresh, wrapper);
+            const cs = _mediaCropState.cs;
+
+            fresh.addEventListener('mousedown', e => { cs.dragging=true; cs.startX=e.clientX-cs.offsetX; cs.startY=e.clientY-cs.offsetY; });
+            fresh.addEventListener('mousemove', e => { if(!cs.dragging)return; cs.offsetX=e.clientX-cs.startX; cs.offsetY=e.clientY-cs.startY; clampMediaCrop(); drawMediaCrop(); });
+            fresh.addEventListener('mouseup',    () => { cs.dragging=false; });
+            fresh.addEventListener('mouseleave', () => { cs.dragging=false; });
+            fresh.addEventListener('wheel', e => {
+                e.preventDefault();
+                const delta = e.deltaY > 0 ? -0.05 : 0.05;
+                const newScale = Math.max(cs.minScale, cs.scale*(1+delta));
+                cs.offsetX = e.offsetX - (e.offsetX - cs.offsetX)*(newScale/cs.scale);
+                cs.offsetY = e.offsetY - (e.offsetY - cs.offsetY)*(newScale/cs.scale);
+                cs.scale = newScale;
+                document.getElementById('mediaCropZoom').value = newScale/cs.minScale;
+                clampMediaCrop(); drawMediaCrop();
+            }, { passive:false });
+            fresh.addEventListener('touchstart', e => {
+                e.preventDefault();
+                if(e.touches.length===1){ cs.dragging=true; cs.startX=e.touches[0].clientX-cs.offsetX; cs.startY=e.touches[0].clientY-cs.offsetY; cs.lastTouchDist=null; }
+                else if(e.touches.length===2){ cs.dragging=false; cs.lastTouchDist=Math.hypot(e.touches[0].clientX-e.touches[1].clientX, e.touches[0].clientY-e.touches[1].clientY); }
+            },{ passive:false });
+            fresh.addEventListener('touchmove', e => {
+                e.preventDefault();
+                if(e.touches.length===1 && cs.dragging){ cs.offsetX=e.touches[0].clientX-cs.startX; cs.offsetY=e.touches[0].clientY-cs.startY; clampMediaCrop(); drawMediaCrop(); }
+                else if(e.touches.length===2 && cs.lastTouchDist){
+                    const dist=Math.hypot(e.touches[0].clientX-e.touches[1].clientX, e.touches[0].clientY-e.touches[1].clientY);
+                    const newScale=Math.max(cs.minScale, cs.scale*(dist/cs.lastTouchDist));
+                    const rect=fresh.getBoundingClientRect();
+                    const cx=(e.touches[0].clientX+e.touches[1].clientX)/2-rect.left;
+                    const cy=(e.touches[0].clientY+e.touches[1].clientY)/2-rect.top;
+                    cs.offsetX=cx-(cx-cs.offsetX)*(newScale/cs.scale);
+                    cs.offsetY=cy-(cy-cs.offsetY)*(newScale/cs.scale);
+                    cs.scale=newScale; cs.lastTouchDist=dist;
+                    document.getElementById('mediaCropZoom').value=newScale/cs.minScale;
+                    clampMediaCrop(); drawMediaCrop();
+                }
+            },{ passive:false });
+            fresh.addEventListener('touchend', ()=>{ cs.dragging=false; cs.lastTouchDist=null; });
+        }
+
+        function cancelMediaCrop() {
+            document.getElementById('mediaCropOverlay').classList.remove('show');
+            _mediaCropState = null;
+        }
+
+        async function saveMediaCrop() {
+            if (!_mediaCropState) return;
+            const saveBtn = document.querySelector('#mediaCropOverlay .media-editor-btn-save');
+            saveBtn.textContent = 'Uploading...';
+            saveBtn.disabled = true;
+            try {
+                const canvas = document.getElementById('mediaCropCanvas');
+                const blob = await new Promise(res => canvas.toBlob(res, 'image/jpeg', 0.88));
+                const croppedFile = new File([blob], _mediaCropState.file.name.replace(/\.[^.]+$/, '.jpg'), { type: 'image/jpeg' });
+                const uploadId = _mediaCropState.uploadId;
+                document.getElementById('mediaCropOverlay').classList.remove('show');
+                _mediaCropState = null;
+                // Now upload the cropped file
+                await uploadMediaFile(croppedFile, uploadId);
+            } catch(e) {
+                console.error('Crop save error:', e);
+                alert('Error saving crop: ' + e.message);
+            } finally {
+                saveBtn.textContent = 'Use Photo';
+                saveBtn.disabled = false;
+            }
+        }
+
+        // ════════════════════════════════════════════════════════
+        // VIDEO TRIM EDITOR — set start/end before R2 upload
+        // ════════════════════════════════════════════════════════
+        let _videoTrimState = null;  // { file, uploadId, startTime, endTime, duration }
+
+        function openVideoTrimEditor(file, uploadId) {
+            const url = URL.createObjectURL(file);
+            const vid = document.getElementById('videoTrimPreview');
+            vid.src = url;
+            vid.onloadedmetadata = () => {
+                const dur = vid.duration;
+                const startSlider = document.getElementById('videoTrimStart');
+                const endSlider   = document.getElementById('videoTrimEnd');
+                startSlider.max = dur.toFixed(1);
+                endSlider.max   = dur.toFixed(1);
+                startSlider.value = 0;
+                endSlider.value   = Math.min(dur, 15).toFixed(1);
+                _videoTrimState = { file, uploadId, duration: dur, blobUrl: url };
+                onTrimChange();
+                document.getElementById('videoTrimOverlay').classList.add('show');
+                vid.currentTime = 0;
+            };
+        }
+
+        function onTrimChange() {
+            if (!_videoTrimState) return;
+            const start = parseFloat(document.getElementById('videoTrimStart').value);
+            let   end   = parseFloat(document.getElementById('videoTrimEnd').value);
+            const dur   = _videoTrimState.duration;
+
+            // Enforce: end >= start + 0.5 and end-start <= 15
+            if (end <= start) { end = Math.min(start + 1, dur); document.getElementById('videoTrimEnd').value = end; }
+            if (end - start > 15) { end = start + 15; document.getElementById('videoTrimEnd').value = end.toFixed(1); }
+
+            document.getElementById('videoTrimStartLabel').textContent = start.toFixed(1) + 's';
+            document.getElementById('videoTrimEndLabel').textContent   = end.toFixed(1) + 's';
+            document.getElementById('videoTrimDuration').textContent   = 'Duration: ' + (end - start).toFixed(1) + 's';
+
+            // Preview: jump video to start point
+            const vid = document.getElementById('videoTrimPreview');
+            vid.currentTime = start;
+
+            if (_videoTrimState) { _videoTrimState.startTime = start; _videoTrimState.endTime = end; }
+        }
+
+        function cancelVideoTrim() {
+            const vid = document.getElementById('videoTrimPreview');
+            if (_videoTrimState && _videoTrimState.blobUrl) URL.revokeObjectURL(_videoTrimState.blobUrl);
+            vid.src = '';
+            document.getElementById('videoTrimOverlay').classList.remove('show');
+            _videoTrimState = null;
+        }
+
+        async function confirmVideoTrim() {
+            if (!_videoTrimState) return;
+            const btn = document.querySelector('#videoTrimOverlay .media-editor-btn-save');
+            btn.textContent = 'Processing...'; btn.disabled = true;
+
+            const { file, uploadId, startTime, endTime, blobUrl } = _videoTrimState;
+
+            // If full video selected (no trimming needed), upload as-is
+            if (startTime <= 0.1 && (endTime >= _videoTrimState.duration - 0.2)) {
+                document.getElementById('videoTrimOverlay').classList.remove('show');
+                URL.revokeObjectURL(blobUrl);
+                document.getElementById('videoTrimPreview').src = '';
+                _videoTrimState = null;
+                btn.textContent = 'Use Video'; btn.disabled = false;
+                await uploadMediaFile(file, uploadId);
+                return;
+            }
+
+            try {
+                // Use MediaRecorder to capture the trimmed portion
+                const vid = document.getElementById('videoTrimPreview');
+                vid.currentTime = startTime;
+                await new Promise(r => { vid.onseeked = r; });
+
+                const stream = vid.captureStream ? vid.captureStream() : vid.mozCaptureStream();
+                const chunks = [];
+                const mimeType = MediaRecorder.isTypeSupported('video/webm;codecs=vp9')
+                    ? 'video/webm;codecs=vp9'
+                    : MediaRecorder.isTypeSupported('video/webm') ? 'video/webm' : 'video/mp4';
+                const mr = new MediaRecorder(stream, { mimeType });
+
+                mr.ondataavailable = e => { if (e.data.size > 0) chunks.push(e.data); };
+                mr.onstop = async () => {
+                    const trimmedBlob = new Blob(chunks, { type: mimeType });
+                    const ext = mimeType.includes('webm') ? '.webm' : '.mp4';
+                    const trimmedFile = new File([trimmedBlob], file.name.replace(/\.[^.]+$/, ext), { type: mimeType });
+
+                    document.getElementById('videoTrimOverlay').classList.remove('show');
+                    URL.revokeObjectURL(blobUrl);
+                    document.getElementById('videoTrimPreview').src = '';
+                    _videoTrimState = null;
+                    btn.textContent = 'Use Video'; btn.disabled = false;
+                    await uploadMediaFile(trimmedFile, uploadId);
+                };
+
+                vid.play();
+                mr.start();
+
+                setTimeout(() => {
+                    mr.stop();
+                    vid.pause();
+                    stream.getTracks().forEach(t => t.stop());
+                }, (endTime - startTime) * 1000 + 200);
+
+            } catch (e) {
+                console.error('Video trim error:', e);
+                // Fallback: upload original if trim fails
+                alert('Trim not supported on this browser — uploading full video.');
+                document.getElementById('videoTrimOverlay').classList.remove('show');
+                URL.revokeObjectURL(blobUrl);
+                document.getElementById('videoTrimPreview').src = '';
+                _videoTrimState = null;
+                btn.textContent = 'Use Video'; btn.disabled = false;
+                await uploadMediaFile(file, uploadId);
+            }
+        }
+
+        // ════════════════════════════════════════════════════════
+        // SHARED UPLOAD — called after crop/trim confirmation
+        // ════════════════════════════════════════════════════════
+        async function uploadMediaFile(file, uploadId) {
+            if (!_mediaState[uploadId]) _mediaState[uploadId] = { files: [], urls: [] };
+            const state = _mediaState[uploadId];
+            const progress = document.getElementById(uploadId + '-progress');
+            if (progress) progress.textContent = '⏳ Uploading...';
+            try {
+                const zone = document.querySelector(`[id="${uploadId}-previews"]`)?.closest('.media-upload-zone');
+                const folder = (zone && zone.dataset.folder) || 'media';
+                const fn = firebase.functions().httpsCallable('getUploadUrl');
+                const result = await fn({ fileName: file.name, contentType: file.type, folder });
+                const { presignedUrl, publicUrl, key } = result.data;
+                await fetch(presignedUrl, { method:'PUT', headers:{'Content-Type':file.type}, body:file });
+                const isVideo = file.type.startsWith('video/');
+                state.files.push(file);
+                state.urls.push({ url: publicUrl, key, type: isVideo ? 'video' : 'image' });
+                renderMediaPreviews(uploadId);
+                if (progress) progress.textContent = '';
+            } catch (e) {
+                console.error('Upload error:', e);
+                if (progress) progress.textContent = '';
+                alert('Upload failed: ' + e.message);
+            }
         }
 
 </script>
@@ -8043,7 +8413,58 @@
     </div>
 
 
-    <!-- ══ Photo Viewer Modal (view other residents' pics) ══ -->
+    <!-- ══ Media Image Crop Editor ══ -->
+    <div class="media-editor-overlay" id="mediaCropOverlay">
+        <div class="media-editor-header">
+            <div>✂️ Crop Photo</div>
+            <p>Drag to reposition · Pinch or scroll to zoom</p>
+        </div>
+        <div class="crop-canvas-wrapper" id="mediaCropWrapper">
+            <canvas id="mediaCropCanvas" width="300" height="300"></canvas>
+        </div>
+        <div class="crop-controls" style="width:300px;">
+            <div class="crop-zoom-row">
+                <span>🔍</span>
+                <input type="range" id="mediaCropZoom" min="1" max="4" step="0.01" value="1"
+                       oninput="onMediaCropZoom(this.value)">
+                <span>⊕</span>
+            </div>
+            <div class="media-editor-actions" style="margin-top:0;">
+                <button class="media-editor-btn media-editor-btn-cancel" onclick="cancelMediaCrop()">Cancel</button>
+                <button class="media-editor-btn media-editor-btn-save"   onclick="saveMediaCrop()">Use Photo</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- ══ Media Video Trim Editor ══ -->
+    <div class="media-editor-overlay" id="videoTrimOverlay">
+        <div class="media-editor-header">
+            <div>✂️ Trim Video</div>
+            <p>Set start and end points (max 15 seconds)</p>
+        </div>
+        <video id="videoTrimPreview" class="video-trim-preview" playsinline muted></video>
+        <div class="video-trim-controls">
+            <div class="video-trim-row">
+                <label>Start</label>
+                <input type="range" id="videoTrimStart" min="0" max="15" step="0.1" value="0"
+                       oninput="onTrimChange()">
+                <span id="videoTrimStartLabel">0.0s</span>
+            </div>
+            <div class="video-trim-row">
+                <label>End</label>
+                <input type="range" id="videoTrimEnd" min="0" max="15" step="0.1" value="15"
+                       oninput="onTrimChange()">
+                <span id="videoTrimEndLabel">15.0s</span>
+            </div>
+            <div class="video-trim-duration" id="videoTrimDuration">Duration: 15.0s</div>
+        </div>
+        <div class="media-editor-actions">
+            <button class="media-editor-btn media-editor-btn-cancel" onclick="cancelVideoTrim()">Cancel</button>
+            <button class="media-editor-btn media-editor-btn-save"   onclick="confirmVideoTrim()">Use Video</button>
+        </div>
+    </div>
+
+        <!-- ══ Photo Viewer Modal (view other residents' pics) ══ -->
     <div class="photo-viewer-overlay" id="photoViewerOverlay" onclick="closePhotoViewer()">
         <button class="photo-viewer-close" onclick="closePhotoViewer()">✕</button>
         <img class="photo-viewer-img" id="photoViewerImg" src="" alt="">
