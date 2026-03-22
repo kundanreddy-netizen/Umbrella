@@ -1559,6 +1559,187 @@
         }
         .post-menu-item:hover { background: #f5f5f5; }
         .post-menu-item.danger { color: #dc3545; }
+
+        /* ════════════════════════════════════════════
+           MEDIA UPLOAD — Design System
+           Post image/video upload in create forms
+           Swipeable carousel on cards & modals
+           ════════════════════════════════════════════ */
+
+        /* Upload zone in create forms */
+        .media-upload-zone {
+            border: 2px dashed #E0DCFF;
+            border-radius: 14px;
+            padding: 20px 16px;
+            text-align: center;
+            cursor: pointer;
+            transition: all 0.2s;
+            background: #FAFAFE;
+            margin-top: 4px;
+        }
+        .media-upload-zone:hover { border-color: #667eea; background: #F0EFFE; }
+        .media-upload-zone .muz-icon { font-size: 28px; margin-bottom: 6px; }
+        .media-upload-zone .muz-label {
+            font-size: 13px; font-weight: 600; color: #667eea; display: block;
+        }
+        .media-upload-zone .muz-sub {
+            font-size: 11px; color: #AAA; margin-top: 3px;
+        }
+
+        /* Preview grid inside upload zone */
+        .media-preview-grid {
+            display: flex;
+            gap: 8px;
+            flex-wrap: wrap;
+            margin-top: 10px;
+        }
+        .media-preview-item {
+            position: relative;
+            width: 80px;
+            height: 80px;
+            border-radius: 10px;
+            overflow: hidden;
+            background: #F0F0F0;
+            flex-shrink: 0;
+        }
+        .media-preview-item img,
+        .media-preview-item video {
+            width: 100%; height: 100%;
+            object-fit: cover;
+        }
+        .media-preview-remove {
+            position: absolute;
+            top: 4px; right: 4px;
+            width: 20px; height: 20px;
+            background: rgba(0,0,0,0.6);
+            color: white;
+            border: none;
+            border-radius: 50%;
+            font-size: 11px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            line-height: 1;
+        }
+        .media-preview-item .video-badge {
+            position: absolute;
+            bottom: 4px; left: 4px;
+            background: rgba(0,0,0,0.65);
+            color: white;
+            font-size: 10px;
+            padding: 2px 5px;
+            border-radius: 4px;
+        }
+        .media-upload-progress {
+            font-size: 11px;
+            color: #667eea;
+            margin-top: 8px;
+            text-align: center;
+        }
+
+        /* ── CARD CAROUSEL (list view) ── */
+        .card-media-carousel {
+            position: relative;
+            width: calc(100% + 28px);
+            margin-left: -14px;
+            margin-right: -14px;
+            margin-top: 10px;
+            overflow: hidden;
+            border-radius: 0;
+        }
+        .card-media-track {
+            display: flex;
+            overflow-x: auto;
+            scroll-snap-type: x mandatory;
+            scroll-behavior: smooth;
+            -webkit-overflow-scrolling: touch;
+            scrollbar-width: none;
+        }
+        .card-media-track::-webkit-scrollbar { display: none; }
+        .card-media-slide {
+            flex-shrink: 0;
+            width: 100%;
+            scroll-snap-align: start;
+        }
+        .card-media-slide img {
+            width: 100%;
+            height: 220px;
+            object-fit: cover;
+            display: block;
+        }
+        .card-media-slide video {
+            width: 100%;
+            height: 220px;
+            object-fit: cover;
+            display: block;
+        }
+        /* Dot indicator */
+        .card-media-dots {
+            position: absolute;
+            bottom: 8px;
+            left: 50%;
+            transform: translateX(-50%);
+            display: flex;
+            gap: 5px;
+            pointer-events: none;
+        }
+        .card-media-dot {
+            width: 6px; height: 6px;
+            border-radius: 50%;
+            background: rgba(255,255,255,0.5);
+            transition: background 0.2s, transform 0.2s;
+        }
+        .card-media-dot.active {
+            background: white;
+            transform: scale(1.3);
+        }
+
+        /* ── MODAL CAROUSEL (detail view) ── */
+        .modal-media-carousel {
+            width: calc(100% + 40px);
+            margin-left: -20px;
+            margin-right: -20px;
+            position: relative;
+            margin-bottom: 14px;
+        }
+        .modal-media-track {
+            display: flex;
+            overflow-x: auto;
+            scroll-snap-type: x mandatory;
+            scroll-behavior: smooth;
+            -webkit-overflow-scrolling: touch;
+            scrollbar-width: none;
+        }
+        .modal-media-track::-webkit-scrollbar { display: none; }
+        .modal-media-slide {
+            flex-shrink: 0;
+            width: 100%;
+            scroll-snap-align: start;
+        }
+        .modal-media-slide img {
+            width: 100%;
+            max-height: 300px;
+            object-fit: cover;
+            display: block;
+            cursor: pointer;
+        }
+        .modal-media-slide video {
+            width: 100%;
+            max-height: 300px;
+            object-fit: cover;
+            display: block;
+        }
+        .modal-media-dots {
+            position: absolute;
+            bottom: 8px;
+            left: 50%;
+            transform: translateX(-50%);
+            display: flex;
+            gap: 5px;
+            pointer-events: none;
+        }
+
         .card-header { display: flex; justify-content: space-between; align-items: flex-start; gap: 8px; }
 
         /* ══════════════════════════════════════
@@ -4452,6 +4633,7 @@
                                 <span style="font-weight:600;color:#0D0D0D;">${data.title || 'Support Ticket'}</span>
                                 <div style="margin-top:4px;">${data.description || ''}</div>
                             </div>
+                            ${data.mediaUrls && data.mediaUrls.length > 0 ? cardMediaHtml(data.mediaUrls) : ''}
                             <div class="feed-footer">
                                 <span class="badge badge-${data.status || 'open'}">${data.status || 'open'}</span>
                                 <div style="font-size:12px;color:#C0BDB8;">›</div>
@@ -4565,6 +4747,7 @@
                             <div style="font-size:14px;font-weight:600;color:#667eea;margin-bottom:5px;">$${data.price || '0'}</div>
                             <div style="font-size:14px;color:#555;line-height:1.5;">${data.description || ''}</div>
                         </div>
+                        ${data.mediaUrls && data.mediaUrls.length > 0 ? cardMediaHtml(data.mediaUrls) : ''}
                         <div class="feed-footer">
                             <div class="feed-footer-meta">
                                 ${data.category ? `<span class="post-badge post-badge-purple" style="margin-bottom:0;">${data.category}</span>` : ''}
@@ -4679,6 +4862,7 @@
                         <label>Location</label>
                         <input type="text" id="ticketLocation" placeholder="Unit 101, Lobby, etc.">
                     </div>
+                    ${mediaUploadHtml('tk-upload')}
                     <button class="btn" onclick="createTicket()">Submit Ticket</button>
                 `;
             } else if (currentTab === 'marketplace') {
@@ -4713,6 +4897,7 @@
                         <label>Your Contact (Phone or Email)</label>
                         <input type="text" id="sellerContact" placeholder="555-1234 or email@example.com" value="${userData.phone || userData.email || ''}">
                     </div>
+                    ${mediaUploadHtml('mp-upload')}
                     <button class="btn" onclick="createMarketplaceItem()">Post Item</button>
                 `;
             } else if (currentTab === 'communityshare') {
@@ -4741,6 +4926,7 @@
                         <label>Your Contact (Phone or Email)</label>
                         <input type="text" id="shareContact" placeholder="555-1234 or email@example.com" value="${userData.phone || userData.email || ''}">
                     </div>
+                    ${mediaUploadHtml('cs-upload')}
                     <button class="btn" onclick="createCommunityShareItem()">Post</button>
                 `;
             } else if (currentTab === 'events') {
@@ -4770,6 +4956,7 @@
                         <label>Your Contact (Phone or Email) *</label>
                         <input type="text" id="eventContact" placeholder="555-1234 or email@example.com" value="${userData.phone || userData.email || ''}">
                     </div>
+                    ${mediaUploadHtml('ev-upload')}
                     <button class="btn" onclick="createCommunityEvent()">Create Event</button>
                 `;
             } else if (currentTab === 'security') {
@@ -4802,6 +4989,7 @@
                         <label>Date & Time *</label>
                         <input type="datetime-local" id="securityDateTime" style="width:100%;padding:12px;border:2px solid #e0e0e0;border-radius:8px;">
                     </div>
+                    ${mediaUploadHtml('sa-upload')}
                     <button class="btn" onclick="createSecurityAlert()">Report Alert</button>
                 `;
             } else if (currentTab === 'lostandfound') {
@@ -4847,6 +5035,7 @@
                         <label>Contact Info *</label>
                         <input type="text" id="lostfoundContact" placeholder="Phone or email" value="${userData.phone || userData.email || ''}">
                     </div>
+                    ${mediaUploadHtml('lf-upload')}
                     <button class="btn" onclick="createLostFound()">Post</button>
                 `;
             }
@@ -4912,7 +5101,7 @@
 
             try {
                 const tkRef = await db.collection('tickets').add({
-                    communityId: userCommunityId, // MULTI-TENANT: Add community ID
+                    communityId: userCommunityId,
                     residentId: currentUser.uid,
                     residentName: userData.displayName,
                     unitNumber: userData.unitNumber,
@@ -4924,6 +5113,7 @@
                     status: 'open',
                     photos: [],
                     comments: [],
+                    mediaUrls: getMediaUrls('tk-upload'),
                     createdAt: firebase.firestore.FieldValue.serverTimestamp()
                 });
 
@@ -4933,6 +5123,7 @@
                     `${userData.displayName || 'Someone'} submitted a ticket`,
                     { postId: tkRef.id, postType: 'ticket' }
                 );
+                clearMediaState('tk-upload');
                 closeModal();
                 loadTickets();
                 alert('Ticket submitted successfully!');
@@ -4983,6 +5174,7 @@
                     description: description,
                     status: 'active',
                     comments: [],
+                    mediaUrls: getMediaUrls('mp-upload'),
                     createdAt: firebase.firestore.FieldValue.serverTimestamp()
                 };
 
@@ -4998,6 +5190,7 @@
                     { postId: mpRef.id, postType: 'marketplace', itemTitle: title, category: category }
                 );
 
+                clearMediaState('mp-upload');
                 submitBtn.disabled = false;
                 submitBtn.textContent = originalText;
                 closeModal();
@@ -5039,6 +5232,7 @@
                 // Scroll area + sticky comment bar (two-child flex column)
                 let scrollHtml = '<div style="flex:1;overflow-y:auto;padding:16px 20px 8px;">';
                 scrollHtml += postHeaderHtml(data.sellerName, data.unitNumber, data.createdAt, isOwner, delAction, data.sellerId);
+                if (data.mediaUrls && data.mediaUrls.length > 0) scrollHtml += modalMediaHtml(data.mediaUrls);
                 scrollHtml += '<div class="post-title">' + (data.title || 'Item') + '</div>';
                 scrollHtml += '<div class="post-price">$' + (data.price || '0') + '</div>';
                 if (data.category) scrollHtml += '<span class="post-badge post-badge-purple">' + data.category + '</span>';
@@ -5071,6 +5265,7 @@
                 const comments = data.comments || [];
                 let inner = postHeaderHtml('Admin', 'Community', data.createdAt, isAdm, delAction, null);
                 if (data.category) inner += '<span class="post-badge post-badge-purple">' + data.category + '</span>';
+                if (data.mediaUrls && data.mediaUrls.length > 0) inner += modalMediaHtml(data.mediaUrls);
                 inner += '<div class="post-title">📢 ' + (data.title || 'Announcement') + '</div>';
                 inner += '<div class="post-body">' + (data.message || data.content || 'No content') + '</div>';
                 inner += commentsSectionHtml(comments, 'announcements', announcementId, 'viewAnnouncement', 'loadAnnouncements', data);
@@ -5099,6 +5294,7 @@
                 const delAction = "if(confirm('Delete?')){db.collection('tickets').doc('" + ticketId + "').delete().then(()=>{closeMarketplaceModal();loadTickets();});}";
                 
                 let html = postHeaderHtml(data.residentName, data.unitNumber, data.createdAt, isOwner && data.status !== 'closed', delAction, data.residentId);
+                if (data.mediaUrls && data.mediaUrls.length > 0) html += modalMediaHtml(data.mediaUrls);
                 html += '<span style="background:' + statusColor + ';color:white;padding:3px 10px;border-radius:10px;font-size:12px;font-weight:600;text-transform:uppercase;display:inline-block;margin-bottom:8px;">' + (data.status || 'open') + '</span>';
                 if (data.category) html += '<span class="post-badge post-badge-blue">' + data.category + '</span>';
                 html += '<div class="post-title">' + (data.title || 'Support Ticket') + '</div>';
@@ -5136,6 +5332,7 @@
                 const delAction = "if(confirm('Delete?')){db.collection('security_alerts').doc('" + alertId + "').delete().then(()=>{closeMarketplaceModal();loadSecurityAlerts();});}";
                 
                 let html = postHeaderHtml(data.reportedByName, data.unitNumber, data.createdAt, isOwner, delAction, data.reportedBy);
+                if (data.mediaUrls && data.mediaUrls.length > 0) html += modalMediaHtml(data.mediaUrls);
                 html += '<span class="post-badge post-badge-red">' + (typeLabels[data.type] || '🚨 Alert') + '</span>';
                 html += '<div class="post-title">' + (data.title || 'Security Alert') + '</div>';
                 html += '<div class="post-info-row"><span>📅 ' + dateStr + '</span><span>📍 ' + (data.location || 'Unknown') + '</span></div>';
@@ -5168,6 +5365,7 @@
                 const delAction = "if(confirm('Delete?')){db.collection('lost_and_found').doc('" + itemId + "').delete().then(()=>{closeMarketplaceModal();loadLostAndFound();});}";
                 
                 let html = postHeaderHtml(data.postedByName, data.unitNumber, data.createdAt, isOwner, delAction, data.postedBy);
+                if (data.mediaUrls && data.mediaUrls.length > 0) html += modalMediaHtml(data.mediaUrls);
                 html += typeBadge + ' ' + (categoryIcons[data.category] || '📦');
                 html += '<div class="post-title">' + (data.title || 'Item') + '</div>';
                 html += '<div class="post-info-row"><span>📅 ' + dateStr + '</span><span>📍 ' + (data.location || 'Unknown') + '</span></div>';
@@ -5312,6 +5510,7 @@
                                 <div style="margin-top:4px;color:#555;">${data.description || ''}</div>
                                 ${data.availableUntil ? `<div style="margin-top:6px;font-size:12px;color:#888;">Available until: ${data.availableUntil.toDate().toLocaleDateString()}</div>` : ''}
                             </div>
+                            ${data.mediaUrls && data.mediaUrls.length > 0 ? cardMediaHtml(data.mediaUrls) : ''}
                             <div class="feed-footer">
                                 <div class="feed-footer-meta">
                                     ${commentCount > 0 ? `<span style="display:flex;align-items:center;gap:4px;"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#888" stroke-width="2"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path></svg>${commentCount}</span>` : ''}
@@ -5350,6 +5549,7 @@
                 const delAction = "if(confirm('Delete?')){deleteCommunityShareItem('" + itemId + "');closeMarketplaceModal();}";
                 
                 let html = postHeaderHtml(data.ownerName, data.unitNumber, data.createdAt, isOwner, delAction, data.ownerId);
+                if (data.mediaUrls && data.mediaUrls.length > 0) html += modalMediaHtml(data.mediaUrls);
                 html += '<span style="background:' + typeBg + ';color:' + typeColor + ';padding:3px 10px;border-radius:10px;font-size:12px;font-weight:600;display:inline-block;margin-bottom:10px;">' + typeIcon + ' ' + typeLabel + '</span>';
                 html += '<div class="post-title">' + (data.title || 'Item') + '</div>';
                 html += '<div class="post-body">' + (data.description || 'No description') + '</div>';
@@ -5425,7 +5625,7 @@
                 const isEmail = contact.includes('@');
                 
                 const csRef = await db.collection('communityshare').add({
-                    communityId: userCommunityId, // MULTI-TENANT: Add community ID
+                    communityId: userCommunityId,
                     ownerId: currentUser.uid,
                     ownerName: userData.displayName || 'Unknown',
                     ownerEmail: isEmail ? contact : (userData.email || ''),
@@ -5437,6 +5637,7 @@
                     availableUntil: availableUntil ? firebase.firestore.Timestamp.fromDate(new Date(availableUntil)) : null,
                     status: 'active',
                     comments: [],
+                    mediaUrls: getMediaUrls('cs-upload'),
                     createdAt: firebase.firestore.FieldValue.serverTimestamp()
                 });
 
@@ -5449,6 +5650,7 @@
                     { postId: csRef.id, postType: 'communityshare' }
                 );
 
+                clearMediaState('cs-upload');
                 closeModal();
                 loadCommunityShare();
                 alert('✅ Posted successfully!');
@@ -6048,7 +6250,8 @@
                         '<div style="margin-top:4px;color:#555;">' + (data.description || '') + '</div>' +
                         (data.location ? '<div style="margin-top:6px;font-size:13px;color:#666;">📍 ' + data.location + '</div>' : '') +
                       '</div>' +
-                      '<div class="feed-footer">' +
+                      (data.mediaUrls && data.mediaUrls.length > 0 ? cardMediaHtml(data.mediaUrls) : '') +
+                    '<div class="feed-footer">' +
                         '<div class="feed-footer-meta">' +
                           (rsvpCount > 0 ? '<span>✅ ' + rsvpCount + ' RSVP</span>' : '') +
                           (commentCount > 0 ? '<span style="display:flex;align-items:center;gap:4px;"><svg width=&quot;15&quot; height=&quot;15&quot; viewBox=&quot;0 0 24 24&quot; fill=&quot;none&quot; stroke=&quot;#888&quot; stroke-width=&quot;2&quot;><path d=&quot;M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z&quot;></path></svg>' + commentCount + '</span>' : '') +
@@ -6115,6 +6318,7 @@
                 const delAction = "if(confirm('Delete?')){deleteEvent('" + eventId + "');closeMarketplaceModal();}";
                 
                 let html = postHeaderHtml(data.organizerName, data.unitNumber, data.createdAt, isOrganizer, delAction, data.organizerId);
+                if (data.mediaUrls && data.mediaUrls.length > 0) html += modalMediaHtml(data.mediaUrls);
                 html += '<div class="post-title">' + (data.title || 'Event') + '</div>';
                 html += '<div style="padding:10px 14px;background:#e3f2fd;border-radius:8px;margin-bottom:10px;font-size:14px;"><span style="font-weight:600;color:#667eea;">📅 ' + dateStr + (timeStr ? ' • ⏰ ' + timeStr : '') + '</span>' + (data.location ? '<br>📍 ' + data.location : '') + '</div>';
                 html += '<div style="font-size:14px;color:#333;line-height:1.6;margin-bottom:12px;">' + (data.description || '') + '</div>';
@@ -6204,7 +6408,7 @@
                 const isEmail = contactVal.includes('@');
                 
                 const eventData = {
-                    communityId: userCommunityId, // MULTI-TENANT: Add community ID
+                    communityId: userCommunityId,
                     organizerId: currentUser.uid,
                     organizerName: userData.displayName || 'Unknown',
                     organizerEmail: isEmail ? contactVal : (userData.email || ''),
@@ -6217,6 +6421,7 @@
                     status: 'active',
                     rsvps: [],
                     comments: [],
+                    mediaUrls: getMediaUrls('ev-upload'),
                     createdAt: firebase.firestore.FieldValue.serverTimestamp()
                 };
                 
@@ -6233,6 +6438,7 @@
                 );
                 
                 console.log('Event created successfully!');
+                clearMediaState('ev-upload');
                 closeModal();
                 loadEvents();
                 alert('✅ Event created successfully!');
@@ -6280,6 +6486,7 @@
                     reportedByName: userData.displayName || 'Unknown',
                     unitNumber: userData.unitNumber || 'N/A',
                     status: 'active',
+                    mediaUrls: getMediaUrls('sa-upload'),
                     createdAt: firebase.firestore.FieldValue.serverTimestamp()
                 });
 
@@ -6289,6 +6496,7 @@
                     `${userData.displayName || 'Someone'} reported: ${description.substring(0, 80)}`,
                     { postId: saRef.id, postType: 'security' }
                 );
+                clearMediaState('sa-upload');
                 closeModal();
                 loadSecurityAlerts();
                 alert('✅ Security alert reported');
@@ -6341,7 +6549,8 @@
                         '<div style="margin-top:8px;font-weight:600;font-size:15px;color:#0D0D0D;">' + (data.title || 'Alert') + '</div>' +
                         '<div style="margin-top:4px;color:#555;display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden;">' + data.description + '</div>' +
                       '</div>' +
-                      '<div class="feed-footer">' +
+                      (data.mediaUrls && data.mediaUrls.length > 0 ? cardMediaHtml(data.mediaUrls) : '') +
+                    '<div class="feed-footer">' +
                         '<div class="feed-footer-meta"><span>📍 ' + (data.location || '') + '</span></div>' +
                         '<div style="font-size:12px;color:#C0BDB8;">›</div>' +
                       '</div>' +
@@ -6383,6 +6592,7 @@
                     postedByName: userData.displayName || 'Unknown',
                     unitNumber: userData.unitNumber || 'N/A',
                     status: 'active',
+                    mediaUrls: getMediaUrls('lf-upload'),
                     createdAt: firebase.firestore.FieldValue.serverTimestamp()
                 });
 
@@ -6392,6 +6602,7 @@
                     `${userData.displayName || 'Someone'} posted in Lost & Found`,
                     { postId: lfRef.id, postType: 'lostfound' }
                 );
+                clearMediaState('lf-upload');
                 closeModal();
                 loadLostAndFound();
                 alert('✅ Posted successfully');
@@ -6435,7 +6646,8 @@
                         '<div style="margin-top:8px;font-weight:600;font-size:15px;color:#0D0D0D;">' + (data.title || 'Item') + '</div>' +
                         '<div style="margin-top:4px;color:#555;display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden;">' + data.description + '</div>' +
                       '</div>' +
-                      '<div class="feed-footer">' +
+                      (data.mediaUrls && data.mediaUrls.length > 0 ? cardMediaHtml(data.mediaUrls) : '') +
+                    '<div class="feed-footer">' +
                         '<div class="feed-footer-meta">' + (data.location ? '<span>📍 ' + data.location + '</span>' : '') + '</div>' +
                         '<div style="font-size:12px;color:#C0BDB8;">›</div>' +
                       '</div>' +
@@ -7150,6 +7362,230 @@
                 return '<br><a href="' + url + '" target="_blank" style="font-size:12px;color:#667eea;text-decoration:none;">📎 ' + name + '</a>';
             });
             return out;
+        }
+
+
+        // ════════════════════════════════════════════════════════════
+        // MEDIA UPLOAD SYSTEM — images (max 3) + video (max 15s)
+        // Shared by: Tickets, Marketplace, CommShare, Events, Security, Lost&Found
+        // ════════════════════════════════════════════════════════════
+
+        // State per upload session — keyed by upload field ID
+        const _mediaState = {};
+
+        // Render the upload widget HTML string
+        function mediaUploadHtml(uploadId) {
+            return `
+                <div class="input-group" style="margin-top:12px;">
+                    <label>Photos / Video <span style="color:#AAA;font-weight:400;">(up to 3 photos or 1 video, 15s max)</span></label>
+                    <div class="media-upload-zone" onclick="triggerMediaPicker('${uploadId}')">
+                        <div class="muz-icon">📷</div>
+                        <span class="muz-label">Tap to add photos or video</span>
+                        <div class="muz-sub">Up to 3 items · photos + 1 video · max 25MB each · video max 15s</div>
+                        <div class="media-preview-grid" id="${uploadId}-previews"></div>
+                        <div class="media-upload-progress" id="${uploadId}-progress"></div>
+                    </div>
+                    <input type="file" id="${uploadId}-input" style="display:none;"
+                           accept="image/jpeg,image/png,image/webp,image/gif,video/mp4,video/quicktime,video/mov"
+                           onchange="handleMediaFiles(this,'${uploadId}')">
+                </div>`;
+        }
+
+        // Open the file picker
+        function triggerMediaPicker(uploadId) {
+            const state = _mediaState[uploadId] || { files: [] };
+            const count = state.files ? state.files.length : 0;
+            // Total max 3 items (any combination of photos + 1 video)
+            if (count >= 3) {
+                alert('Maximum 3 media items reached (photos + video combined).');
+                return;
+            }
+            document.getElementById(uploadId + '-input').click();
+        }
+
+        // Handle file selection
+        async function handleMediaFiles(input, uploadId) {
+            const file = input.files[0];
+            input.value = '';
+            if (!file) return;
+
+            // Init state
+            if (!_mediaState[uploadId]) _mediaState[uploadId] = { files: [], urls: [] };
+            const state = _mediaState[uploadId];
+
+            const isVideo = file.type.startsWith('video/');
+            const isImage = file.type.startsWith('image/');
+
+            if (!isImage && !isVideo) { alert('Only images and videos are supported.'); return; }
+            if (file.size > 25 * 1024 * 1024) { alert('File must be under 25MB.'); return; }
+
+            // Total limit: max 3 items combined (photos + video)
+            if (state.files.length >= 3) { alert('Maximum 3 media items reached.'); return; }
+
+            // Video rules: max 1 video per post + duration check
+            if (isVideo) {
+                if (state.files.some(f => f.type.startsWith('video/'))) {
+                    alert('Only 1 video allowed per post. Remove the existing video first.');
+                    return;
+                }
+                const ok = await checkVideoDuration(file, 15);
+                if (!ok) { alert('Video must be 15 seconds or shorter.'); return; }
+            }
+
+            // Show uploading state
+            const progress = document.getElementById(uploadId + '-progress');
+            if (progress) progress.textContent = '⏳ Uploading...';
+
+            try {
+                const folder = 'posts';
+                const fn = firebase.functions().httpsCallable('getUploadUrl');
+                const result = await fn({ fileName: file.name, contentType: file.type, folder: folder });
+                const { presignedUrl, publicUrl, key } = result.data;
+
+                await fetch(presignedUrl, {
+                    method: 'PUT',
+                    headers: { 'Content-Type': file.type },
+                    body: file
+                });
+
+                // Add to state
+                state.files.push(file);
+                state.urls.push({ url: publicUrl, key: key, type: isVideo ? 'video' : 'image' });
+
+                // Render preview
+                renderMediaPreviews(uploadId);
+                if (progress) progress.textContent = '';
+
+            } catch (e) {
+                console.error('Media upload error:', e);
+                if (progress) progress.textContent = '';
+                alert('Upload failed: ' + e.message);
+            }
+        }
+
+        // Check video duration using a temporary video element
+        function checkVideoDuration(file, maxSecs) {
+            return new Promise(resolve => {
+                const url = URL.createObjectURL(file);
+                const vid = document.createElement('video');
+                vid.preload = 'metadata';
+                vid.onloadedmetadata = () => {
+                    URL.revokeObjectURL(url);
+                    resolve(vid.duration <= maxSecs);
+                };
+                vid.onerror = () => { URL.revokeObjectURL(url); resolve(true); }; // allow on error
+                vid.src = url;
+            });
+        }
+
+        // Render preview thumbnails
+        function renderMediaPreviews(uploadId) {
+            const state = _mediaState[uploadId];
+            if (!state) return;
+            const container = document.getElementById(uploadId + '-previews');
+            if (!container) return;
+
+            let html = '';
+            state.urls.forEach((media, idx) => {
+                html += `<div class="media-preview-item">`;
+                if (media.type === 'video') {
+                    html += `<video src="${media.url}" muted playsinline></video>
+                             <div class="video-badge">🎥 video</div>`;
+                } else {
+                    html += `<img src="${media.url}" alt="preview">`;
+                }
+                html += `<button class="media-preview-remove" onclick="removeMediaItem('${uploadId}',${idx});event.stopPropagation();">✕</button>`;
+                html += `</div>`;
+            });
+            container.innerHTML = html;
+
+            // Update zone label
+            const zone = container.closest('.media-upload-zone');
+            if (zone) {
+                const lbl = zone.querySelector('.muz-label');
+                const remaining = 3 - state.urls.length;
+                const hasVideo = state.urls.some(m => m.type === 'video');
+                if (lbl) lbl.textContent = state.urls.length >= 3
+                    ? '3 items added ✓'
+                    : `Add up to ${remaining} more (photo or ${hasVideo ? 'photo' : 'video'})`;
+            }
+        }
+
+        // Remove a media item
+        function removeMediaItem(uploadId, idx) {
+            const state = _mediaState[uploadId];
+            if (!state) return;
+            state.files.splice(idx, 1);
+            state.urls.splice(idx, 1);
+            renderMediaPreviews(uploadId);
+        }
+
+        // Get uploaded URLs for a given uploadId (call before submit)
+        function getMediaUrls(uploadId) {
+            const state = _mediaState[uploadId];
+            return state ? state.urls : [];
+        }
+
+        // Clear upload state after successful post
+        function clearMediaState(uploadId) {
+            delete _mediaState[uploadId];
+        }
+
+        // ── Render carousel HTML from mediaUrls array ──
+        // Used in both list cards and modal detail views
+        function mediaCarouselHtml(mediaUrls, carouselClass, slideClass, trackClass, dotsClass, cardMode) {
+            if (!mediaUrls || mediaUrls.length === 0) return '';
+            const id = 'mc-' + Math.random().toString(36).slice(2,7);
+            let slides = '';
+            mediaUrls.forEach((m, i) => {
+                slides += `<div class="${slideClass}">`;
+                if (m.type === 'video') {
+                    slides += `<video src="${m.url}" ${cardMode ? 'muted playsinline' : 'controls playsinline'} style="width:100%;${cardMode ? 'height:220px;' : 'max-height:300px;'}object-fit:cover;display:block;"></video>`;
+                } else {
+                    const onclick = cardMode ? '' : `onclick="openPhotoViewer('${m.url}','')"`;
+                    slides += `<img src="${m.url}" alt="post media" ${onclick} style="width:100%;${cardMode ? 'height:220px;' : 'max-height:300px;'}object-fit:cover;display:block;">`;
+                }
+                slides += `</div>`;
+            });
+
+            let dots = '';
+            if (mediaUrls.length > 1) {
+                dots = `<div class="${dotsClass}" id="${id}-dots">`;
+                mediaUrls.forEach((_, i) => {
+                    dots += `<div class="card-media-dot${i === 0 ? ' active' : ''}"></div>`;
+                });
+                dots += `</div>`;
+            }
+
+            return `<div class="${carouselClass}">
+                        <div class="${trackClass}" id="${id}-track" onscroll="updateCarouselDots('${id}',${mediaUrls.length})">
+                            ${slides}
+                        </div>
+                        ${dots}
+                    </div>`;
+        }
+
+        // Update dot indicators on scroll
+        function updateCarouselDots(id, count) {
+            const track = document.getElementById(id + '-track');
+            const dotsEl = document.getElementById(id + '-dots');
+            if (!track || !dotsEl) return;
+            const idx = Math.round(track.scrollLeft / track.offsetWidth);
+            dotsEl.querySelectorAll('.card-media-dot').forEach((d, i) => {
+                d.classList.toggle('active', i === idx);
+            });
+        }
+
+        // Shorthand for card carousel (list view)
+        function cardMediaHtml(mediaUrls) {
+            return mediaCarouselHtml(mediaUrls,
+                'card-media-carousel', 'card-media-slide', 'card-media-track', 'card-media-dots', true);
+        }
+
+        // Shorthand for modal carousel (detail view)
+        function modalMediaHtml(mediaUrls) {
+            return mediaCarouselHtml(mediaUrls,
+                'modal-media-carousel', 'modal-media-slide', 'modal-media-track', 'modal-media-dots', false);
         }
 
 </script>
