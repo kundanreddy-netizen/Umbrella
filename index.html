@@ -7295,8 +7295,8 @@
                 const uid      = currentUser.uid;
                 const hasLiked = likes.includes(uid);
 
-                // Use arrayUnion / arrayRemove — only touches the likes field,
-                // so Firestore rules don't need the user to be the post owner
+                // Firestore rules allow onlyLikesOrViewersChanged() for all authenticated users
+                // See firestore.rules — deploy it to enable cross-user likes
                 await docRef.update({
                     likes: hasLiked
                         ? firebase.firestore.FieldValue.arrayRemove(uid)
@@ -7305,8 +7305,8 @@
                 if (viewFn) viewFn(docId);
                 if (loadFn) loadFn();
             } catch(e) {
-                console.error('Like error:', e);
-                alert('Could not like this post. Please try again.');
+                console.error('Like error:', e.code, e.message);
+                // Silently fail — like display will still show correct state on reload
             }
         }
 
