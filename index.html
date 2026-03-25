@@ -1826,6 +1826,40 @@
         .media-editor-btn-save   { background: #667eea; color: white; }
 
 
+        /* ── Stacked like avatars (Facebook-style) ── */
+        .like-avatars-row {
+            display: flex;
+            align-items: center;
+            gap: 0;
+            cursor: pointer;
+        }
+        .like-avatar-circle {
+            width: 22px;
+            height: 22px;
+            border-radius: 50%;
+            border: 2px solid white;
+            margin-left: -6px;
+            overflow: hidden;
+            flex-shrink: 0;
+            background: linear-gradient(135deg, #667eea, #764ba2);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 8px;
+            font-weight: 700;
+            color: white;
+        }
+        .like-avatar-circle:first-child { margin-left: 0; }
+        .like-avatar-circle img {
+            width: 100%; height: 100%; object-fit: cover; border-radius: 50%;
+        }
+        .like-count-label {
+            font-size: 12px;
+            color: #667eea;
+            font-weight: 600;
+            margin-left: 6px;
+        }
+
         /* ── Liked-By bottom sheet ── */
         .liked-by-overlay {
             display: none;
@@ -3386,7 +3420,6 @@
                 '<svg width="20" height="20" viewBox="0 0 24 24" fill="' + (hasLiked ? '#667eea' : 'none') + '" stroke="' + (hasLiked ? '#667eea' : 'currentColor') + '" stroke-width="2"><path d="M14 9V5a3 3 0 0 0-3-3l-4 10v11h11.28a2 2 0 0 0 2-1.7l1.38-9a2 2 0 0 0-2-2.3zM7 22H4a2 2 0 0 1-2-2v-7a2 2 0 0 1 2-2h3"></path></svg>' +
                 'Like' +
               '</button>' +
-              (likes.length > 0 ? '<button class="post-action-btn" style="flex:0;padding:12px 10px;border-left:none;font-size:13px;color:#667eea;font-weight:700;" onclick="showLikedBy(\'' + coll + '\',\'' + did + '\')">' + likes.length + (likes.length === 1 ? ' person' : ' people') + '</button>' : '') +
               '<button class="post-action-btn" onclick="focusCommentInput()">' +
                 '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path></svg>' +
                 (comments.length > 0 ? comments.length + ' ' : '') + 'Comment' +
@@ -3397,12 +3430,29 @@
               '</button>' +
             '</div>';
 
-            // ── Views row ──
-            if (viewCount > 0) {
-                html += '<div class="post-views-row">' +
-                    '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#AAA" stroke-width="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg> ' +
-                    viewCount + ' view' + (viewCount !== 1 ? 's' : '') +
-                '</div>';
+            // ── Likes avatars + Views row ──
+            if (likes.length > 0 || viewCount > 0) {
+                html += '<div class="post-views-row" style="justify-content:space-between;">';
+                // Left: stacked like avatars
+                if (likes.length > 0) {
+                    const previewIds = likes.slice(0, 3);
+                    let avatarCircles = previewIds.map(uid => {
+                        const pic = userPicCache[uid] || null;
+                        if (pic) return '<div class="like-avatar-circle"><img src="' + pic + '" onerror="this.parentElement.style.background=\'linear-gradient(135deg,#667eea,#764ba2)\'"></div>';
+                        return '<div class="like-avatar-circle">👍</div>';
+                    }).join('');
+                    const moreCount = likes.length > 3 ? '+' + (likes.length - 3) : '';
+                    if (moreCount) avatarCircles += '<div class="like-avatar-circle" style="background:#eee;color:#667eea;font-size:9px;">' + moreCount + '</div>';
+                    html += '<div class="like-avatars-row" onclick="showLikedBy(\'' + coll + '\',\'' + did + '\')">'
+                         + avatarCircles
+                         + '<span class="like-count-label">' + likes.length + ' liked</span>'
+                         + '</div>';
+                } else { html += '<div></div>'; }
+                // Right: view count
+                if (viewCount > 0) {
+                    html += '<div style="display:flex;align-items:center;gap:5px;"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#AAA" stroke-width="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg><span style="font-size:12px;color:#AAA;">' + viewCount + ' view' + (viewCount !== 1 ? 's' : '') + '</span></div>';
+                }
+                html += '</div>';
             }
 
             // ── Comments list ──
@@ -3413,6 +3463,8 @@
                 sorted.forEach((c, idx) => {
                     const cDate = c.timestamp ? timeAgo(c.timestamp.toDate()) : '';
                     const replies = c.replies || [];
+                    const cLikes    = c.likes || [];
+                    const cHasLiked = cLikes.includes(currentUser ? currentUser.uid : '');
                     html += '<div style="display:flex;gap:10px;margin-bottom:6px;align-items:flex-start;">' +
                         avatarHtml(c.userName, 36, c.userId) +
                         '<div style="flex:1;">' +
@@ -3421,29 +3473,66 @@
                             '<span style="font-size:12px;color:#AAA;margin-left:8px;">' + cDate + '</span>' +
                             '<div style="font-size:14px;color:#1A1A1A;line-height:1.45;margin-top:4px;">' + renderCommentMessage(c.message || '') + '</div>' +
                           '</div>' +
-                          '<button class="reply-btn" onclick="showReplyInput(\'' + coll + '\',\'' + did + '\',' + idx + ',' + viewFnName + ',' + loadFnName + ')">↩ Reply' + (replies.length > 0 ? ' · ' + replies.length : '') + '</button>' +
+                          '<div style="display:flex;align-items:center;gap:12px;margin-top:3px;">' +
+                            '<button class="reply-like-btn ' + (cHasLiked ? 'liked' : '') + '" onclick="toggleCommentLike(\'' + coll + '\',\'' + did + '\',' + idx + ',' + viewFnName + ',' + loadFnName + ')">' +
+                              '<svg width="12" height="12" viewBox="0 0 24 24" fill="' + (cHasLiked ? '#667eea' : 'none') + '" stroke="' + (cHasLiked ? '#667eea' : 'currentColor') + '" stroke-width="2"><path d="M14 9V5a3 3 0 0 0-3-3l-4 10v11h11.28a2 2 0 0 0 2-1.7l1.38-9a2 2 0 0 0-2-2.3zM7 22H4a2 2 0 0 1-2-2v-7a2 2 0 0 1 2-2h3"></path></svg>' +
+              (cLikes.length > 0 ? ' ' + cLikes.length : '') + ' Like' +
+                            '</button>' +
+                            '<button class="reply-btn" onclick="showReplyInput(\'' + coll + '\',\'' + did + '\',' + idx + ',' + viewFnName + ',' + loadFnName + ')">↩ Reply' + (replies.length > 0 ? ' · ' + replies.length : '') + '</button>' +
+                          '</div>' +
                         '</div>' +
                     '</div>';
                     if (replies.length > 0) {
                         html += '<div class="reply-thread">';
-                        replies.forEach(r => {
-                            const rDate = r.timestamp ? timeAgo(r.timestamp.toDate()) : '';
-                            const rLikes   = r.likes || [];
-                        const rHasLiked = rLikes.includes(currentUser ? currentUser.uid : '');
-                        html += '<div class="reply-item">' +
+                        replies.forEach((r, rIdx) => {
+                            const rDate     = r.timestamp ? timeAgo(r.timestamp.toDate()) : '';
+                            const rLikes    = r.likes || [];
+                            const rHasLiked = rLikes.includes(currentUser ? currentUser.uid : '');
+                            const rReplies  = r.replies || [];
+                            const rInputId  = 'rreply-' + coll + '-' + did + '-' + idx + '-' + rIdx;
+                            let rNestedHtml = '';
+                            if (rReplies.length > 0) {
+                                rNestedHtml = '<div style="margin-top:6px;padding-left:8px;border-left:2px solid #D8D4F5;">';
+                                rReplies.forEach(rr => {
+                                    const rrDate = rr.timestamp ? timeAgo(rr.timestamp.toDate()) : '';
+                                    rNestedHtml += '<div style="display:flex;gap:8px;margin-top:6px;align-items:flex-start;">' +
+                                        avatarHtml(rr.userName, 22, rr.userId) +
+                                        '<div style="background:#EAE6FF;border-radius:10px;padding:6px 10px;flex:1;">' +
+                                          '<span style="font-size:11px;font-weight:700;color:#0D0D0D;">' + (rr.userName || '') + '</span>' +
+                                          '<span style="font-size:10px;color:#AAA;margin-left:6px;">' + rrDate + '</span>' +
+                                          '<div style="font-size:12px;color:#333;margin-top:2px;">' + renderCommentMessage(rr.message || '') + '</div>' +
+                                        '</div>' +
+                                        '</div>';
+                                });
+                                rNestedHtml += '</div>';
+                            }
+                            html += '<div class="reply-item">' +
                                 avatarHtml(r.userName, 28, r.userId) +
-                                '<div style="flex:1;background:#F0EFFE;border-radius:12px;padding:8px 12px;">' +
-                                  '<div style="display:flex;justify-content:space-between;align-items:flex-start;">' +
-                                    '<div>' +
-                                      '<span style="font-size:12px;font-weight:700;color:#0D0D0D;">' + (r.userName || '') + '</span>' +
-                                      '<span style="font-size:11px;color:#AAA;margin-left:6px;">' + rDate + '</span>' +
+                                '<div style="flex:1;">' +
+                                  '<div style="background:#F0EFFE;border-radius:12px;padding:8px 12px;">' +
+                                    '<div style="display:flex;justify-content:space-between;align-items:flex-start;">' +
+                                      '<div>' +
+                                        '<span style="font-size:12px;font-weight:700;color:#0D0D0D;">' + (r.userName || '') + '</span>' +
+                                        '<span style="font-size:11px;color:#AAA;margin-left:6px;">' + rDate + '</span>' +
+                                      '</div>' +
+                                      '<button class="reply-like-btn ' + (rHasLiked ? 'liked' : '') + '" onclick="toggleReplyLike(\'' + coll + '\',\'' + did + '\',' + idx + ',' + rIdx + ',' + viewFnName + ',' + loadFnName + ')">' +
+                                        '<svg width="12" height="12" viewBox="0 0 24 24" fill="' + (rHasLiked ? '#667eea' : 'none') + '" stroke="' + (rHasLiked ? '#667eea' : 'currentColor') + '" stroke-width="2"><path d="M14 9V5a3 3 0 0 0-3-3l-4 10v11h11.28a2 2 0 0 0 2-1.7l1.38-9a2 2 0 0 0-2-2.3zM7 22H4a2 2 0 0 1-2-2v-7a2 2 0 0 1 2-2h3"></path></svg>' +
+                                        (rLikes.length > 0 ? ' ' + rLikes.length : '') +
+                                      '</button>' +
                                     '</div>' +
-                                    '<button class="reply-like-btn ' + (rHasLiked ? 'liked' : '') + '" onclick="toggleReplyLike(\'' + coll + '\',\'' + did + '\',' + idx + ',' + replies.indexOf(r) + ',' + viewFnName + ',' + loadFnName + ')">' +
-                                      '<svg width="12" height="12" viewBox="0 0 24 24" fill="' + (rHasLiked ? '#667eea' : 'none') + '" stroke="' + (rHasLiked ? '#667eea' : 'currentColor') + '" stroke-width="2"><path d="M14 9V5a3 3 0 0 0-3-3l-4 10v11h11.28a2 2 0 0 0 2-1.7l1.38-9a2 2 0 0 0-2-2.3zM7 22H4a2 2 0 0 1-2-2v-7a2 2 0 0 1 2-2h3"></path></svg>' +
-                                      (rLikes.length > 0 ? rLikes.length : '') +
+                                    '<div style="font-size:13px;color:#333;line-height:1.4;margin-top:3px;">' + renderCommentMessage(r.message || '') + '</div>' +
+                                  '</div>' +
+                                  '<div style="display:flex;align-items:center;gap:10px;margin-top:3px;">' +
+                                    '<button class="reply-btn" onclick="showReplyToReplyInput(\'' + rInputId + '\',\'' + (r.userName || 'reply') + '\')">' +
+                                      '\u21A9 Reply' + (rReplies.length > 0 ? ' \u00B7 ' + rReplies.length : '') +
                                     '</button>' +
                                   '</div>' +
-                                  '<div style="font-size:13px;color:#333;line-height:1.4;margin-top:3px;">' + renderCommentMessage(r.message || '') + '</div>' +
+                                  rNestedHtml +
+                                  '<div id="' + rInputId + '" style="display:none;" class="reply-input-row">' +
+                                    avatarHtml(userData ? userData.displayName : '', 24, currentUser ? currentUser.uid : null) +
+                                    '<input type="text" placeholder="Reply to ' + (r.userName || 'reply') + '..." id="' + rInputId + '-text">' +
+                                    '<button onclick="submitReplyToReply(\'' + coll + '\',\'' + did + '\',' + idx + ',' + rIdx + ',\'' + rInputId + '\',' + viewFnName + ',' + loadFnName + ')">Post</button>' +
+                                  '</div>' +
                                 '</div>' +
                             '</div>';
                         });
@@ -8145,6 +8234,81 @@
                 if (loadFn) loadFn();
             } catch(e) {
                 console.error('Reply like error:', e.code, e.message);
+            }
+        }
+
+
+        // ════════════════════════════════════════════════════
+        // COMMENT LIKE: like/unlike a top-level comment
+        // ════════════════════════════════════════════════════
+        async function toggleCommentLike(collection, docId, commentIdx, viewFn, loadFn) {
+            if (!currentUser) return;
+            try {
+                const docRef   = db.collection(collection).doc(docId);
+                const snap     = await docRef.get();
+                const comments = snap.data().comments || [];
+                const uid      = currentUser.uid;
+                if (!comments[commentIdx]) return;
+                const likes    = comments[commentIdx].likes || [];
+                const hasLiked = likes.includes(uid);
+                comments[commentIdx].likes = hasLiked
+                    ? likes.filter(id => id !== uid)
+                    : [...likes, uid];
+                await docRef.update({ comments });
+                if (viewFn) viewFn(docId);
+                if (loadFn) loadFn();
+            } catch(e) {
+                console.error('Comment like error:', e.code, e.message);
+            }
+        }
+
+        // ════════════════════════════════════════════════════
+        // REPLY-TO-REPLY: show input + submit
+        // ════════════════════════════════════════════════════
+        function showReplyToReplyInput(inputId, targetName) {
+            // Hide any other open reply-to-reply inputs
+            document.querySelectorAll('[id^="rreply-"]').forEach(el => {
+                if (el.id !== inputId) el.style.display = 'none';
+            });
+            const el = document.getElementById(inputId);
+            if (!el) return;
+            const isOpen = el.style.display === 'flex';
+            el.style.display = isOpen ? 'none' : 'flex';
+            if (!isOpen) {
+                const inp = document.getElementById(inputId + '-text');
+                if (inp) setTimeout(() => inp.focus(), 80);
+            }
+        }
+
+        async function submitReplyToReply(collection, docId, commentIdx, replyIdx, inputId, viewFn, loadFn) {
+            const inp  = document.getElementById(inputId + '-text');
+            const text = inp ? inp.value.trim() : '';
+            if (!text) return;
+            try {
+                const docRef   = db.collection(collection).doc(docId);
+                const snap     = await docRef.get();
+                const comments = snap.data().comments || [];
+                if (!comments[commentIdx] || !comments[commentIdx].replies) return;
+                const reply = comments[commentIdx].replies[replyIdx];
+                if (!reply) return;
+                if (!reply.replies) reply.replies = [];
+                reply.replies.push({
+                    userId:    currentUser.uid,
+                    userName:  userData.displayName || 'Unknown',
+                    userUnit:  userData.unitNumber  || 'N/A',
+                    message:   text,
+                    timestamp: firebase.firestore.Timestamp.now()
+                });
+                comments[commentIdx].replies[replyIdx] = reply;
+                await docRef.update({ comments });
+                if (inp) { inp.value = ''; }
+                const el = document.getElementById(inputId);
+                if (el) el.style.display = 'none';
+                if (viewFn) viewFn(docId);
+                if (loadFn) loadFn();
+            } catch(e) {
+                console.error('Reply-to-reply error:', e);
+                alert('Error posting reply: ' + e.message);
             }
         }
 
