@@ -6061,8 +6061,10 @@
 
 
         function viewTerms() {
-            closeProfile();
-            window.open('umbrella-terms-and-privacy.html', '_blank');
+            // Show terms inline using the fullTermsView modal already in the app
+            // Do NOT navigate away — on mobile _blank can replace the current window
+            // causing users to see a cached old version when they press X/back
+            showFullTerms();
         }
 
         function viewVisitorQR(visitorId, visitorName, qrCode, visitDate) {
@@ -8109,7 +8111,7 @@
                 <!-- Actions -->
                 <div class="profile-actions">
                     <button class="profile-btn profile-btn-secondary" onclick="closeProfile()">Close</button>
-                    <button class="profile-btn profile-btn-primary" onclick="viewTerms()">View Terms</button>
+                    <button class="profile-btn profile-btn-primary" onclick="viewTerms()">📋 View Terms</button>
                 </div>
             </div>
         </div>
