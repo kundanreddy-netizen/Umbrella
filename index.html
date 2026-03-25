@@ -7289,20 +7289,24 @@
         async function toggleLike(collection, docId, viewFn, loadFn) {
             if (!currentUser) return;
             try {
-                const docRef = db.collection(collection).doc(docId);
-                const snap   = await docRef.get();
-                const likes  = snap.data().likes || [];
-                const uid    = currentUser.uid;
+                const docRef   = db.collection(collection).doc(docId);
+                const snap     = await docRef.get();
+                const likes    = snap.data().likes || [];
+                const uid      = currentUser.uid;
                 const hasLiked = likes.includes(uid);
 
-                const updatedLikes = hasLiked
-                    ? likes.filter(id => id !== uid)
-                    : [...likes, uid];
-
-                await docRef.update({ likes: updatedLikes });
+                // Use arrayUnion / arrayRemove — only touches the likes field,
+                // so Firestore rules don't need the user to be the post owner
+                await docRef.update({
+                    likes: hasLiked
+                        ? firebase.firestore.FieldValue.arrayRemove(uid)
+                        : firebase.firestore.FieldValue.arrayUnion(uid)
+                });
                 if (viewFn) viewFn(docId);
+                if (loadFn) loadFn();
             } catch(e) {
                 console.error('Like error:', e);
+                alert('Could not like this post. Please try again.');
             }
         }
 
