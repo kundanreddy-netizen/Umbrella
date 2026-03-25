@@ -1825,6 +1825,84 @@
         .media-editor-btn-cancel { background: #444; color: white; }
         .media-editor-btn-save   { background: #667eea; color: white; }
 
+
+        /* ── Liked-By bottom sheet ── */
+        .liked-by-overlay {
+            display: none;
+            position: fixed;
+            inset: 0;
+            background: rgba(0,0,0,0.45);
+            z-index: 19000;
+            align-items: flex-end;
+            justify-content: center;
+        }
+        .liked-by-overlay.show { display: flex; }
+        .liked-by-sheet {
+            background: white;
+            border-radius: 24px 24px 0 0;
+            width: 100%;
+            max-width: 600px;
+            max-height: 60vh;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+            padding-bottom: env(safe-area-inset-bottom, 0px);
+        }
+        .liked-by-handle {
+            width: 36px; height: 4px;
+            background: #E0E0E0; border-radius: 2px;
+            margin: 10px auto 0;
+            flex-shrink: 0;
+        }
+        .liked-by-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 14px 20px 10px;
+            font-size: 16px;
+            font-weight: 700;
+            color: #0D0D0D;
+            flex-shrink: 0;
+            border-bottom: 1px solid #F0F0F0;
+        }
+        .liked-by-close {
+            background: #F2F2F2; border: none;
+            width: 30px; height: 30px;
+            border-radius: 50%; cursor: pointer;
+            font-size: 16px; color: #555;
+            display: flex; align-items: center; justify-content: center;
+        }
+        .liked-by-list {
+            overflow-y: auto;
+            padding: 10px 20px 20px;
+            flex: 1;
+        }
+        .liked-by-row {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            padding: 10px 0;
+            border-bottom: 1px solid #F8F8F8;
+        }
+        .liked-by-row:last-child { border-bottom: none; }
+        .liked-by-name {
+            font-size: 14px; font-weight: 600; color: #0D0D0D;
+        }
+        .liked-by-unit {
+            font-size: 12px; color: #AAA; margin-top: 1px;
+        }
+
+        /* ── Reply like button ── */
+        .reply-like-btn {
+            background: none; border: none;
+            font-size: 11px; color: #AAA;
+            cursor: pointer; padding: 3px 6px 3px 0;
+            display: inline-flex; align-items: center; gap: 4px;
+            font-weight: 600; transition: color 0.15s;
+        }
+        .reply-like-btn:hover { color: #667eea; }
+        .reply-like-btn.liked { color: #667eea; }
+        .reply-like-btn svg { flex-shrink: 0; }
         .card-header { display: flex; justify-content: space-between; align-items: flex-start; gap: 8px; }
 
         /* ══════════════════════════════════════
@@ -3306,8 +3384,9 @@
             html += '<div class="post-action-bar">' +
               '<button class="post-action-btn ' + (hasLiked ? 'liked' : '') + '" onclick="toggleLike(\'' + coll + '\',\'' + did + '\',' + viewFnName + ',' + loadFnName + ')">' +
                 '<svg width="20" height="20" viewBox="0 0 24 24" fill="' + (hasLiked ? '#667eea' : 'none') + '" stroke="' + (hasLiked ? '#667eea' : 'currentColor') + '" stroke-width="2"><path d="M14 9V5a3 3 0 0 0-3-3l-4 10v11h11.28a2 2 0 0 0 2-1.7l1.38-9a2 2 0 0 0-2-2.3zM7 22H4a2 2 0 0 1-2-2v-7a2 2 0 0 1 2-2h3"></path></svg>' +
-                (likes.length > 0 ? likes.length + ' ' : '') + 'Like' +
+                'Like' +
               '</button>' +
+              (likes.length > 0 ? '<button class="post-action-btn" style="flex:0;padding:12px 10px;border-left:none;font-size:13px;color:#667eea;font-weight:700;" onclick="showLikedBy(\'' + coll + '\',\'' + did + '\')">' + likes.length + (likes.length === 1 ? ' person' : ' people') + '</button>' : '') +
               '<button class="post-action-btn" onclick="focusCommentInput()">' +
                 '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path></svg>' +
                 (comments.length > 0 ? comments.length + ' ' : '') + 'Comment' +
@@ -3349,11 +3428,21 @@
                         html += '<div class="reply-thread">';
                         replies.forEach(r => {
                             const rDate = r.timestamp ? timeAgo(r.timestamp.toDate()) : '';
-                            html += '<div class="reply-item">' +
+                            const rLikes   = r.likes || [];
+                        const rHasLiked = rLikes.includes(currentUser ? currentUser.uid : '');
+                        html += '<div class="reply-item">' +
                                 avatarHtml(r.userName, 28, r.userId) +
                                 '<div style="flex:1;background:#F0EFFE;border-radius:12px;padding:8px 12px;">' +
-                                  '<span style="font-size:12px;font-weight:700;color:#0D0D0D;">' + (r.userName || '') + '</span>' +
-                                  '<span style="font-size:11px;color:#AAA;margin-left:6px;">' + rDate + '</span>' +
+                                  '<div style="display:flex;justify-content:space-between;align-items:flex-start;">' +
+                                    '<div>' +
+                                      '<span style="font-size:12px;font-weight:700;color:#0D0D0D;">' + (r.userName || '') + '</span>' +
+                                      '<span style="font-size:11px;color:#AAA;margin-left:6px;">' + rDate + '</span>' +
+                                    '</div>' +
+                                    '<button class="reply-like-btn ' + (rHasLiked ? 'liked' : '') + '" onclick="toggleReplyLike(\'' + coll + '\',\'' + did + '\',' + idx + ',' + replies.indexOf(r) + ',' + viewFnName + ',' + loadFnName + ')">' +
+                                      '<svg width="12" height="12" viewBox="0 0 24 24" fill="' + (rHasLiked ? '#667eea' : 'none') + '" stroke="' + (rHasLiked ? '#667eea' : 'currentColor') + '" stroke-width="2"><path d="M14 9V5a3 3 0 0 0-3-3l-4 10v11h11.28a2 2 0 0 0 2-1.7l1.38-9a2 2 0 0 0-2-2.3zM7 22H4a2 2 0 0 1-2-2v-7a2 2 0 0 1 2-2h3"></path></svg>' +
+                                      (rLikes.length > 0 ? rLikes.length : '') +
+                                    '</button>' +
+                                  '</div>' +
                                   '<div style="font-size:13px;color:#333;line-height:1.4;margin-top:3px;">' + renderCommentMessage(r.message || '') + '</div>' +
                                 '</div>' +
                             '</div>';
@@ -7964,6 +8053,101 @@
             }
         }
 
+
+        // ════════════════════════════════════════════════════
+        // LIKED-BY: show who liked a post
+        // ════════════════════════════════════════════════════
+        async function showLikedBy(collection, docId) {
+            const overlay = document.getElementById('likedByOverlay');
+            const list    = document.getElementById('likedByList');
+            const title   = document.getElementById('likedByTitle');
+            list.innerHTML = '<div style="text-align:center;padding:24px;color:#AAA;font-size:14px;">Loading...</div>';
+            overlay.classList.add('show');
+
+            try {
+                const snap  = await db.collection(collection).doc(docId).get();
+                const likes = snap.data().likes || [];
+
+                title.textContent = '👍 Liked by ' + likes.length + (likes.length === 1 ? ' person' : ' people');
+
+                if (likes.length === 0) {
+                    list.innerHTML = '<div style="text-align:center;padding:24px;color:#AAA;font-size:14px;">No likes yet</div>';
+                    return;
+                }
+
+                // Batch-fetch user names — Firestore 'in' supports up to 30
+                let html = '';
+                const batchSize = 30;
+                for (let i = 0; i < likes.length; i += batchSize) {
+                    const batch  = likes.slice(i, i + batchSize);
+                    const usersSnap = await db.collection('users')
+                        .where(firebase.firestore.FieldPath.documentId(), 'in', batch)
+                        .get();
+                    usersSnap.forEach(doc => {
+                        const u    = doc.data();
+                        const name = u.name || u.displayName || 'Resident';
+                        const unit = u.unitNumber ? 'Unit ' + u.unitNumber : '';
+                        const pic  = u.profilePicUrl || (userPicCache && userPicCache[doc.id]) || null;
+                        html += '<div class="liked-by-row">' +
+                                    avatarHtml(name, 40, doc.id, pic) +
+                                    '<div>' +
+                                        '<div class="liked-by-name">' + name + '</div>' +
+                                        (unit ? '<div class="liked-by-unit">' + unit + '</div>' : '') +
+                                    '</div>' +
+                                '</div>';
+                    });
+                }
+                list.innerHTML = html || '<div style="text-align:center;padding:24px;color:#AAA;">No users found</div>';
+            } catch(e) {
+                console.error('showLikedBy error:', e);
+                list.innerHTML = '<div style="text-align:center;padding:24px;color:#f87171;">Could not load likes</div>';
+            }
+        }
+
+        function closeLikedBy(e) {
+            // Close only if tapping the dark overlay, not the sheet itself
+            if (e.target === document.getElementById('likedByOverlay')) {
+                closeLikedBySheet();
+            }
+        }
+        function closeLikedBySheet() {
+            document.getElementById('likedByOverlay').classList.remove('show');
+        }
+
+        // ════════════════════════════════════════════════════
+        // REPLY LIKES: like / unlike a specific reply
+        // Replies are nested inside comments[commentIdx].replies[replyIdx]
+        // We update the full comments array — allowed by isCommentOnly() rule
+        // ════════════════════════════════════════════════════
+        async function toggleReplyLike(collection, docId, commentIdx, replyIdx, viewFn, loadFn) {
+            if (!currentUser) return;
+            try {
+                const docRef   = db.collection(collection).doc(docId);
+                const snap     = await docRef.get();
+                const comments = snap.data().comments || [];
+                const uid      = currentUser.uid;
+
+                if (!comments[commentIdx] || !comments[commentIdx].replies) return;
+                const reply    = comments[commentIdx].replies[replyIdx];
+                if (!reply) return;
+
+                const likes    = reply.likes || [];
+                const hasLiked = likes.includes(uid);
+
+                // Toggle
+                comments[commentIdx].replies[replyIdx].likes = hasLiked
+                    ? likes.filter(id => id !== uid)
+                    : [...likes, uid];
+
+                // isCommentOnly() rule allows updating the comments field
+                await docRef.update({ comments: comments });
+                if (viewFn) viewFn(docId);
+                if (loadFn) loadFn();
+            } catch(e) {
+                console.error('Reply like error:', e.code, e.message);
+            }
+        }
+
 </script>
 
 
@@ -8470,7 +8654,19 @@
         </div>
     </div>
 
-        <!-- ══ Photo Viewer Modal (view other residents' pics) ══ -->
+        <!-- ══ Liked-By Bottom Sheet ══ -->
+    <div class="liked-by-overlay" id="likedByOverlay" onclick="closeLikedBy(event)">
+        <div class="liked-by-sheet">
+            <div class="liked-by-handle"></div>
+            <div class="liked-by-header">
+                <span id="likedByTitle">👍 Liked by</span>
+                <button class="liked-by-close" onclick="closeLikedBySheet()">✕</button>
+            </div>
+            <div class="liked-by-list" id="likedByList"></div>
+        </div>
+    </div>
+
+    <!-- ══ Photo Viewer Modal (view other residents' pics) ══ -->
     <div class="photo-viewer-overlay" id="photoViewerOverlay" onclick="closePhotoViewer()">
         <button class="photo-viewer-close" onclick="closePhotoViewer()">✕</button>
         <img class="photo-viewer-img" id="photoViewerImg" src="" alt="">
