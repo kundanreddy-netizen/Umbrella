@@ -1070,7 +1070,81 @@ async function deleteAnnouncement(id, title) {
 // ════════════════════════════════════════════════
 document.addEventListener('DOMContentLoaded', () => {
 
+  // Handle invite / password reset token in URL
+const hashParams = new URLSearchParams(window.location.hash.replace('#',''));
+const accessToken  = hashParams.get('access_token');
+const refreshToken = hashParams.get('refresh_token');
+const tokenType    = hashParams.get('type');
+
+if (accessToken && (tokenType === 'invite' || tokenType === 'recovery')) {
+
+  await sb.auth.setSession({ access_token: accessToken, refresh_token: refreshToken });
+
+  document.getElementById('view-login').innerHTML = `
+    <div class="login-box">
+      <div class="login-logo">
+        <img src="TheUmbrellaConnect_Logo_HQ.png" alt="TUC" style="width:100px;mix-blend-mode:multiply;" onerror="this.style.display='none'">
+        <h1>The Umbrella Connect</h1>
+        <p>Set your admin password to continue</p>
+      </div>
+      <div class="login-error" id="setPwdError"></div>
+      <div class="login-field">
+        <label class="login-label">New Password</label>
+        <input class="login-input" type="password" id="newPassword" placeholder="Minimum 6 characters" autocomplete="new-password">
+      </div>
+      <div class="login-field">
+        <label class="login-label">Confirm Password</label>
+        <input class="login-input" type="password" id="confirmPassword" placeholder="Repeat password" autocomplete="new-password">
+      </div>
+      <button class="login-btn" id="setPwdBtn">Set Password & Sign In</button>
+    </div>
+  `;
+
+  document.getElementById('setPwdBtn').addEventListener('click', async () => {
+    const pwd  = document.getElementById('newPassword').value;
+    const pwd2 = document.getElementById('confirmPassword').value;
+    const errEl = document.getElementById('setPwdError');
+    const btn   = document.getElementById('setPwdBtn');
+    errEl.style.display = 'none';
+
+    if (pwd.length < 6) {
+      errEl.textContent = 'Password must be at least 6 characters.';
+      errEl.style.display = 'block'; return;
+    }
+    if (pwd !== pwd2) {
+      errEl.textContent = 'Passwords do not match.';
+      errEl.style.display = 'block'; return;
+    }
+
+    btn.textContent = 'Setting password…'; btn.disabled = true;
+
+    const { error } = await sb.auth.updateUser({ password: pwd });
+
+    if (error) {
+      errEl.textContent = error.message;
+      errEl.style.display = 'block';
+      btn.textContent = 'Set Password & Sign In';
+      btn.disabled = false; return;
+    }
+
+    const { data: { user } } = await sb.auth.getUser();
+    const { data: profile }  = await sb.from('profiles').select('*').eq('id', user.id).maybeSingle();
+
+    if (profile && profile.role === 'community_admin') {
+      showToast('Password set! Welcome to the Community Admin portal.', 'success');
+      history.replaceState(null, '', window.location.pathname);
+      enterApp(user, profile);
+    } else {
+      errEl.textContent = 'Profile not found. Contact your TUC Administrator.';
+      errEl.style.display = 'block';
+      btn.textContent = 'Set Password & Sign In';
+      btn.disabled = false;
+    }
+  });
+
+} else {
   checkSession();
+}
 
   // Login
   document.getElementById('loginBtn').addEventListener('click', handleLogin);
