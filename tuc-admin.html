@@ -325,6 +325,30 @@ tbody tr:hover td{background:#FAFBFF;}
 .copy-btn{background:rgba(127,119,221,0.2);color:#7F77DD;border:1px solid rgba(127,119,221,0.3);padding:6px 12px;border-radius:6px;font-size:12px;font-family:inherit;cursor:pointer;}
 .copy-btn:hover{background:rgba(127,119,221,0.3);}
 .config-notice{background:#FEF3C7;border:1.5px solid #FCD34D;border-radius:10px;padding:14px 18px;margin-bottom:24px;font-size:13px;color:#92400E;}
+
+/* Admin panel inside detail modal */
+.admins-section{margin-top:20px;border-top:1px solid var(--border);padding-top:18px;}
+.admins-section-header{display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;}
+.admins-section-header h3{font-size:14px;font-weight:700;color:var(--brand-dark);}
+.admin-row{
+  display:flex;align-items:center;justify-content:space-between;
+  padding:10px 14px;border-radius:9px;background:var(--bg);
+  margin-bottom:8px;border:1px solid var(--border);
+}
+.admin-row-info strong{display:block;font-size:13.5px;font-weight:600;}
+.admin-row-info span{display:block;font-size:12px;color:var(--text-muted);margin-top:1px;}
+.btn-remove{background:none;border:none;cursor:pointer;color:var(--danger);font-size:12px;font-weight:600;padding:4px 8px;border-radius:6px;}
+.btn-remove:hover{background:#FEF2F2;}
+.add-admin-form{
+  background:var(--brand-pale);border:1.5px solid var(--brand-light);
+  border-radius:10px;padding:16px;margin-top:12px;display:none;
+}
+.add-admin-form.open{display:block;}
+.add-admin-form .form-row{margin-bottom:10px;}
+.invite-status{font-size:12px;margin-top:8px;padding:8px 12px;border-radius:7px;display:none;}
+.invite-status.sending{background:#EEF2FF;color:var(--brand-mid);}
+.invite-status.success{background:#D1FAE5;color:#065F46;}
+.invite-status.error{background:#FEE2E2;color:#991B1B;}
 </style>
 </head>
 <body>
@@ -699,6 +723,37 @@ create trigger on_auth_user_created
   </div>
 </div>
 
+<!-- ══ ADD ADMIN MODAL ══ -->
+<div class="modal-overlay" id="addAdminModal">
+  <div class="modal" style="max-width:480px;">
+    <div class="modal-header">
+      <h2>Add Community Admin</h2>
+      <button class="modal-close" data-close="addAdminModal">✕</button>
+    </div>
+    <div class="modal-body">
+      <p style="font-size:13.5px;color:var(--text-muted);margin-bottom:20px;">
+        An invite email will be sent to the admin. They'll click the link to set their password and access the Community Admin portal.
+      </p>
+      <input type="hidden" id="inviteTenantId">
+      <div class="form-row">
+        <div class="form-group">
+          <label for="inviteName">Full Name *</label>
+          <input type="text" id="inviteName" placeholder="Jane Smith">
+        </div>
+        <div class="form-group">
+          <label for="inviteEmail">Email Address *</label>
+          <input type="email" id="inviteEmail" placeholder="jane@covington.com">
+        </div>
+      </div>
+      <div class="invite-status" id="inviteStatus"></div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-secondary" data-close="addAdminModal">Cancel</button>
+      <button class="btn btn-primary" id="sendInviteBtn">📧 Send Invite</button>
+    </div>
+  </div>
+</div>
+
 <div id="toast-container"></div>
 
 <script>
@@ -1010,7 +1065,7 @@ async function deleteCommunity(id, name) {
 }
 
 // ── Detail Modal ──
-function openDetail(id) {
+async function openDetail(id) {
   closeAllMenus();
   const c = allCommunities.find(x => x.id === id);
   if (!c) return;
@@ -1031,13 +1086,185 @@ function openDetail(id) {
     </div>
     <div class="detail-grid">
       <div class="detail-item"><label>Address</label><span>${esc([c.address,c.city,c.state,c.zip].filter(Boolean).join(', '))||'—'}</span></div>
-      <div class="detail-item"><label>Admin Email</label><span>${esc(c.admin_email||'—')}</span></div>
-      <div class="detail-item"><label>Admin Name</label><span>${esc(c.admin_name||'—')}</span></div>
       <div class="detail-item"><label>Community ID</label><span style="font-family:monospace;font-size:12px;">${c.id}</span></div>
     </div>
-    ${c.notes ? `<div style="margin-top:14px;"><label style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:0.6px;color:var(--text-muted);display:block;margin-bottom:6px;">Notes</label><p style="font-size:13.5px;color:var(--text);background:var(--bg);padding:12px;border-radius:8px;">${esc(c.notes)}</p></div>` : ''}
+    ${c.notes ? `<div style="margin-bottom:16px;"><label style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:0.6px;color:var(--text-muted);display:block;margin-bottom:6px;">Notes</label><p style="font-size:13.5px;color:var(--text);background:var(--bg);padding:12px;border-radius:8px;">${esc(c.notes)}</p></div>` : ''}
+
+    <!-- Admins Section -->
+    <div class="admins-section">
+      <div class="admins-section-header">
+        <h3>👤 Community Admins</h3>
+        <button class="btn btn-primary btn-sm" id="openAddAdminBtn">+ Add Admin</button>
+      </div>
+      <div id="adminsPanelList"><div class="spinner" style="width:20px;height:20px;margin:12px auto;"></div></div>
+    </div>
   `;
   openModal('detailModal');
+
+  // Wire add admin button
+  document.getElementById('openAddAdminBtn').addEventListener('click', () => {
+    document.getElementById('inviteTenantId').value = c.id;
+    document.getElementById('inviteName').value = '';
+    document.getElementById('inviteEmail').value = '';
+    document.getElementById('inviteStatus').style.display = 'none';
+    document.getElementById('sendInviteBtn').textContent = '📧 Send Invite';
+    document.getElementById('sendInviteBtn').disabled = false;
+    openModal('addAdminModal');
+  });
+
+  // Load admins for this community
+  await loadCommunityAdmins(c.id);
+}
+
+async function loadCommunityAdmins(tenantId) {
+  const container = document.getElementById('adminsPanelList');
+  if (!container) return;
+
+  const community = allCommunities.find(c => c.id === tenantId);
+
+  const { data, error } = await sb
+    .from('profiles')
+    .select('id, name, email, is_active, created_at')
+    .eq('tenant_id', tenantId)
+    .eq('role', 'community_admin')
+    .order('created_at', { ascending: true });
+
+  if (error) {
+    container.innerHTML = `<p style="font-size:13px;color:var(--danger);">Error loading admins: ${error.message}</p>`;
+    return;
+  }
+
+  const profileAdmins = data || [];
+
+  // Check if primary admin is already in profiles list
+  const primaryEmail = community?.admin_email?.toLowerCase();
+  const primaryAlreadyInProfiles = primaryEmail &&
+    profileAdmins.some(a => a.email?.toLowerCase() === primaryEmail);
+
+  // Build HTML — primary admin first (if not already in profiles)
+  let html = '';
+
+  if (community?.admin_email && !primaryAlreadyInProfiles) {
+    html += `
+      <div class="admin-row" style="border-left:3px solid var(--brand-mid);">
+        <div class="admin-row-info">
+          <strong>${esc(community.admin_name || community.admin_email)}
+            <span style="font-size:11px;font-weight:600;background:var(--brand-pale);color:var(--brand-mid);padding:2px 8px;border-radius:10px;margin-left:6px;">Primary</span>
+          </strong>
+          <span>${esc(community.admin_email)} · 
+            <span style="color:var(--warning);font-weight:600;">Invite not sent yet</span>
+          </span>
+        </div>
+        <button class="btn btn-primary btn-sm" 
+          data-invite-primary="${tenantId}"
+          data-invite-name="${esc(community.admin_name||'')}"
+          data-invite-email="${esc(community.admin_email)}">
+          📧 Send Invite
+        </button>
+      </div>`;
+  }
+
+  // Additional admins from profiles
+  html += profileAdmins.map(a => `
+    <div class="admin-row" ${primaryEmail === a.email?.toLowerCase() ? 'style="border-left:3px solid var(--brand-mid);"' : ''}>
+      <div class="admin-row-info">
+        <strong>${esc(a.name||'—')}
+          ${primaryEmail === a.email?.toLowerCase() ? '<span style="font-size:11px;font-weight:600;background:var(--brand-pale);color:var(--brand-mid);padding:2px 8px;border-radius:10px;margin-left:6px;">Primary</span>' : ''}
+        </strong>
+        <span>${esc(a.email||'—')} · ${a.is_active
+          ? '<span style="color:var(--success);font-weight:600;">Active</span>'
+          : '<span style="color:var(--text-muted);">Inactive</span>'}</span>
+      </div>
+      <button class="btn-remove" data-remove-admin="${a.id}" data-remove-name="${esc(a.name||a.email)}" data-tenant="${tenantId}">Remove</button>
+    </div>
+  `).join('');
+
+  if (!html) {
+    html = `<div style="text-align:center;padding:20px;color:var(--text-muted);font-size:13px;">No admins yet. Add the first admin above.</div>`;
+  }
+
+  container.innerHTML = html;
+
+  // Wire remove buttons
+  container.querySelectorAll('[data-remove-admin]').forEach(btn => {
+    btn.addEventListener('click', () => removeAdmin(btn.dataset.removeAdmin, btn.dataset.removeName, btn.dataset.tenant));
+  });
+
+  // Wire "Send Invite" on primary admin row
+  container.querySelectorAll('[data-invite-primary]').forEach(btn => {
+    btn.addEventListener('click', () => {
+      document.getElementById('inviteTenantId').value = btn.dataset.invitePrimary;
+      document.getElementById('inviteName').value  = btn.dataset.inviteName;
+      document.getElementById('inviteEmail').value = btn.dataset.inviteEmail;
+      document.getElementById('inviteStatus').style.display = 'none';
+      document.getElementById('sendInviteBtn').textContent = '📧 Send Invite';
+      document.getElementById('sendInviteBtn').disabled = false;
+      openModal('addAdminModal');
+    });
+  });
+}
+
+async function removeAdmin(adminId, name, tenantId) {
+  if (!confirm(`Remove "${name}" as admin of this community?\n\nThey will lose access to the Community Admin portal.`)) return;
+  const { error } = await sb.from('profiles').update({ role: 'resident', tenant_id: null }).eq('id', adminId);
+  if (error) { showToast('Error: ' + error.message, 'error'); return; }
+  showToast(`${name} removed as admin.`, 'info');
+  await loadCommunityAdmins(tenantId);
+  await loadAdmins();
+  renderAdminsTable();
+}
+
+// ── Invite Admin via Edge Function ──
+async function sendInvite() {
+  const tenantId = document.getElementById('inviteTenantId').value;
+  const name     = document.getElementById('inviteName').value.trim();
+  const email    = document.getElementById('inviteEmail').value.trim();
+  const status   = document.getElementById('inviteStatus');
+  const btn      = document.getElementById('sendInviteBtn');
+
+  if (!name || !email) { showToast('Name and email are required.', 'error'); return; }
+
+  const community = allCommunities.find(c => c.id === tenantId);
+
+  btn.textContent = 'Sending…'; btn.disabled = true;
+  status.className = 'invite-status sending'; status.style.display = 'block';
+  status.textContent = `Sending invite to ${email}…`;
+
+  try {
+    const { data: { session } } = await sb.auth.getSession();
+    const res = await fetch(`${SUPABASE_URL}/functions/v1/invite-community-admin`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${session.access_token}`,
+        'apikey': SUPABASE_ANON
+      },
+      body: JSON.stringify({ name, email, tenant_id: tenantId, tenant_name: community?.name || '' })
+    });
+
+    const result = await res.json();
+
+    if (!res.ok || result.error) throw new Error(result.error || 'Invite failed');
+
+    status.className = 'invite-status success'; 
+    status.textContent = `✅ Invite sent to ${email}. They'll receive an email to set their password.`;
+    btn.textContent = '✅ Sent';
+
+    showToast(`Invite sent to ${email}!`, 'success');
+
+    // Refresh admins panel after short delay
+    setTimeout(async () => {
+      closeModal('addAdminModal');
+      await loadCommunityAdmins(tenantId);
+      await loadAdmins();
+      renderAdminsTable();
+    }, 1800);
+
+  } catch(err) {
+    status.className = 'invite-status error';
+    status.textContent = `❌ Error: ${err.message}`;
+    btn.textContent = '📧 Send Invite'; btn.disabled = false;
+  }
 }
 
 // ── Auto slug ──
@@ -1108,6 +1335,10 @@ document.addEventListener('DOMContentLoaded', () => {
   document.querySelectorAll('.modal-overlay').forEach(overlay => {
     overlay.addEventListener('click', e => { if (e.target === overlay) overlay.classList.remove('open'); });
   });
+
+  // Send invite
+  document.getElementById('sendInviteBtn').addEventListener('click', sendInvite);
+  document.getElementById('inviteEmail').addEventListener('keydown', e => { if (e.key === 'Enter') sendInvite(); });
 
   // Copy SQL button
   document.getElementById('copySqlBtn').addEventListener('click', copySql);
