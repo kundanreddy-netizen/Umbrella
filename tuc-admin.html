@@ -1,0 +1,1163 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>TUC Super Admin — The Umbrella Connect</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<style>
+*{margin:0;padding:0;box-sizing:border-box;}
+:root{
+  --brand-dark:#1E1A4A;
+  --brand-mid:#534AB7;
+  --brand-light:#7F77DD;
+  --brand-pale:#EAE8F8;
+  --sidebar-w:260px;
+  --bg:#F4F6FB;
+  --white:#fff;
+  --text:#1a1a2e;
+  --text-muted:#6B7280;
+  --border:#E5E7EB;
+  --success:#10B981;
+  --warning:#F59E0B;
+  --danger:#EF4444;
+  --info:#3B82F6;
+  --radius:12px;
+  --shadow:0 2px 12px rgba(30,26,74,0.10);
+  --shadow-lg:0 8px 32px rgba(30,26,74,0.18);
+}
+body{font-family:'Plus Jakarta Sans',sans-serif;background:var(--bg);color:var(--text);min-height:100vh;}
+
+/* ── Login ── */
+#view-login{
+  display:flex;align-items:center;justify-content:center;
+  min-height:100vh;
+  background:linear-gradient(135deg,var(--brand-dark) 0%,var(--brand-mid) 60%,var(--brand-light) 100%);
+  position:relative;overflow:hidden;
+}
+#view-login::before{
+  content:'';position:absolute;inset:0;
+  background:url("data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' fill-rule='evenodd'%3E%3Cg fill='%23ffffff' fill-opacity='0.04'%3E%3Cpath d='M36 34v-4h-2v4h-4v2h4v4h2v-4h4v-2h-4zm0-30V0h-2v4h-4v2h4v4h2V6h4V4h-4zM6 34v-4H4v4H0v2h4v4h2v-4h4v-2H6zM6 4V0H4v4H0v2h4v4h2V6h4V4H6z'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E");
+}
+.login-box{
+  background:rgba(255,255,255,0.97);border-radius:20px;padding:48px 44px;width:420px;
+  box-shadow:0 24px 64px rgba(0,0,0,0.28);position:relative;z-index:1;
+  animation:fadeUp 0.5s ease;
+}
+@keyframes fadeUp{from{opacity:0;transform:translateY(24px)}to{opacity:1;transform:translateY(0)}}
+.login-logo{text-align:center;margin-bottom:32px;}
+.login-logo .logo-icon{
+  width:64px;height:64px;border-radius:16px;
+  background:linear-gradient(135deg,var(--brand-dark),var(--brand-mid));
+  display:inline-flex;align-items:center;justify-content:center;
+  font-size:28px;margin-bottom:14px;
+  box-shadow:0 8px 20px rgba(83,74,183,0.35);
+}
+.login-logo h1{font-size:22px;font-weight:800;color:var(--brand-dark);}
+.login-logo p{font-size:13px;color:var(--text-muted);margin-top:4px;}
+.login-field{margin-bottom:18px;}
+.login-label{display:block;font-size:13px;font-weight:600;color:var(--text);margin-bottom:6px;}
+.login-input{
+  width:100%;padding:11px 14px;border:1.5px solid var(--border);border-radius:9px;
+  font-size:14px;font-family:inherit;outline:none;transition:border 0.2s;
+}
+.login-input:focus{border-color:var(--brand-mid);}
+.login-btn{
+  width:100%;padding:13px;border:none;border-radius:9px;cursor:pointer;
+  font-size:15px;font-weight:700;font-family:inherit;
+  background:linear-gradient(135deg,var(--brand-dark),var(--brand-mid));
+  color:white;margin-top:6px;transition:opacity 0.2s,transform 0.1s;
+  box-shadow:0 4px 14px rgba(83,74,183,0.4);
+}
+.login-btn:hover{opacity:0.92;}
+.login-btn:active{transform:scale(0.99);}
+.login-btn:disabled{opacity:0.6;cursor:not-allowed;}
+.login-error{
+  background:#FEE2E2;color:#B91C1C;border-radius:8px;
+  padding:10px 14px;font-size:13px;margin-bottom:16px;display:none;
+}
+.login-divider{text-align:center;color:var(--text-muted);font-size:12px;margin:18px 0 14px;position:relative;}
+.login-divider::before,.login-divider::after{content:'';position:absolute;top:50%;width:42%;height:1px;background:var(--border);}
+.login-divider::before{left:0;}.login-divider::after{right:0;}
+
+/* ── App Shell ── */
+#view-app{display:none;min-height:100vh;flex-direction:row;}
+#view-app.visible{display:flex;}
+
+/* Sidebar */
+.sidebar{
+  width:var(--sidebar-w);min-height:100vh;
+  background:var(--brand-dark);display:flex;flex-direction:column;
+  position:fixed;top:0;left:0;bottom:0;z-index:100;
+  box-shadow:4px 0 20px rgba(0,0,0,0.18);
+}
+.sidebar-logo{padding:24px 20px 20px;border-bottom:1px solid rgba(255,255,255,0.08);}
+.sidebar-logo .logo-row{display:flex;align-items:center;gap:12px;}
+.sidebar-logo .logo-icon{
+  width:42px;height:42px;border-radius:10px;
+  background:linear-gradient(135deg,var(--brand-mid),var(--brand-light));
+  display:flex;align-items:center;justify-content:center;font-size:20px;flex-shrink:0;
+}
+.sidebar-logo .logo-text{color:white;}
+.sidebar-logo .logo-text strong{font-size:15px;font-weight:800;display:block;letter-spacing:-0.3px;}
+.sidebar-logo .logo-text span{font-size:11px;opacity:0.55;display:block;margin-top:1px;}
+.sidebar-nav{padding:14px 10px;flex:1;}
+.nav-section-label{
+  font-size:10px;font-weight:700;letter-spacing:1.2px;
+  color:rgba(255,255,255,0.35);padding:8px 12px 6px;text-transform:uppercase;
+}
+.nav-item{
+  display:flex;align-items:center;gap:11px;padding:11px 14px;border-radius:9px;cursor:pointer;
+  font-size:14px;font-weight:500;color:rgba(255,255,255,0.65);
+  transition:all 0.18s;margin-bottom:2px;border:none;background:none;width:100%;text-align:left;
+}
+.nav-item:hover{background:rgba(255,255,255,0.07);color:rgba(255,255,255,0.9);}
+.nav-item.active{background:rgba(127,119,221,0.22);color:white;font-weight:600;}
+.nav-icon{font-size:17px;opacity:0.65;width:20px;text-align:center;}
+.nav-item.active .nav-icon{opacity:1;}
+.nav-badge{
+  margin-left:auto;background:var(--danger);color:white;
+  font-size:11px;font-weight:700;min-width:20px;height:20px;
+  padding:0 5px;border-radius:10px;display:inline-flex;align-items:center;justify-content:center;
+}
+.sidebar-bottom{padding:14px 10px 20px;border-top:1px solid rgba(255,255,255,0.08);}
+.sidebar-user{display:flex;align-items:center;gap:10px;padding:10px 12px;border-radius:9px;}
+.user-avatar{
+  width:36px;height:36px;border-radius:50%;
+  background:linear-gradient(135deg,var(--brand-mid),var(--brand-light));
+  display:flex;align-items:center;justify-content:center;
+  color:white;font-weight:700;font-size:14px;flex-shrink:0;
+}
+.user-info strong{display:block;font-size:13px;color:white;font-weight:600;}
+.user-info span{display:block;font-size:11px;color:rgba(255,255,255,0.45);}
+.signout-btn{
+  width:100%;padding:9px 14px;border:1px solid rgba(255,255,255,0.12);
+  border-radius:8px;background:transparent;color:rgba(255,255,255,0.55);
+  font-size:13px;font-family:inherit;cursor:pointer;margin-top:8px;transition:all 0.18s;
+}
+.signout-btn:hover{background:rgba(255,255,255,0.07);color:white;}
+
+/* Main */
+.main{margin-left:var(--sidebar-w);flex:1;display:flex;flex-direction:column;}
+.topbar{
+  background:white;padding:16px 30px;
+  display:flex;justify-content:space-between;align-items:center;
+  border-bottom:1px solid var(--border);position:sticky;top:0;z-index:90;
+}
+.topbar-title{font-size:20px;font-weight:800;color:var(--brand-dark);}
+.topbar-sub{font-size:13px;color:var(--text-muted);margin-top:1px;}
+.topbar-actions{display:flex;gap:10px;align-items:center;}
+.content{padding:28px 30px;}
+
+/* Stats */
+.stats-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:18px;margin-bottom:30px;}
+.stat-card{
+  background:white;border-radius:var(--radius);padding:22px;
+  box-shadow:var(--shadow);cursor:pointer;transition:transform 0.2s,box-shadow 0.2s;
+  border:1px solid var(--border);position:relative;overflow:hidden;
+}
+.stat-card::before{
+  content:'';position:absolute;top:0;right:0;
+  width:80px;height:80px;border-radius:0 var(--radius) 0 80px;opacity:0.08;
+}
+.stat-card.purple::before{background:var(--brand-mid);}
+.stat-card.green::before{background:var(--success);}
+.stat-card.orange::before{background:var(--warning);}
+.stat-card.blue::before{background:var(--info);}
+.stat-card:hover{transform:translateY(-3px);box-shadow:var(--shadow-lg);}
+.stat-icon{font-size:26px;margin-bottom:12px;}
+.stat-number{font-size:34px;font-weight:800;color:var(--brand-dark);line-height:1;}
+.stat-label{font-size:13px;color:var(--text-muted);margin-top:5px;font-weight:500;}
+
+/* Section */
+.section-header{display:flex;justify-content:space-between;align-items:center;margin-bottom:20px;}
+.section-title{font-size:17px;font-weight:800;color:var(--brand-dark);}
+.section-sub{font-size:13px;color:var(--text-muted);margin-top:2px;}
+
+/* Buttons */
+.btn{
+  padding:9px 18px;border:none;border-radius:8px;cursor:pointer;
+  font-size:13px;font-weight:600;font-family:inherit;transition:all 0.18s;
+  display:inline-flex;align-items:center;gap:6px;
+}
+.btn-primary{background:linear-gradient(135deg,var(--brand-dark),var(--brand-mid));color:white;box-shadow:0 3px 10px rgba(83,74,183,0.3);}
+.btn-primary:hover{opacity:0.9;transform:translateY(-1px);}
+.btn-secondary{background:#F3F4F6;color:#374151;}
+.btn-secondary:hover{background:#E5E7EB;}
+.btn-danger-soft{background:#FEE2E2;color:#991B1B;}
+.btn-danger-soft:hover{background:#FECACA;}
+.btn-sm{padding:6px 12px;font-size:12px;}
+
+/* Table */
+.table-wrap{background:white;border-radius:var(--radius);box-shadow:var(--shadow);border:1px solid var(--border);overflow:hidden;}
+.table-toolbar{padding:16px 20px;display:flex;gap:12px;align-items:center;border-bottom:1px solid var(--border);}
+.search-input{
+  flex:1;padding:9px 14px 9px 36px;border:1.5px solid var(--border);border-radius:8px;
+  font-size:13px;font-family:inherit;outline:none;transition:border 0.2s;
+  background:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%236B7280' stroke-width='2'%3E%3Ccircle cx='11' cy='11' r='8'/%3E%3Cpath d='m21 21-4.35-4.35'/%3E%3C/svg%3E") 10px center/16px no-repeat;
+}
+.search-input:focus{border-color:var(--brand-mid);}
+table{width:100%;border-collapse:collapse;}
+thead tr{background:#F8F9FC;}
+th{padding:12px 16px;text-align:left;font-size:11.5px;font-weight:700;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.6px;border-bottom:1px solid var(--border);}
+td{padding:14px 16px;font-size:13.5px;border-bottom:1px solid var(--border);vertical-align:middle;}
+tr:last-child td{border-bottom:none;}
+tbody tr:hover td{background:#FAFBFF;}
+.cell-primary{font-weight:700;font-size:14px;}
+.cell-secondary{font-size:12px;color:var(--text-muted);margin-top:2px;}
+
+/* Badges */
+.badge{display:inline-flex;align-items:center;padding:3px 10px;border-radius:20px;font-size:12px;font-weight:600;}
+.badge-active{background:#D1FAE5;color:#065F46;}
+.badge-inactive{background:#F3F4F6;color:#6B7280;}
+.badge-suspended{background:#FEE2E2;color:#991B1B;}
+
+/* Empty */
+.empty-state{padding:60px 20px;text-align:center;color:var(--text-muted);}
+.empty-icon{font-size:48px;margin-bottom:12px;}
+
+/* Modal */
+.modal-overlay{
+  display:none;position:fixed;inset:0;background:rgba(0,0,0,0.45);
+  z-index:999;align-items:center;justify-content:center;padding:20px;
+  backdrop-filter:blur(3px);
+}
+.modal-overlay.open{display:flex;}
+.modal{
+  background:white;border-radius:18px;width:100%;max-width:580px;
+  max-height:90vh;overflow-y:auto;
+  box-shadow:0 24px 64px rgba(0,0,0,0.22);
+  animation:modalIn 0.25s ease;
+}
+@keyframes modalIn{from{opacity:0;transform:scale(0.95) translateY(10px)}to{opacity:1;transform:scale(1) translateY(0)}}
+.modal-header{
+  padding:22px 24px 18px;border-bottom:1px solid var(--border);
+  display:flex;justify-content:space-between;align-items:center;
+  position:sticky;top:0;background:white;z-index:1;border-radius:18px 18px 0 0;
+}
+.modal-header h2{font-size:17px;font-weight:800;color:var(--brand-dark);}
+.modal-close{
+  background:none;border:none;cursor:pointer;font-size:20px;color:var(--text-muted);
+  width:32px;height:32px;border-radius:6px;display:flex;align-items:center;justify-content:center;
+}
+.modal-close:hover{background:#F3F4F6;color:var(--text);}
+.modal-body{padding:24px;}
+.modal-footer{
+  padding:16px 24px;border-top:1px solid var(--border);
+  display:flex;justify-content:flex-end;gap:10px;
+  background:#FAFBFF;border-radius:0 0 18px 18px;
+}
+
+/* Form */
+.form-row{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:16px;}
+.form-row.single{grid-template-columns:1fr;}
+.form-group{display:flex;flex-direction:column;}
+.form-group label{font-size:12.5px;font-weight:700;color:var(--text);margin-bottom:6px;}
+.form-group input,.form-group select,.form-group textarea{
+  padding:10px 12px;border:1.5px solid var(--border);border-radius:8px;
+  font-size:13.5px;font-family:inherit;outline:none;transition:border 0.2s;background:white;
+}
+.form-group input:focus,.form-group select:focus,.form-group textarea:focus{border-color:var(--brand-mid);}
+.form-group textarea{resize:vertical;min-height:80px;}
+.form-group .hint{font-size:11px;color:var(--text-muted);margin-top:4px;}
+.form-section-label{
+  font-size:11px;font-weight:700;letter-spacing:1px;text-transform:uppercase;
+  color:var(--text-muted);margin:20px 0 14px;padding-bottom:6px;border-bottom:1px solid var(--border);
+}
+
+/* Detail */
+.detail-stats{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin:16px 0;}
+.detail-stat{background:var(--bg);border-radius:10px;padding:14px;text-align:center;}
+.detail-stat .num{font-size:24px;font-weight:800;color:var(--brand-dark);}
+.detail-stat .lbl{font-size:11px;color:var(--text-muted);margin-top:3px;}
+.detail-grid{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:20px;}
+.detail-item label{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:0.6px;color:var(--text-muted);display:block;margin-bottom:4px;}
+.detail-item span{font-size:14px;font-weight:500;color:var(--text);}
+
+/* Action menu */
+.action-menu{position:relative;display:inline-block;}
+.action-menu-btn{background:none;border:1px solid var(--border);border-radius:6px;padding:5px 10px;cursor:pointer;font-size:16px;color:var(--text-muted);}
+.action-menu-btn:hover{background:var(--bg);}
+.action-dropdown{
+  position:absolute;right:0;top:calc(100% + 4px);background:white;
+  border:1px solid var(--border);border-radius:10px;box-shadow:var(--shadow-lg);
+  min-width:160px;z-index:200;display:none;padding:6px;
+}
+.action-dropdown.open{display:block;}
+.action-item{
+  padding:9px 12px;border-radius:7px;font-size:13px;cursor:pointer;
+  display:flex;align-items:center;gap:8px;font-weight:500;border:none;
+  background:none;width:100%;text-align:left;
+}
+.action-item:hover{background:var(--bg);}
+.action-item.danger{color:var(--danger);}
+.action-item.danger:hover{background:#FEF2F2;}
+
+/* Toast */
+#toast-container{position:fixed;bottom:24px;right:24px;z-index:9999;display:flex;flex-direction:column;gap:8px;}
+.toast{
+  padding:12px 18px;border-radius:10px;font-size:13px;font-weight:600;
+  box-shadow:0 4px 16px rgba(0,0,0,0.18);color:white;min-width:240px;
+  animation:slideIn 0.3s ease;
+}
+@keyframes slideIn{from{opacity:0;transform:translateX(60px)}to{opacity:1;transform:translateX(0)}}
+.toast.success{background:#10B981;}
+.toast.error{background:#EF4444;}
+.toast.info{background:var(--brand-mid);}
+
+/* Spinner */
+.spinner{
+  width:32px;height:32px;border:3px solid var(--border);
+  border-top-color:var(--brand-mid);border-radius:50%;
+  animation:spin 0.7s linear infinite;margin:40px auto;
+}
+@keyframes spin{to{transform:rotate(360deg)}}
+
+/* Section visibility */
+.section{display:none;}
+.section.active{display:block;}
+
+/* SQL */
+.sql-code{
+  background:#1E1A4A;color:#a5f3fc;border-radius:10px;
+  padding:16px;font-size:12px;font-family:'Courier New',monospace;
+  white-space:pre;overflow-x:auto;line-height:1.6;max-height:320px;overflow-y:auto;
+}
+.copy-btn{background:rgba(127,119,221,0.2);color:#7F77DD;border:1px solid rgba(127,119,221,0.3);padding:6px 12px;border-radius:6px;font-size:12px;font-family:inherit;cursor:pointer;}
+.copy-btn:hover{background:rgba(127,119,221,0.3);}
+.config-notice{background:#FEF3C7;border:1.5px solid #FCD34D;border-radius:10px;padding:14px 18px;margin-bottom:24px;font-size:13px;color:#92400E;}
+</style>
+</head>
+<body>
+
+<!-- ══ LOGIN ══ -->
+<div id="view-login">
+  <div class="login-box">
+    <div class="login-logo">
+      <div class="logo-icon">☂️</div>
+      <h1>The Umbrella Connect</h1>
+      <p>Super Admin Portal</p>
+    </div>
+    <div class="login-error" id="loginError"></div>
+    <div class="login-field">
+      <label class="login-label" for="loginEmail">Email</label>
+      <input class="login-input" type="email" id="loginEmail" placeholder="admin@umbrellaconnect.com" autocomplete="email">
+    </div>
+    <div class="login-field">
+      <label class="login-label" for="loginPassword">Password</label>
+      <input class="login-input" type="password" id="loginPassword" placeholder="••••••••" autocomplete="current-password">
+    </div>
+    <button class="login-btn" id="loginBtn">Sign In to TUC Admin</button>
+    <div class="login-divider">TUC Super Admin Access Only</div>
+    <div style="font-size:12px;color:var(--text-muted);text-align:center;line-height:1.6;">
+      Access restricted to The Umbrella Connect<br>platform administrators.
+    </div>
+  </div>
+</div>
+
+<!-- ══ APP ══ -->
+<div id="view-app">
+
+  <aside class="sidebar" id="sidebar">
+    <div class="sidebar-logo">
+      <div class="logo-row">
+        <div class="logo-icon">☂️</div>
+        <div class="logo-text">
+          <strong>TUC Admin</strong>
+          <span>Super Admin Portal</span>
+        </div>
+      </div>
+    </div>
+    <nav class="sidebar-nav">
+      <div class="nav-section-label">Main</div>
+      <button class="nav-item active" data-section="overview">
+        <span class="nav-icon">📊</span> Overview
+      </button>
+      <button class="nav-item" data-section="communities">
+        <span class="nav-icon">🏘️</span> Communities
+        <span class="nav-badge" id="navBadgeCommunities" style="display:none"></span>
+      </button>
+      <button class="nav-item" data-section="admins">
+        <span class="nav-icon">👤</span> Community Admins
+      </button>
+      <div class="nav-section-label" style="margin-top:14px;">System</div>
+      <button class="nav-item" data-section="setup">
+        <span class="nav-icon">⚙️</span> DB Setup
+      </button>
+    </nav>
+    <div class="sidebar-bottom">
+      <div class="sidebar-user">
+        <div class="user-avatar" id="userAvatar">A</div>
+        <div class="user-info">
+          <strong id="sidebarUserName">Admin</strong>
+          <span>TUC Super Admin</span>
+        </div>
+      </div>
+      <button class="signout-btn" id="signoutBtn">🚪 Sign Out</button>
+    </div>
+  </aside>
+
+  <div class="main">
+    <div class="topbar">
+      <div>
+        <div class="topbar-title" id="topbarTitle">Overview</div>
+        <div class="topbar-sub" id="topbarSub">Platform-wide stats across all communities</div>
+      </div>
+      <div class="topbar-actions">
+        <button class="btn btn-primary" id="btnAddCommunity">+ Add Community</button>
+      </div>
+    </div>
+
+    <div class="content">
+
+      <!-- OVERVIEW -->
+      <div class="section active" id="section-overview">
+        <div class="stats-grid">
+          <div class="stat-card purple" data-goto="communities">
+            <div class="stat-icon">🏘️</div>
+            <div class="stat-number" id="statTotal">—</div>
+            <div class="stat-label">Total Communities</div>
+          </div>
+          <div class="stat-card green">
+            <div class="stat-icon">✅</div>
+            <div class="stat-number" id="statActive">—</div>
+            <div class="stat-label">Active Communities</div>
+          </div>
+          <div class="stat-card orange">
+            <div class="stat-icon">👥</div>
+            <div class="stat-number" id="statResidents">—</div>
+            <div class="stat-label">Total Residents</div>
+          </div>
+          <div class="stat-card blue">
+            <div class="stat-icon">🏠</div>
+            <div class="stat-number" id="statUnits">—</div>
+            <div class="stat-label">Total Units</div>
+          </div>
+        </div>
+        <div class="section-header">
+          <div>
+            <div class="section-title">Recent Communities</div>
+            <div class="section-sub">Latest onboarded communities</div>
+          </div>
+          <button class="btn btn-secondary btn-sm" data-goto="communities">View All →</button>
+        </div>
+        <div class="table-wrap">
+          <table>
+            <thead><tr>
+              <th>Community</th><th>Status</th><th>Units</th><th>Admin Email</th><th>Joined</th>
+            </tr></thead>
+            <tbody id="recentCommunitiesBody">
+              <tr><td colspan="5"><div class="spinner"></div></td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- COMMUNITIES -->
+      <div class="section" id="section-communities">
+        <div class="table-wrap">
+          <div class="table-toolbar">
+            <input class="search-input" type="text" id="communitySearch" placeholder="Search communities...">
+            <select id="statusFilter" style="padding:9px 12px;border:1.5px solid var(--border);border-radius:8px;font-size:13px;font-family:inherit;outline:none;">
+              <option value="all">All Status</option>
+              <option value="active">Active</option>
+              <option value="inactive">Inactive</option>
+              <option value="suspended">Suspended</option>
+            </select>
+          </div>
+          <table>
+            <thead><tr>
+              <th>Community</th><th>Location</th><th>Status</th><th>Units</th><th>Residents</th><th>Admin</th><th>Created</th><th></th>
+            </tr></thead>
+            <tbody id="communitiesTableBody">
+              <tr><td colspan="8"><div class="spinner"></div></td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- ADMINS -->
+      <div class="section" id="section-admins">
+        <div class="table-wrap">
+          <div class="table-toolbar">
+            <input class="search-input" type="text" id="adminSearch" placeholder="Search admins...">
+          </div>
+          <table>
+            <thead><tr>
+              <th>Admin</th><th>Community</th><th>Email</th><th>Status</th><th>Created</th>
+            </tr></thead>
+            <tbody id="adminsTableBody">
+              <tr><td colspan="5"><div class="spinner"></div></td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- DB SETUP -->
+      <div class="section" id="section-setup">
+        <div class="config-notice" id="configNotice" style="display:none;">
+          <strong>⚠️ Supabase not configured.</strong> Update SUPABASE_URL and SUPABASE_ANON_KEY at the top of the script block in this file.
+        </div>
+        <div class="section-header">
+          <div>
+            <div class="section-title">Supabase Database Setup</div>
+            <div class="section-sub">Run this SQL in your Supabase SQL Editor to create all required tables</div>
+          </div>
+        </div>
+        <div style="display:grid;gap:16px;">
+          <div class="table-wrap" style="padding:24px;">
+            <h3 style="font-size:15px;font-weight:700;margin-bottom:8px;">Step 1 — Get your API keys</h3>
+            <p style="font-size:13.5px;color:var(--text-muted);line-height:1.6;">In Supabase: <strong>Project Settings → Data API</strong>. Copy your Project URL and anon/public key. Paste them into the <code>SUPABASE_URL</code> and <code>SUPABASE_ANON</code> variables at the top of this file's script block.</p>
+          </div>
+          <div class="table-wrap" style="padding:24px;">
+            <h3 style="font-size:15px;font-weight:700;margin-bottom:8px;">Step 2 — Run the Schema SQL</h3>
+            <p style="font-size:13.5px;color:var(--text-muted);line-height:1.6;margin-bottom:14px;">Go to <strong>SQL Editor → New query</strong> in Supabase and run:</p>
+            <pre class="sql-code" id="setupSqlBlock">-- 1. TENANTS (communities)
+create table if not exists public.tenants (
+  id uuid default gen_random_uuid() primary key,
+  name text not null,
+  slug text unique not null,
+  address text,
+  city text,
+  state text,
+  zip text,
+  status text default 'active' check (status in ('active','inactive','suspended')),
+  admin_email text,
+  admin_name text,
+  unit_count int default 0,
+  resident_count int default 0,
+  notes text,
+  created_at timestamptz default now(),
+  updated_at timestamptz default now()
+);
+
+-- 2. PROFILES (extends Supabase auth.users)
+create table if not exists public.profiles (
+  id uuid references auth.users on delete cascade primary key,
+  email text,
+  name text,
+  role text default 'resident' check (role in ('tuc_admin','community_admin','resident')),
+  tenant_id uuid references public.tenants(id) on delete set null,
+  is_active boolean default true,
+  created_at timestamptz default now()
+);
+
+-- 3. Enable RLS
+alter table public.tenants enable row level security;
+alter table public.profiles enable row level security;
+
+-- 4. RLS Policies
+create policy "TUC admins manage tenants" on public.tenants
+  for all using (
+    exists (select 1 from public.profiles where id = auth.uid() and role = 'tuc_admin')
+  );
+create policy "TUC admins manage profiles" on public.profiles
+  for all using (
+    exists (select 1 from public.profiles where id = auth.uid() and role = 'tuc_admin')
+  );
+create policy "Users read own profile" on public.profiles
+  for select using (auth.uid() = id);
+
+-- 5. updated_at trigger
+create or replace function public.handle_updated_at()
+returns trigger as $$
+begin new.updated_at = now(); return new; end;
+$$ language plpgsql;
+
+create trigger on_tenant_updated
+  before update on public.tenants
+  for each row execute procedure public.handle_updated_at();
+
+-- 6. Auto-create profile on signup
+create or replace function public.handle_new_user()
+returns trigger as $$
+begin
+  insert into public.profiles (id, email, name)
+  values (new.id, new.email,
+    coalesce(new.raw_user_meta_data->>'name', split_part(new.email,'@',1)));
+  return new;
+end;
+$$ language plpgsql security definer;
+
+create trigger on_auth_user_created
+  after insert on auth.users
+  for each row execute procedure public.handle_new_user();</pre>
+            <div style="margin-top:12px;display:flex;gap:10px;align-items:center;">
+              <button class="copy-btn" id="copySqlBtn">📋 Copy SQL</button>
+              <a href="https://supabase.com/dashboard" target="_blank"
+                 style="color:var(--brand-mid);font-size:13px;font-weight:600;text-decoration:none;">
+                Open Supabase Dashboard ↗
+              </a>
+            </div>
+          </div>
+          <div class="table-wrap" style="padding:24px;">
+            <h3 style="font-size:15px;font-weight:700;margin-bottom:8px;">Step 3 — Make yourself TUC Admin</h3>
+            <p style="font-size:13.5px;color:var(--text-muted);line-height:1.6;margin-bottom:12px;">Sign into this portal once (it creates your profile), then run this in SQL Editor:</p>
+            <pre class="sql-code">update public.profiles set role = 'tuc_admin' where email = 'your@email.com';</pre>
+          </div>
+        </div>
+      </div>
+
+    </div><!-- /content -->
+  </div><!-- /main -->
+</div><!-- /view-app -->
+
+<!-- ══ ADD/EDIT COMMUNITY MODAL ══ -->
+<div class="modal-overlay" id="communityModal">
+  <div class="modal">
+    <div class="modal-header">
+      <h2 id="communityModalTitle">Add New Community</h2>
+      <button class="modal-close" data-close="communityModal">✕</button>
+    </div>
+    <div class="modal-body">
+      <input type="hidden" id="editCommunityId">
+      <div class="form-section-label">Community Details</div>
+      <div class="form-row">
+        <div class="form-group">
+          <label for="cName">Community Name *</label>
+          <input type="text" id="cName" placeholder="Covington Community">
+        </div>
+        <div class="form-group">
+          <label for="cSlug">Slug / Identifier *</label>
+          <input type="text" id="cSlug" placeholder="covington">
+          <span class="hint">Lowercase letters, numbers, hyphens only.</span>
+        </div>
+      </div>
+      <div class="form-row single">
+        <div class="form-group">
+          <label for="cAddress">Address</label>
+          <input type="text" id="cAddress" placeholder="123 Main Street">
+        </div>
+      </div>
+      <div class="form-row">
+        <div class="form-group">
+          <label for="cCity">City</label>
+          <input type="text" id="cCity" placeholder="Fort Mill">
+        </div>
+        <div class="form-group">
+          <label for="cState">State</label>
+          <input type="text" id="cState" placeholder="SC">
+        </div>
+      </div>
+      <div class="form-row">
+        <div class="form-group">
+          <label for="cZip">ZIP</label>
+          <input type="text" id="cZip" placeholder="29708">
+        </div>
+        <div class="form-group">
+          <label for="cUnits">Total Units</label>
+          <input type="number" id="cUnits" placeholder="120" min="1">
+        </div>
+      </div>
+      <div class="form-section-label">Community Admin Account</div>
+      <div class="form-row">
+        <div class="form-group">
+          <label for="cAdminName">Admin Full Name</label>
+          <input type="text" id="cAdminName" placeholder="Jane Smith">
+        </div>
+        <div class="form-group">
+          <label for="cAdminEmail">Admin Email</label>
+          <input type="email" id="cAdminEmail" placeholder="admin@covington.com">
+        </div>
+      </div>
+      <div class="form-section-label">Status & Notes</div>
+      <div class="form-row">
+        <div class="form-group">
+          <label for="cStatus">Status</label>
+          <select id="cStatus">
+            <option value="active">Active</option>
+            <option value="inactive">Inactive</option>
+            <option value="suspended">Suspended</option>
+          </select>
+        </div>
+      </div>
+      <div class="form-row single">
+        <div class="form-group">
+          <label for="cNotes">Internal Notes</label>
+          <textarea id="cNotes" placeholder="Any internal notes..."></textarea>
+        </div>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-secondary" data-close="communityModal">Cancel</button>
+      <button class="btn btn-primary" id="saveCommunityBtn">Save Community</button>
+    </div>
+  </div>
+</div>
+
+<!-- ══ DETAIL MODAL ══ -->
+<div class="modal-overlay" id="detailModal">
+  <div class="modal" style="max-width:640px;">
+    <div class="modal-header">
+      <h2 id="detailModalTitle">Community Details</h2>
+      <button class="modal-close" data-close="detailModal">✕</button>
+    </div>
+    <div class="modal-body" id="detailModalBody"></div>
+    <div class="modal-footer">
+      <button class="btn btn-secondary" data-close="detailModal">Close</button>
+      <button class="btn btn-primary" id="detailEditBtn">✏️ Edit Community</button>
+    </div>
+  </div>
+</div>
+
+<div id="toast-container"></div>
+
+<script>
+// ╔══════════════════════════════════════════════╗
+// ║  CONFIG — paste your Supabase credentials    ║
+// ╚══════════════════════════════════════════════╝
+const SUPABASE_URL  = 'https://alqwckmrosuxoitxhmyk.supabase.co';
+const SUPABASE_ANON = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImFscXdja21yb3N1eG9pdHhobXlrIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzQ0ODY0OTcsImV4cCI6MjA5MDA2MjQ5N30.qtLV1hlbgMeAbPu34kniQ-UJU4OiudCfEHwpadNa4c8';
+
+// ── State ──
+let sb = null;
+let allCommunities = [];
+let allAdmins = [];
+let currentDetailId = null;
+
+// ── Init Supabase ──
+function initSB() {
+  if (SUPABASE_URL === 'YOUR_SUPABASE_URL') return false;
+  try { sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON); return true; }
+  catch(e) { return false; }
+}
+
+// ── Helpers ──
+function esc(s) {
+  if (s == null) return '';
+  return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+function fmtDate(d) {
+  if (!d) return '—';
+  return new Date(d).toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'});
+}
+function statusBadge(s) {
+  const map = { active:'badge-active', inactive:'badge-inactive', suspended:'badge-suspended' };
+  return `<span class="badge ${map[s]||'badge-inactive'}">${esc(s)||'unknown'}</span>`;
+}
+function showToast(msg, type='info') {
+  const el = document.createElement('div');
+  el.className = `toast ${type}`;
+  el.textContent = msg;
+  document.getElementById('toast-container').appendChild(el);
+  setTimeout(() => el.remove(), 3500);
+}
+function openModal(id) { document.getElementById(id).classList.add('open'); }
+function closeModal(id) { document.getElementById(id).classList.remove('open'); }
+
+// ── Login ──
+async function handleLogin() {
+  const email = document.getElementById('loginEmail').value.trim();
+  const pwd   = document.getElementById('loginPassword').value;
+  const errEl = document.getElementById('loginError');
+  const btn   = document.getElementById('loginBtn');
+
+  errEl.style.display = 'none';
+  if (!email || !pwd) { showLoginError('Please enter your email and password.'); return; }
+  if (!initSB()) { showLoginError('Supabase not configured. Check SUPABASE_URL and SUPABASE_ANON_KEY in this file.'); return; }
+
+  btn.textContent = 'Signing in…';
+  btn.disabled = true;
+
+  const { data, error } = await sb.auth.signInWithPassword({ email, password: pwd });
+
+  btn.textContent = 'Sign In to TUC Admin';
+  btn.disabled = false;
+
+  if (error) { showLoginError(error.message); return; }
+
+  const { data: profile, error: profileErr } = await sb
+  .from('profiles')
+  .select('*')
+  .eq('id', data.user.id)
+  .maybeSingle();
+
+console.log('Profile fetch result:', profile, profileErr);
+
+if (profileErr) { await sb.auth.signOut(); showLoginError('Error reading profile: ' + profileErr.message); return; }
+if (!profile) { await sb.auth.signOut(); showLoginError('Profile record not found for this user.'); return; }
+if (profile.role !== 'tuc_admin') { await sb.auth.signOut(); showLoginError('Access denied. Role is: ' + profile.role); return; }
+
+  enterApp(profile);
+}
+
+function showLoginError(msg) {
+  const el = document.getElementById('loginError');
+  el.textContent = msg;
+  el.style.display = 'block';
+}
+
+function enterApp(profile) {
+  document.getElementById('view-login').style.display = 'none';
+  document.getElementById('view-app').style.display = 'flex';
+  const name = profile.name || profile.email || 'Admin';
+  document.getElementById('sidebarUserName').textContent = name;
+  document.getElementById('userAvatar').textContent = name[0].toUpperCase();
+  loadAllData();
+}
+
+async function handleSignOut() {
+  if (!confirm('Sign out?')) return;
+  await sb.auth.signOut();
+  location.reload();
+}
+
+// ── Session restore ──
+async function checkSession() {
+  if (!initSB()) {
+    document.getElementById('configNotice').style.display = 'block';
+    return;
+  }
+  const { data: { session } } = await sb.auth.getSession();
+  if (!session) return;
+  const { data: profile } = await sb.from('profiles').select('*').eq('id', session.user.id).single();
+  if (profile && profile.role === 'tuc_admin') enterApp(profile);
+}
+
+// ── Navigation ──
+function showSection(name) {
+  document.querySelectorAll('.section').forEach(s => s.classList.remove('active'));
+  document.querySelectorAll('.nav-item').forEach(b => b.classList.remove('active'));
+  document.getElementById('section-' + name).classList.add('active');
+  const navBtn = document.querySelector(`.nav-item[data-section="${name}"]`);
+  if (navBtn) navBtn.classList.add('active');
+
+  const map = {
+    overview:    ['Overview','Platform-wide stats across all communities'],
+    communities: ['Communities','Manage and onboard all communities'],
+    admins:      ['Community Admins','Admins managing individual communities'],
+    setup:       ['Database Setup','Supabase schema and configuration guide'],
+  };
+  const [title, sub] = map[name] || ['',''];
+  document.getElementById('topbarTitle').textContent = title;
+  document.getElementById('topbarSub').textContent = sub;
+}
+
+// ── Data loading ──
+async function loadAllData() {
+  await Promise.all([loadCommunities(), loadAdmins()]);
+  renderOverview();
+  renderCommunitiesTable();
+  renderAdminsTable();
+}
+
+async function loadCommunities() {
+  if (!sb) return;
+  const { data, error } = await sb.from('tenants').select('*').order('created_at',{ascending:false});
+  if (error) { showToast('Error loading communities: '+error.message,'error'); return; }
+  allCommunities = data || [];
+  const badge = document.getElementById('navBadgeCommunities');
+  badge.textContent = allCommunities.length;
+  badge.style.display = allCommunities.length > 0 ? 'inline-flex' : 'none';
+}
+
+async function loadAdmins() {
+  if (!sb) return;
+  const { data } = await sb.from('profiles').select('*, tenants(name)').eq('role','community_admin').order('created_at',{ascending:false});
+  allAdmins = data || [];
+}
+
+// ── Overview ──
+function renderOverview() {
+  document.getElementById('statTotal').textContent    = allCommunities.length;
+  document.getElementById('statActive').textContent   = allCommunities.filter(c=>c.status==='active').length;
+  document.getElementById('statUnits').textContent    = allCommunities.reduce((s,c)=>s+(c.unit_count||0),0);
+  document.getElementById('statResidents').textContent= allCommunities.reduce((s,c)=>s+(c.resident_count||0),0);
+
+  const tbody = document.getElementById('recentCommunitiesBody');
+  if (!allCommunities.length) {
+    tbody.innerHTML = `<tr><td colspan="5"><div class="empty-state"><div class="empty-icon">🏘️</div><p>No communities yet. Add your first community.</p></div></td></tr>`;
+    return;
+  }
+  tbody.innerHTML = allCommunities.slice(0,5).map(c => `
+    <tr style="cursor:pointer" data-open-detail="${c.id}">
+      <td><div class="cell-primary">${esc(c.name)}</div><div class="cell-secondary">${esc(c.slug)}</div></td>
+      <td>${statusBadge(c.status)}</td>
+      <td>${c.unit_count||0}</td>
+      <td>${esc(c.admin_email||'—')}</td>
+      <td>${fmtDate(c.created_at)}</td>
+    </tr>`).join('');
+}
+
+// ── Communities table ──
+function renderCommunitiesTable() {
+  const q      = (document.getElementById('communitySearch')?.value||'').toLowerCase();
+  const status = document.getElementById('statusFilter')?.value||'all';
+  const list   = allCommunities.filter(c => {
+    const mq = !q || c.name.toLowerCase().includes(q) || (c.slug||'').includes(q) || (c.city||'').toLowerCase().includes(q);
+    const ms = status==='all' || c.status===status;
+    return mq && ms;
+  });
+  const tbody = document.getElementById('communitiesTableBody');
+  if (!list.length) {
+    tbody.innerHTML = `<tr><td colspan="8"><div class="empty-state"><div class="empty-icon">🏘️</div><p>No communities found.</p></div></td></tr>`;
+    return;
+  }
+  tbody.innerHTML = list.map(c => `
+    <tr>
+      <td style="cursor:pointer" data-open-detail="${c.id}"><div class="cell-primary">${esc(c.name)}</div><div class="cell-secondary">${esc(c.slug)}</div></td>
+      <td style="cursor:pointer" data-open-detail="${c.id}">${esc([c.city,c.state].filter(Boolean).join(', '))||'—'}</td>
+      <td style="cursor:pointer" data-open-detail="${c.id}">${statusBadge(c.status)}</td>
+      <td style="cursor:pointer" data-open-detail="${c.id}">${c.unit_count||0}</td>
+      <td style="cursor:pointer" data-open-detail="${c.id}">${c.resident_count||0}</td>
+      <td style="cursor:pointer" data-open-detail="${c.id}">${esc(c.admin_name||c.admin_email||'—')}</td>
+      <td style="cursor:pointer" data-open-detail="${c.id}">${fmtDate(c.created_at)}</td>
+      <td>
+        <div class="action-menu">
+          <button class="action-menu-btn" data-toggle-menu="${c.id}">⋯</button>
+          <div class="action-dropdown" id="menu-${c.id}">
+            <button class="action-item" data-edit="${c.id}">✏️ Edit</button>
+            <button class="action-item" data-open-detail="${c.id}">👁 View Details</button>
+            <button class="action-item danger" data-delete="${c.id}" data-name="${esc(c.name)}">🗑 Delete</button>
+          </div>
+        </div>
+      </td>
+    </tr>`).join('');
+}
+
+// ── Admins table ──
+function renderAdminsTable() {
+  const q = (document.getElementById('adminSearch')?.value||'').toLowerCase();
+  const list = allAdmins.filter(a => !q || (a.name||'').toLowerCase().includes(q) || (a.email||'').toLowerCase().includes(q));
+  const tbody = document.getElementById('adminsTableBody');
+  if (!list.length) {
+    tbody.innerHTML = `<tr><td colspan="5"><div class="empty-state"><div class="empty-icon">👤</div><p>No community admins yet.</p></div></td></tr>`;
+    return;
+  }
+  tbody.innerHTML = list.map(a => `
+    <tr>
+      <td><div class="cell-primary">${esc(a.name||'—')}</div></td>
+      <td>${esc(a.tenants?.name||'—')}</td>
+      <td>${esc(a.email||'—')}</td>
+      <td>${a.is_active ? '<span class="badge badge-active">Active</span>' : '<span class="badge badge-inactive">Inactive</span>'}</td>
+      <td>${fmtDate(a.created_at)}</td>
+    </tr>`).join('');
+}
+
+// ── Add/Edit Community ──
+function openAddCommunity() {
+  document.getElementById('editCommunityId').value = '';
+  document.getElementById('communityModalTitle').textContent = 'Add New Community';
+  document.getElementById('saveCommunityBtn').textContent = 'Save Community';
+  ['cName','cSlug','cAddress','cCity','cState','cZip','cAdminName','cAdminEmail','cNotes'].forEach(id => {
+    document.getElementById(id).value = '';
+  });
+  document.getElementById('cUnits').value = '';
+  document.getElementById('cStatus').value = 'active';
+  openModal('communityModal');
+}
+
+function openEdit(id) {
+  closeAllMenus();
+  const c = allCommunities.find(x => x.id === id);
+  if (!c) return;
+  document.getElementById('editCommunityId').value = c.id;
+  document.getElementById('communityModalTitle').textContent = 'Edit Community';
+  document.getElementById('saveCommunityBtn').textContent = 'Update Community';
+  document.getElementById('cName').value    = c.name||'';
+  document.getElementById('cSlug').value    = c.slug||'';
+  document.getElementById('cAddress').value = c.address||'';
+  document.getElementById('cCity').value    = c.city||'';
+  document.getElementById('cState').value   = c.state||'';
+  document.getElementById('cZip').value     = c.zip||'';
+  document.getElementById('cUnits').value   = c.unit_count||'';
+  document.getElementById('cAdminName').value  = c.admin_name||'';
+  document.getElementById('cAdminEmail').value = c.admin_email||'';
+  document.getElementById('cStatus').value  = c.status||'active';
+  document.getElementById('cNotes').value   = c.notes||'';
+  openModal('communityModal');
+}
+
+async function saveCommunity() {
+  const id    = document.getElementById('editCommunityId').value;
+  const name  = document.getElementById('cName').value.trim();
+  const slug  = document.getElementById('cSlug').value.trim().toLowerCase().replace(/[^a-z0-9-]/g,'');
+  if (!name || !slug) { showToast('Name and Slug are required.','error'); return; }
+
+  const payload = {
+    name, slug,
+    address:      document.getElementById('cAddress').value.trim(),
+    city:         document.getElementById('cCity').value.trim(),
+    state:        document.getElementById('cState').value.trim(),
+    zip:          document.getElementById('cZip').value.trim(),
+    unit_count:   parseInt(document.getElementById('cUnits').value)||0,
+    admin_name:   document.getElementById('cAdminName').value.trim(),
+    admin_email:  document.getElementById('cAdminEmail').value.trim(),
+    status:       document.getElementById('cStatus').value,
+    notes:        document.getElementById('cNotes').value.trim(),
+  };
+
+  const btn = document.getElementById('saveCommunityBtn');
+  btn.textContent = 'Saving…'; btn.disabled = true;
+
+  const { error } = id
+    ? await sb.from('tenants').update(payload).eq('id',id)
+    : await sb.from('tenants').insert([payload]);
+
+  btn.textContent = id ? 'Update Community' : 'Save Community';
+  btn.disabled = false;
+
+  if (error) { showToast('Error: '+error.message,'error'); return; }
+
+  showToast(id ? `${name} updated.` : `${name} onboarded successfully!`, 'success');
+  closeModal('communityModal');
+  await loadCommunities();
+  renderOverview();
+  renderCommunitiesTable();
+}
+
+async function deleteCommunity(id, name) {
+  closeAllMenus();
+  if (!confirm(`Delete "${name}"?\n\nThis cannot be undone.`)) return;
+  const { error } = await sb.from('tenants').delete().eq('id',id);
+  if (error) { showToast('Error: '+error.message,'error'); return; }
+  showToast(`${name} deleted.`,'info');
+  await loadCommunities();
+  renderOverview();
+  renderCommunitiesTable();
+}
+
+// ── Detail Modal ──
+function openDetail(id) {
+  closeAllMenus();
+  const c = allCommunities.find(x => x.id === id);
+  if (!c) return;
+  currentDetailId = id;
+  document.getElementById('detailModalTitle').textContent = c.name;
+  document.getElementById('detailModalBody').innerHTML = `
+    <div style="display:flex;align-items:center;gap:12px;margin-bottom:20px;">
+      <div style="width:52px;height:52px;border-radius:12px;background:linear-gradient(135deg,var(--brand-dark),var(--brand-mid));display:flex;align-items:center;justify-content:center;font-size:22px;flex-shrink:0;">🏘️</div>
+      <div>
+        <div style="font-size:18px;font-weight:800;color:var(--brand-dark);">${esc(c.name)}</div>
+        <div style="font-size:13px;color:var(--text-muted);">/${esc(c.slug)} · ${statusBadge(c.status)}</div>
+      </div>
+    </div>
+    <div class="detail-stats">
+      <div class="detail-stat"><div class="num">${c.unit_count||0}</div><div class="lbl">Total Units</div></div>
+      <div class="detail-stat"><div class="num">${c.resident_count||0}</div><div class="lbl">Residents</div></div>
+      <div class="detail-stat"><div class="num">${fmtDate(c.created_at)}</div><div class="lbl">Joined</div></div>
+    </div>
+    <div class="detail-grid">
+      <div class="detail-item"><label>Address</label><span>${esc([c.address,c.city,c.state,c.zip].filter(Boolean).join(', '))||'—'}</span></div>
+      <div class="detail-item"><label>Admin Email</label><span>${esc(c.admin_email||'—')}</span></div>
+      <div class="detail-item"><label>Admin Name</label><span>${esc(c.admin_name||'—')}</span></div>
+      <div class="detail-item"><label>Community ID</label><span style="font-family:monospace;font-size:12px;">${c.id}</span></div>
+    </div>
+    ${c.notes ? `<div style="margin-top:14px;"><label style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:0.6px;color:var(--text-muted);display:block;margin-bottom:6px;">Notes</label><p style="font-size:13.5px;color:var(--text);background:var(--bg);padding:12px;border-radius:8px;">${esc(c.notes)}</p></div>` : ''}
+  `;
+  openModal('detailModal');
+}
+
+// ── Auto slug ──
+function autoSlug() {
+  if (document.getElementById('editCommunityId').value) return;
+  const v = document.getElementById('cName').value;
+  document.getElementById('cSlug').value = v.toLowerCase().replace(/[^a-z0-9\s-]/g,'').replace(/\s+/g,'-').replace(/-+/g,'-').trim();
+}
+
+// ── Action menus ──
+function closeAllMenus() {
+  document.querySelectorAll('.action-dropdown').forEach(m => m.classList.remove('open'));
+}
+
+// ── SQL copy ──
+function copySql() {
+  navigator.clipboard.writeText(document.getElementById('setupSqlBlock').textContent);
+  showToast('SQL copied to clipboard!','success');
+}
+
+// ════════════════════════════════════════════
+// EVENT WIRING — all listeners here, no onclick
+// ════════════════════════════════════════════
+document.addEventListener('DOMContentLoaded', () => {
+
+  // Session check
+  checkSession();
+
+  // Login
+  document.getElementById('loginBtn').addEventListener('click', handleLogin);
+  document.getElementById('loginPassword').addEventListener('keydown', e => { if (e.key==='Enter') handleLogin(); });
+  document.getElementById('loginEmail').addEventListener('keydown', e => { if (e.key==='Enter') document.getElementById('loginPassword').focus(); });
+
+  // Sign out
+  document.getElementById('signoutBtn').addEventListener('click', handleSignOut);
+
+  // Sidebar nav
+  document.querySelectorAll('.nav-item[data-section]').forEach(btn => {
+    btn.addEventListener('click', () => showSection(btn.dataset.section));
+  });
+
+  // "View All" link in overview
+  document.querySelectorAll('[data-goto]').forEach(el => {
+    el.addEventListener('click', () => showSection(el.dataset.goto));
+  });
+
+  // Add community button (topbar)
+  document.getElementById('btnAddCommunity').addEventListener('click', openAddCommunity);
+
+  // Save community
+  document.getElementById('saveCommunityBtn').addEventListener('click', saveCommunity);
+
+  // Auto-slug
+  document.getElementById('cName').addEventListener('input', autoSlug);
+
+  // Detail modal edit button
+  document.getElementById('detailEditBtn').addEventListener('click', () => {
+    closeModal('detailModal');
+    if (currentDetailId) openEdit(currentDetailId);
+  });
+
+  // Close modals via [data-close] buttons
+  document.querySelectorAll('[data-close]').forEach(btn => {
+    btn.addEventListener('click', () => closeModal(btn.dataset.close));
+  });
+
+  // Close modal on overlay click
+  document.querySelectorAll('.modal-overlay').forEach(overlay => {
+    overlay.addEventListener('click', e => { if (e.target === overlay) overlay.classList.remove('open'); });
+  });
+
+  // Copy SQL button
+  document.getElementById('copySqlBtn').addEventListener('click', copySql);
+
+  // Search & filter inputs
+  document.getElementById('communitySearch').addEventListener('input', renderCommunitiesTable);
+  document.getElementById('statusFilter').addEventListener('change', renderCommunitiesTable);
+  document.getElementById('adminSearch').addEventListener('input', renderAdminsTable);
+
+  // Table delegated clicks (detail, edit, delete, menu toggle)
+  document.addEventListener('click', e => {
+    // Close menus on any outside click
+    if (!e.target.closest('.action-menu')) closeAllMenus();
+
+    // Toggle action dropdown
+    const toggleBtn = e.target.closest('[data-toggle-menu]');
+    if (toggleBtn) {
+      e.stopPropagation();
+      closeAllMenus();
+      document.getElementById('menu-' + toggleBtn.dataset.toggleMenu)?.classList.add('open');
+      return;
+    }
+
+    // Open detail
+    const detailEl = e.target.closest('[data-open-detail]');
+    if (detailEl && !e.target.closest('.action-menu')) {
+      openDetail(detailEl.dataset.openDetail);
+      return;
+    }
+
+    // Edit
+    const editEl = e.target.closest('[data-edit]');
+    if (editEl) { openEdit(editEl.dataset.edit); return; }
+
+    // Delete
+    const delEl = e.target.closest('[data-delete]');
+    if (delEl) { deleteCommunity(delEl.dataset.delete, delEl.dataset.name); return; }
+  });
+
+});
+</script>
+</body>
+</html>
