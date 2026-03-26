@@ -1,0 +1,1189 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Community Admin — The Umbrella Connect</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<style>
+*{margin:0;padding:0;box-sizing:border-box;}
+:root{
+  --brand-dark:#1E1A4A;
+  --brand-mid:#534AB7;
+  --brand-light:#7F77DD;
+  --brand-pale:#EAE8F8;
+  --bg:#F4F6FB;
+  --white:#fff;
+  --text:#1a1a2e;
+  --text-muted:#6B7280;
+  --border:#E5E7EB;
+  --success:#10B981;
+  --warning:#F59E0B;
+  --danger:#EF4444;
+  --info:#3B82F6;
+  --radius:12px;
+  --shadow:0 2px 12px rgba(30,26,74,0.10);
+  --shadow-lg:0 8px 32px rgba(30,26,74,0.18);
+}
+body{font-family:'Plus Jakarta Sans',sans-serif;background:var(--bg);color:var(--text);min-height:100vh;}
+
+/* ── Login ── */
+#view-login{
+  display:flex;align-items:center;justify-content:center;min-height:100vh;
+  background:linear-gradient(135deg,var(--brand-dark) 0%,var(--brand-mid) 60%,var(--brand-light) 100%);
+  position:relative;overflow:hidden;
+}
+#view-login::before{
+  content:'';position:absolute;inset:0;
+  background:url("data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none'%3E%3Cg fill='%23ffffff' fill-opacity='0.04'%3E%3Cpath d='M36 34v-4h-2v4h-4v2h4v4h2v-4h4v-2h-4zm0-30V0h-2v4h-4v2h4v4h2V6h4V4h-4zM6 34v-4H4v4H0v2h4v4h2v-4h4v-2H6zM6 4V0H4v4H0v2h4v4h2V6h4V4H6z'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E");
+}
+.login-box{
+  background:rgba(255,255,255,0.97);border-radius:20px;padding:48px 44px;width:420px;
+  box-shadow:0 24px 64px rgba(0,0,0,0.28);position:relative;z-index:1;
+  animation:fadeUp 0.5s ease;
+}
+@keyframes fadeUp{from{opacity:0;transform:translateY(24px)}to{opacity:1;transform:translateY(0)}}
+.login-logo{text-align:center;margin-bottom:28px;}
+.login-logo img{width:100px;height:auto;mix-blend-mode:multiply;}
+.login-logo h1{font-size:20px;font-weight:800;color:var(--brand-dark);margin-top:10px;}
+.login-logo p{font-size:13px;color:var(--text-muted);margin-top:3px;}
+.login-field{margin-bottom:16px;}
+.login-label{display:block;font-size:13px;font-weight:600;color:var(--text);margin-bottom:6px;}
+.login-input{
+  width:100%;padding:11px 14px;border:1.5px solid var(--border);border-radius:9px;
+  font-size:14px;font-family:inherit;outline:none;transition:border 0.2s;
+}
+.login-input:focus{border-color:var(--brand-mid);}
+.login-btn{
+  width:100%;padding:13px;border:none;border-radius:9px;cursor:pointer;
+  font-size:15px;font-weight:700;font-family:inherit;
+  background:linear-gradient(135deg,var(--brand-dark),var(--brand-mid));
+  color:white;margin-top:6px;transition:opacity 0.2s;
+  box-shadow:0 4px 14px rgba(83,74,183,0.4);
+}
+.login-btn:hover{opacity:0.92;}
+.login-btn:disabled{opacity:0.6;cursor:not-allowed;}
+.login-error{background:#FEE2E2;color:#B91C1C;border-radius:8px;padding:10px 14px;font-size:13px;margin-bottom:14px;display:none;}
+
+/* ── App ── */
+#view-app{display:none;}
+#view-app.visible{display:block;}
+
+/* Header */
+.header{
+  background:white;padding:16px 28px;
+  display:flex;justify-content:space-between;align-items:center;
+  box-shadow:var(--shadow);position:sticky;top:0;z-index:90;
+  border-bottom:1px solid var(--border);
+}
+.header-left{display:flex;align-items:center;gap:14px;}
+.header-logo img{width:44px;height:auto;mix-blend-mode:multiply;}
+.header-title h1{font-size:18px;font-weight:800;color:var(--brand-dark);line-height:1.2;}
+.header-title p{font-size:12px;color:var(--text-muted);margin-top:1px;}
+.header-right{display:flex;align-items:center;gap:12px;}
+.admin-chip{
+  display:flex;align-items:center;gap:8px;
+  background:var(--brand-pale);border-radius:20px;padding:6px 14px;
+}
+.admin-chip .avatar{
+  width:28px;height:28px;border-radius:50%;
+  background:linear-gradient(135deg,var(--brand-mid),var(--brand-light));
+  display:flex;align-items:center;justify-content:center;
+  color:white;font-weight:700;font-size:12px;flex-shrink:0;
+}
+.admin-chip span{font-size:13px;font-weight:600;color:var(--brand-dark);}
+.signout-btn{
+  padding:8px 14px;border:1.5px solid var(--border);border-radius:8px;
+  background:white;font-size:13px;font-family:inherit;cursor:pointer;color:var(--text-muted);
+  transition:all 0.18s;
+}
+.signout-btn:hover{background:var(--bg);color:var(--text);}
+
+/* Content */
+.content{max-width:1300px;margin:0 auto;padding:24px 24px;}
+
+/* Stats */
+.stats-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:14px;margin-bottom:24px;}
+.stat-card{
+  background:linear-gradient(135deg,var(--brand-dark),var(--brand-mid));
+  color:white;padding:18px 20px;border-radius:var(--radius);
+  cursor:pointer;transition:transform 0.2s,box-shadow 0.2s;
+}
+.stat-card:hover{transform:translateY(-3px);box-shadow:0 8px 24px rgba(83,74,183,0.35);}
+.stat-number{font-size:32px;font-weight:800;line-height:1;}
+.stat-label{font-size:13px;opacity:0.85;margin-top:4px;}
+
+/* Tabs */
+.tabs-bar{
+  display:flex;gap:4px;border-bottom:2px solid var(--border);
+  margin-bottom:24px;overflow-x:auto;
+}
+.tab-btn{
+  padding:11px 18px;border:none;background:none;cursor:pointer;
+  font-size:13.5px;font-weight:500;color:var(--text-muted);font-family:inherit;
+  border-bottom:3px solid transparent;margin-bottom:-2px;white-space:nowrap;
+  transition:all 0.18s;
+}
+.tab-btn:hover{color:var(--brand-mid);}
+.tab-btn.active{color:var(--brand-mid);border-bottom-color:var(--brand-mid);font-weight:700;}
+.tab-badge{
+  display:inline-flex;align-items:center;justify-content:center;
+  background:var(--danger);color:white;font-size:11px;font-weight:700;
+  min-width:18px;height:18px;padding:0 5px;border-radius:9px;margin-left:6px;
+}
+.tab-content{display:none;}
+.tab-content.active{display:block;}
+
+/* Section header */
+.section-header{display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;}
+.section-title{font-size:17px;font-weight:800;color:var(--brand-dark);}
+
+/* Buttons */
+.btn{
+  padding:9px 16px;border:none;border-radius:8px;cursor:pointer;
+  font-size:13px;font-weight:600;font-family:inherit;transition:all 0.18s;
+  display:inline-flex;align-items:center;gap:6px;
+}
+.btn-primary{background:linear-gradient(135deg,var(--brand-dark),var(--brand-mid));color:white;box-shadow:0 3px 10px rgba(83,74,183,0.25);}
+.btn-primary:hover{opacity:0.9;}
+.btn-success{background:#D1FAE5;color:#065F46;}
+.btn-success:hover{background:#A7F3D0;}
+.btn-danger{background:#FEE2E2;color:#991B1B;}
+.btn-danger:hover{background:#FECACA;}
+.btn-warning{background:#FEF3C7;color:#92400E;}
+.btn-secondary{background:#F3F4F6;color:#374151;}
+.btn-secondary:hover{background:#E5E7EB;}
+.btn-info{background:#DBEAFE;color:#1E40AF;}
+.btn-sm{padding:6px 12px;font-size:12px;}
+
+/* Cards */
+.card{
+  background:white;border-radius:var(--radius);padding:18px 20px;
+  margin-bottom:12px;box-shadow:var(--shadow);border:1px solid var(--border);
+}
+.card-header{display:flex;justify-content:space-between;align-items:flex-start;}
+.card-title{font-size:15px;font-weight:700;color:var(--brand-dark);}
+.card-meta{font-size:12.5px;color:var(--text-muted);margin-top:4px;line-height:1.5;}
+.card-actions{display:flex;gap:6px;flex-wrap:wrap;flex-shrink:0;margin-left:12px;}
+
+/* Search */
+.search-box{
+  width:100%;padding:10px 14px 10px 36px;border:1.5px solid var(--border);border-radius:8px;
+  font-size:13px;font-family:inherit;outline:none;margin-bottom:14px;transition:border 0.2s;
+  background:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%236B7280' stroke-width='2'%3E%3Ccircle cx='11' cy='11' r='8'/%3E%3Cpath d='m21 21-4.35-4.35'/%3E%3C/svg%3E") 10px center/16px no-repeat white;
+}
+.search-box:focus{border-color:var(--brand-mid);}
+
+/* Filter pills */
+.filter-pills{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:16px;}
+.filter-pill{
+  padding:6px 14px;border-radius:20px;font-size:12.5px;font-weight:600;
+  cursor:pointer;border:1.5px solid var(--border);background:white;
+  font-family:inherit;color:var(--text-muted);transition:all 0.18s;
+}
+.filter-pill.active{background:var(--brand-mid);color:white;border-color:var(--brand-mid);}
+.filter-pill:hover:not(.active){background:var(--brand-pale);border-color:var(--brand-light);}
+
+/* Badges */
+.badge{display:inline-flex;align-items:center;padding:3px 10px;border-radius:20px;font-size:12px;font-weight:600;}
+.badge-success{background:#D1FAE5;color:#065F46;}
+.badge-warning{background:#FEF3C7;color:#92400E;}
+.badge-danger{background:#FEE2E2;color:#991B1B;}
+.badge-info{background:#DBEAFE;color:#1E40AF;}
+.badge-neutral{background:#F3F4F6;color:#6B7280;}
+
+/* Empty state */
+.empty-state{text-align:center;padding:48px 20px;color:var(--text-muted);}
+.empty-icon{font-size:44px;margin-bottom:10px;}
+
+/* Form */
+.form-container{
+  background:var(--brand-pale);border:1.5px solid var(--brand-light);
+  border-radius:var(--radius);padding:20px;margin-bottom:18px;display:none;
+}
+.form-container.show{display:block;}
+.form-row{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:14px;}
+.form-row.single{grid-template-columns:1fr;}
+.form-row.triple{grid-template-columns:1fr 1fr 1fr;}
+.form-group{display:flex;flex-direction:column;}
+.form-group label{font-size:12.5px;font-weight:700;color:var(--text);margin-bottom:5px;}
+.form-group input,.form-group select,.form-group textarea{
+  padding:9px 12px;border:1.5px solid var(--border);border-radius:8px;
+  font-size:13.5px;font-family:inherit;outline:none;transition:border 0.2s;background:white;
+}
+.form-group input:focus,.form-group select:focus,.form-group textarea:focus{border-color:var(--brand-mid);}
+.form-group textarea{resize:vertical;min-height:90px;}
+.form-actions{display:flex;gap:8px;margin-top:4px;}
+
+/* Modal */
+.modal-overlay{
+  display:none;position:fixed;inset:0;background:rgba(0,0,0,0.45);
+  z-index:999;align-items:center;justify-content:center;padding:20px;
+  backdrop-filter:blur(3px);
+}
+.modal-overlay.open{display:flex;}
+.modal{
+  background:white;border-radius:18px;width:100%;max-width:620px;
+  max-height:90vh;overflow-y:auto;
+  box-shadow:0 24px 64px rgba(0,0,0,0.22);
+  animation:modalIn 0.25s ease;
+}
+@keyframes modalIn{from{opacity:0;transform:scale(0.95) translateY(10px)}to{opacity:1;transform:scale(1) translateY(0)}}
+.modal-header{
+  padding:20px 24px 16px;border-bottom:1px solid var(--border);
+  display:flex;justify-content:space-between;align-items:center;
+  position:sticky;top:0;background:white;z-index:1;border-radius:18px 18px 0 0;
+}
+.modal-header h2{font-size:16px;font-weight:800;color:var(--brand-dark);}
+.modal-close{
+  background:none;border:none;cursor:pointer;font-size:20px;
+  color:var(--text-muted);width:32px;height:32px;border-radius:6px;
+  display:flex;align-items:center;justify-content:center;
+}
+.modal-close:hover{background:#F3F4F6;}
+.modal-body{padding:22px 24px;}
+.modal-footer{
+  padding:14px 24px;border-top:1px solid var(--border);
+  display:flex;justify-content:flex-end;gap:8px;
+  background:#FAFBFF;border-radius:0 0 18px 18px;
+}
+
+/* Ticket comments */
+.comment-wrap{border-top:1px solid var(--border);padding-top:14px;margin-top:14px;}
+.comment-item{display:flex;gap:10px;margin-bottom:12px;}
+.comment-avatar{
+  width:30px;height:30px;border-radius:50%;
+  background:var(--brand-mid);color:white;
+  display:flex;align-items:center;justify-content:center;
+  font-size:12px;font-weight:700;flex-shrink:0;
+}
+.comment-avatar.admin-av{background:var(--brand-dark);}
+.comment-bubble{flex:1;}
+.comment-bubble .meta{font-size:12px;color:var(--text-muted);margin-bottom:3px;}
+.comment-bubble .meta strong{color:var(--text);font-weight:600;}
+.comment-bubble .text{font-size:13.5px;color:var(--text);line-height:1.5;}
+.comment-input-row{display:flex;gap:8px;margin-top:12px;}
+.comment-input{
+  flex:1;padding:9px 14px;border:1.5px solid var(--border);border-radius:20px;
+  font-size:13px;font-family:inherit;outline:none;transition:border 0.2s;
+}
+.comment-input:focus{border-color:var(--brand-mid);}
+.comment-send{
+  width:38px;height:38px;border-radius:50%;border:none;
+  background:var(--brand-mid);color:white;cursor:pointer;font-size:16px;flex-shrink:0;
+}
+
+/* Toast */
+#toast-container{position:fixed;bottom:24px;right:24px;z-index:9999;display:flex;flex-direction:column;gap:8px;}
+.toast{
+  padding:12px 18px;border-radius:10px;font-size:13px;font-weight:600;
+  box-shadow:0 4px 16px rgba(0,0,0,0.18);color:white;min-width:240px;
+  animation:slideIn 0.3s ease;
+}
+@keyframes slideIn{from{opacity:0;transform:translateX(60px)}to{opacity:1;transform:translateX(0)}}
+.toast.success{background:#10B981;}
+.toast.error{background:#EF4444;}
+.toast.info{background:var(--brand-mid);}
+
+.spinner{width:28px;height:28px;border:3px solid var(--border);border-top-color:var(--brand-mid);border-radius:50%;animation:spin 0.7s linear infinite;margin:40px auto;}
+@keyframes spin{to{transform:rotate(360deg)}}
+
+@media(max-width:700px){
+  .form-row{grid-template-columns:1fr;}
+  .form-row.triple{grid-template-columns:1fr 1fr;}
+  .stats-grid{grid-template-columns:1fr 1fr;}
+  .login-box{width:95%;padding:32px 24px;}
+}
+</style>
+</head>
+<body>
+
+<!-- ══ LOGIN ══ -->
+<div id="view-login">
+  <div class="login-box">
+    <div class="login-logo">
+      <img src="TheUmbrellaConnect_Logo_HQ.png" alt="The Umbrella Connect" onerror="this.style.display='none'">
+      <h1>The Umbrella Connect</h1>
+      <p>Community Admin Portal</p>
+    </div>
+    <div class="login-error" id="loginError"></div>
+    <div class="login-field">
+      <label class="login-label" for="loginEmail">Email</label>
+      <input class="login-input" type="email" id="loginEmail" placeholder="admin@community.com" autocomplete="email">
+    </div>
+    <div class="login-field">
+      <label class="login-label" for="loginPassword">Password</label>
+      <input class="login-input" type="password" id="loginPassword" placeholder="••••••••" autocomplete="current-password">
+    </div>
+    <button class="login-btn" id="loginBtn">Sign In</button>
+  </div>
+</div>
+
+<!-- ══ APP ══ -->
+<div id="view-app">
+
+  <!-- Header -->
+  <div class="header">
+    <div class="header-left">
+      <div class="header-logo">
+        <img src="TheUmbrellaConnect_Logo_HQ.png" alt="TUC" onerror="this.style.display='none'">
+      </div>
+      <div class="header-title">
+        <h1 id="communityTitle">Community Admin</h1>
+        <p id="communitySubtitle">Loading...</p>
+      </div>
+    </div>
+    <div class="header-right">
+      <div class="admin-chip">
+        <div class="avatar" id="adminAvatar">A</div>
+        <span id="adminName">Admin</span>
+      </div>
+      <button class="signout-btn" id="signoutBtn">🚪 Sign Out</button>
+    </div>
+  </div>
+
+  <div class="content">
+
+    <!-- Stats -->
+    <div class="stats-grid">
+      <div class="stat-card" data-tab="approvals">
+        <div class="stat-number" id="statPending">0</div>
+        <div class="stat-label">Pending Approvals</div>
+      </div>
+      <div class="stat-card" data-tab="residents">
+        <div class="stat-number" id="statResidents">0</div>
+        <div class="stat-label">Total Residents</div>
+      </div>
+      <div class="stat-card" data-tab="tickets">
+        <div class="stat-number" id="statTickets">0</div>
+        <div class="stat-label">Open Tickets</div>
+      </div>
+      <div class="stat-card" data-tab="services">
+        <div class="stat-number" id="statServices">0</div>
+        <div class="stat-label">Service Contacts</div>
+      </div>
+    </div>
+
+    <!-- Tabs -->
+    <div class="tabs-bar">
+      <button class="tab-btn active" data-tab="approvals">
+        Pending Approvals
+        <span class="tab-badge" id="badgeApprovals" style="display:none">0</span>
+      </button>
+      <button class="tab-btn" data-tab="residents">Residents</button>
+      <button class="tab-btn" data-tab="tickets">Helpdesk Tickets</button>
+      <button class="tab-btn" data-tab="services">Service Contacts</button>
+      <button class="tab-btn" data-tab="announcements">📢 Announcements</button>
+    </div>
+
+    <!-- ── APPROVALS ── -->
+    <div class="tab-content active" id="tab-approvals">
+      <div class="section-header">
+        <div class="section-title">Pending Resident Approvals</div>
+      </div>
+      <div id="approvalsList"><div class="spinner"></div></div>
+    </div>
+
+    <!-- ── RESIDENTS ── -->
+    <div class="tab-content" id="tab-residents">
+      <div class="section-header">
+        <div class="section-title">All Residents</div>
+      </div>
+      <div class="filter-pills" id="residentFilters">
+        <button class="filter-pill active" data-filter="all">All</button>
+        <button class="filter-pill" data-filter="approved">Approved</button>
+        <button class="filter-pill" data-filter="pending">Pending</button>
+        <button class="filter-pill" data-filter="rejected">Rejected</button>
+      </div>
+      <input type="text" class="search-box" id="residentSearch" placeholder="Search residents by name, unit, or email...">
+      <div id="residentsList"><div class="spinner"></div></div>
+    </div>
+
+    <!-- ── TICKETS ── -->
+    <div class="tab-content" id="tab-tickets">
+      <div class="section-header">
+        <div class="section-title">Helpdesk Tickets</div>
+      </div>
+      <div class="filter-pills" id="ticketFilters">
+        <button class="filter-pill active" data-filter="all">All</button>
+        <button class="filter-pill" data-filter="open">Open</button>
+        <button class="filter-pill" data-filter="in-progress">In Progress</button>
+        <button class="filter-pill" data-filter="resolved">Resolved</button>
+        <button class="filter-pill" data-filter="closed">Closed</button>
+      </div>
+      <input type="text" class="search-box" id="ticketSearch" placeholder="Search tickets by title, category, or reporter...">
+      <div id="ticketsList"><div class="spinner"></div></div>
+    </div>
+
+    <!-- ── SERVICE CONTACTS ── -->
+    <div class="tab-content" id="tab-services">
+      <div class="section-header">
+        <div class="section-title">Service Contacts</div>
+        <button class="btn btn-primary" id="btnAddService">➕ Add Contact</button>
+      </div>
+      <!-- Add/Edit Service Form -->
+      <div class="form-container" id="serviceForm">
+        <h3 id="serviceFormTitle" style="font-size:15px;font-weight:700;margin-bottom:16px;">Add Service Contact</h3>
+        <input type="hidden" id="editServiceId">
+        <div class="form-row">
+          <div class="form-group">
+            <label>Name *</label>
+            <input type="text" id="svcName" placeholder="ABC Plumbing">
+          </div>
+          <div class="form-group">
+            <label>Category</label>
+            <select id="svcCategory">
+              <option>Plumbing</option><option>Electrical</option><option>HVAC</option>
+              <option>Landscaping</option><option>Security</option><option>Cleaning</option>
+              <option>Pest Control</option><option>General Maintenance</option><option>Other</option>
+            </select>
+          </div>
+        </div>
+        <div class="form-row">
+          <div class="form-group">
+            <label>Phone</label>
+            <input type="tel" id="svcPhone" placeholder="555-1234">
+          </div>
+          <div class="form-group">
+            <label>Email</label>
+            <input type="email" id="svcEmail" placeholder="service@company.com">
+          </div>
+        </div>
+        <div class="form-row single">
+          <div class="form-group">
+            <label>Description</label>
+            <textarea id="svcDesc" placeholder="Notes about this contact..."></textarea>
+          </div>
+        </div>
+        <div class="form-actions">
+          <button class="btn btn-success" id="saveServiceBtn">💾 Save Contact</button>
+          <button class="btn btn-secondary" id="cancelServiceBtn">Cancel</button>
+        </div>
+      </div>
+      <div id="servicesList"><div class="spinner"></div></div>
+    </div>
+
+    <!-- ── ANNOUNCEMENTS ── -->
+    <div class="tab-content" id="tab-announcements">
+      <div class="section-header">
+        <div class="section-title">Announcements</div>
+        <button class="btn btn-primary" id="btnAddAnnouncement">➕ New Announcement</button>
+      </div>
+      <!-- Add/Edit Announcement Form -->
+      <div class="form-container" id="announcementForm">
+        <h3 id="announcementFormTitle" style="font-size:15px;font-weight:700;margin-bottom:16px;">New Announcement</h3>
+        <input type="hidden" id="editAnnouncementId">
+        <div class="form-row single">
+          <div class="form-group">
+            <label>Title *</label>
+            <input type="text" id="annTitle" placeholder="Important Community Notice">
+          </div>
+        </div>
+        <div class="form-row single">
+          <div class="form-group">
+            <label>Message *</label>
+            <textarea id="annContent" placeholder="Write your announcement here..."></textarea>
+          </div>
+        </div>
+        <div class="form-actions">
+          <button class="btn btn-success" id="saveAnnouncementBtn">📢 Send Announcement</button>
+          <button class="btn btn-secondary" id="cancelAnnouncementBtn">Cancel</button>
+        </div>
+      </div>
+      <div id="announcementsList"><div class="spinner"></div></div>
+    </div>
+
+  </div><!-- /content -->
+</div><!-- /view-app -->
+
+<!-- ══ TICKET DETAIL MODAL ══ -->
+<div class="modal-overlay" id="ticketModal">
+  <div class="modal">
+    <div class="modal-header">
+      <h2 id="ticketModalTitle">Ticket Details</h2>
+      <button class="modal-close" data-close="ticketModal">✕</button>
+    </div>
+    <div class="modal-body" id="ticketModalBody"></div>
+    <div class="modal-footer">
+      <button class="btn btn-secondary" data-close="ticketModal">Close</button>
+    </div>
+  </div>
+</div>
+
+<div id="toast-container"></div>
+
+<script>
+// ╔══════════════════════════════════════════════╗
+// ║  CONFIG                                       ║
+// ╚══════════════════════════════════════════════╝
+const SUPABASE_URL  = 'https://alqwckmrosuxoitxhmyk.supabase.co';
+const SUPABASE_ANON = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImFscXdja21yb3N1eG9pdHhobXlrIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzQ0ODY0OTcsImV4cCI6MjA5MDA2MjQ5N30.qtLV1hlbgMeAbPu34kniQ-UJU4OiudCfEHwpadNa4c8';
+
+// ── State ──
+let sb = null;
+let currentUser = null;
+let currentProfile = null;
+let tenantId = null;
+let allResidents = [];
+let allTickets = [];
+let allServices = [];
+let allAnnouncements = [];
+let residentFilter = 'all';
+let ticketFilter = 'all';
+let currentTicketId = null;
+
+// ── Init ──
+function initSB() {
+  try { sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON); return true; }
+  catch(e) { return false; }
+}
+
+// ── Helpers ──
+function esc(s) {
+  if (s == null) return '';
+  return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+function fmtDate(d) {
+  if (!d) return '—';
+  return new Date(d).toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'});
+}
+function fmtDateTime(d) {
+  if (!d) return '—';
+  return new Date(d).toLocaleString('en-US',{month:'short',day:'numeric',hour:'numeric',minute:'2-digit'});
+}
+function showToast(msg, type='info') {
+  const el = document.createElement('div');
+  el.className = `toast ${type}`;
+  el.textContent = msg;
+  document.getElementById('toast-container').appendChild(el);
+  setTimeout(() => el.remove(), 3500);
+}
+function openModal(id) { document.getElementById(id).classList.add('open'); }
+function closeModal(id) { document.getElementById(id).classList.remove('open'); }
+
+function priorityBadge(p) {
+  const map = { high:'badge-danger', medium:'badge-warning', low:'badge-success' };
+  return `<span class="badge ${map[p]||'badge-neutral'}">${esc(p||'medium')}</span>`;
+}
+function statusBadge(s) {
+  const map = { open:'badge-info','in-progress':'badge-warning',resolved:'badge-success',closed:'badge-neutral',approved:'badge-success',pending:'badge-warning',rejected:'badge-danger' };
+  return `<span class="badge ${map[s]||'badge-neutral'}">${esc(s||'unknown')}</span>`;
+}
+
+// ── Login ──
+async function handleLogin() {
+  const email = document.getElementById('loginEmail').value.trim();
+  const pwd   = document.getElementById('loginPassword').value;
+  const errEl = document.getElementById('loginError');
+  const btn   = document.getElementById('loginBtn');
+  errEl.style.display = 'none';
+
+  if (!email || !pwd) { errEl.textContent = 'Please enter email and password.'; errEl.style.display = 'block'; return; }
+
+  btn.textContent = 'Signing in…'; btn.disabled = true;
+  const { data, error } = await sb.auth.signInWithPassword({ email, password: pwd });
+  btn.textContent = 'Sign In'; btn.disabled = false;
+
+  if (error) { errEl.textContent = error.message; errEl.style.display = 'block'; return; }
+
+  const { data: profile, error: pErr } = await sb.from('profiles').select('*').eq('id', data.user.id).maybeSingle();
+
+  if (pErr || !profile) { await sb.auth.signOut(); errEl.textContent = 'Profile not found.'; errEl.style.display = 'block'; return; }
+  if (profile.role === 'tuc_admin') { await sb.auth.signOut(); errEl.textContent = 'Please use the TUC Admin portal.'; errEl.style.display = 'block'; return; }
+  if (profile.role !== 'community_admin') { await sb.auth.signOut(); errEl.textContent = 'Access denied. Community Admins only.'; errEl.style.display = 'block'; return; }
+  if (!profile.tenant_id) { await sb.auth.signOut(); errEl.textContent = 'No community assigned to this account.'; errEl.style.display = 'block'; return; }
+
+  enterApp(data.user, profile);
+}
+
+async function enterApp(user, profile) {
+  currentUser = user;
+  currentProfile = profile;
+  tenantId = profile.tenant_id;
+
+  document.getElementById('view-login').style.display = 'none';
+  document.getElementById('view-app').classList.add('visible');
+
+  const name = profile.name || profile.email || 'Admin';
+  document.getElementById('adminName').textContent = name;
+  document.getElementById('adminAvatar').textContent = name[0].toUpperCase();
+
+  // Load community name
+  const { data: tenant } = await sb.from('tenants').select('name,city,state').eq('id', tenantId).single();
+  if (tenant) {
+    document.getElementById('communityTitle').textContent = tenant.name + ' — Admin';
+    document.getElementById('communitySubtitle').textContent = [tenant.city, tenant.state].filter(Boolean).join(', ') || 'Community Admin Portal';
+  }
+
+  loadAllData();
+}
+
+async function handleSignOut() {
+  if (!confirm('Sign out?')) return;
+  await sb.auth.signOut();
+  location.reload();
+}
+
+// ── Session restore ──
+async function checkSession() {
+  if (!initSB()) return;
+  const { data: { session } } = await sb.auth.getSession();
+  if (!session) return;
+  const { data: profile } = await sb.from('profiles').select('*').eq('id', session.user.id).maybeSingle();
+  if (profile && profile.role === 'community_admin' && profile.tenant_id) {
+    enterApp(session.user, profile);
+  }
+}
+
+// ── Load all data ──
+async function loadAllData() {
+  await Promise.all([loadResidents(), loadTickets(), loadServices(), loadAnnouncements()]);
+  renderStats();
+  renderApprovals();
+  renderResidents();
+  renderTickets();
+  renderServices();
+  renderAnnouncements();
+}
+
+async function loadResidents() {
+  const { data } = await sb.from('residents').select('*').eq('tenant_id', tenantId).order('created_at', { ascending: false });
+  allResidents = data || [];
+}
+async function loadTickets() {
+  const { data } = await sb.from('tickets').select('*').eq('tenant_id', tenantId).order('created_at', { ascending: false });
+  allTickets = data || [];
+}
+async function loadServices() {
+  const { data } = await sb.from('service_contacts').select('*').eq('tenant_id', tenantId).order('name');
+  allServices = data || [];
+}
+async function loadAnnouncements() {
+  const { data } = await sb.from('announcements').select('*').eq('tenant_id', tenantId).order('created_at', { ascending: false });
+  allAnnouncements = data || [];
+}
+
+// ── Stats ──
+function renderStats() {
+  document.getElementById('statPending').textContent   = allResidents.filter(r => !r.is_approved).length;
+  document.getElementById('statResidents').textContent = allResidents.filter(r => r.is_approved).length;
+  document.getElementById('statTickets').textContent   = allTickets.filter(t => ['open','in-progress'].includes(t.status)).length;
+  document.getElementById('statServices').textContent  = allServices.length;
+
+  const pending = allResidents.filter(r => !r.is_approved).length;
+  const badge = document.getElementById('badgeApprovals');
+  badge.textContent = pending;
+  badge.style.display = pending > 0 ? 'inline-flex' : 'none';
+}
+
+// ── APPROVALS ──
+function renderApprovals() {
+  const pending = allResidents.filter(r => !r.is_approved && r.status !== 'rejected');
+  const el = document.getElementById('approvalsList');
+  if (!pending.length) {
+    el.innerHTML = `<div class="empty-state"><div class="empty-icon">✅</div><p>No pending approvals</p></div>`;
+    return;
+  }
+  el.innerHTML = pending.map(r => `
+    <div class="card">
+      <div class="card-header">
+        <div>
+          <div class="card-title">${esc(r.name)}</div>
+          <div class="card-meta">
+            📧 ${esc(r.email||'—')} &nbsp;|&nbsp; 📱 ${esc(r.phone||'—')} &nbsp;|&nbsp; 🏠 Unit ${esc(r.unit_number||'—')}
+          </div>
+          <div class="card-meta" style="margin-top:4px;">Registered: ${fmtDate(r.created_at)}</div>
+        </div>
+        <div class="card-actions">
+          <button class="btn btn-success btn-sm" data-approve="${r.id}">✅ Approve</button>
+          <button class="btn btn-danger btn-sm" data-reject="${r.id}">❌ Reject</button>
+        </div>
+      </div>
+    </div>`).join('');
+}
+
+async function approveResident(id) {
+  const { error } = await sb.from('residents').update({ is_approved: true, status: 'approved' }).eq('id', id);
+  if (error) { showToast('Error: ' + error.message, 'error'); return; }
+  showToast('Resident approved!', 'success');
+  await loadResidents(); renderStats(); renderApprovals(); renderResidents();
+}
+
+async function rejectResident(id) {
+  if (!confirm('Reject this resident?')) return;
+  const { error } = await sb.from('residents').update({ is_approved: false, status: 'rejected' }).eq('id', id);
+  if (error) { showToast('Error: ' + error.message, 'error'); return; }
+  showToast('Resident rejected.', 'info');
+  await loadResidents(); renderStats(); renderApprovals(); renderResidents();
+}
+
+// ── RESIDENTS ──
+function renderResidents() {
+  const q = (document.getElementById('residentSearch')?.value || '').toLowerCase();
+  let list = allResidents.filter(r => {
+    const mf = residentFilter === 'all' ||
+      (residentFilter === 'approved' && r.is_approved) ||
+      (residentFilter === 'pending'  && !r.is_approved && r.status !== 'rejected') ||
+      (residentFilter === 'rejected' && r.status === 'rejected');
+    const mq = !q || r.name.toLowerCase().includes(q) || (r.unit_number||'').toLowerCase().includes(q) || (r.email||'').toLowerCase().includes(q);
+    return mf && mq;
+  });
+
+  const el = document.getElementById('residentsList');
+  if (!list.length) {
+    el.innerHTML = `<div class="empty-state"><div class="empty-icon">👥</div><p>No residents found</p></div>`;
+    return;
+  }
+  el.innerHTML = list.map(r => `
+    <div class="card">
+      <div class="card-header">
+        <div>
+          <div class="card-title">${esc(r.name)} ${statusBadge(r.is_approved ? 'approved' : (r.status||'pending'))}</div>
+          <div class="card-meta">
+            🏠 Unit ${esc(r.unit_number||'—')} &nbsp;|&nbsp; 📧 ${esc(r.email||'—')} &nbsp;|&nbsp; 📱 ${esc(r.phone||'—')}
+          </div>
+          <div class="card-meta">Joined: ${fmtDate(r.created_at)}</div>
+        </div>
+        <div class="card-actions">
+          ${!r.is_approved && r.status !== 'rejected' ? `<button class="btn btn-success btn-sm" data-approve="${r.id}">✅ Approve</button>` : ''}
+          ${r.is_approved ? `<button class="btn btn-warning btn-sm" data-revoke="${r.id}">⏸ Suspend</button>` : ''}
+          <button class="btn btn-danger btn-sm" data-delete-resident="${r.id}" data-res-name="${esc(r.name)}">🗑</button>
+        </div>
+      </div>
+    </div>`).join('');
+}
+
+async function revokeResident(id) {
+  if (!confirm('Suspend this resident?')) return;
+  const { error } = await sb.from('residents').update({ is_approved: false, status: 'pending' }).eq('id', id);
+  if (error) { showToast('Error: '+error.message,'error'); return; }
+  showToast('Resident suspended.','info');
+  await loadResidents(); renderStats(); renderResidents();
+}
+
+async function deleteResident(id, name) {
+  if (!confirm(`Delete resident "${name}"? This cannot be undone.`)) return;
+  const { error } = await sb.from('residents').delete().eq('id', id);
+  if (error) { showToast('Error: '+error.message,'error'); return; }
+  showToast(`${name} deleted.`,'info');
+  await loadResidents(); renderStats(); renderApprovals(); renderResidents();
+}
+
+// ── TICKETS ──
+function renderTickets() {
+  const q = (document.getElementById('ticketSearch')?.value || '').toLowerCase();
+  let list = allTickets.filter(t => {
+    const mf = ticketFilter === 'all' || t.status === ticketFilter;
+    const mq = !q || (t.title||'').toLowerCase().includes(q) || (t.category||'').toLowerCase().includes(q) || (t.resident_name||'').toLowerCase().includes(q);
+    return mf && mq;
+  });
+
+  const el = document.getElementById('ticketsList');
+  if (!list.length) {
+    el.innerHTML = `<div class="empty-state"><div class="empty-icon">🎫</div><p>No tickets found</p></div>`;
+    return;
+  }
+
+  const statusColor = { open:'#3B82F6','in-progress':'#F59E0B',resolved:'#10B981',closed:'#9CA3AF' };
+
+  el.innerHTML = list.map(t => `
+    <div class="card" style="cursor:pointer;border-left:4px solid ${statusColor[t.status]||'#E5E7EB'};" data-open-ticket="${t.id}">
+      <div class="card-header">
+        <div style="flex:1;">
+          <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
+            <div class="card-title">${esc(t.title)}</div>
+            ${statusBadge(t.status)} ${priorityBadge(t.priority)}
+          </div>
+          <div class="card-meta">
+            👤 ${esc(t.resident_name||'Unknown')} &nbsp;|&nbsp; 🏠 Unit ${esc(t.unit_number||'—')} &nbsp;|&nbsp; 📁 ${esc(t.category||'General')}
+          </div>
+          <div class="card-meta">Submitted: ${fmtDate(t.created_at)} &nbsp;|&nbsp; 💬 ${(t.comments||[]).length} comment${(t.comments||[]).length!==1?'s':''}</div>
+        </div>
+      </div>
+    </div>`).join('');
+}
+
+function openTicket(id) {
+  const t = allTickets.find(x => x.id === id);
+  if (!t) return;
+  currentTicketId = id;
+
+  const comments = t.comments || [];
+  const statusColor = { open:'#3B82F6','in-progress':'#F59E0B',resolved:'#10B981',closed:'#9CA3AF' };
+
+  document.getElementById('ticketModalTitle').textContent = t.title;
+  document.getElementById('ticketModalBody').innerHTML = `
+    <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:14px;">
+      ${statusBadge(t.status)} ${priorityBadge(t.priority)}
+      <span class="badge badge-neutral">${esc(t.category||'General')}</span>
+    </div>
+    <div style="font-size:13.5px;color:var(--text-muted);margin-bottom:6px;">
+      <strong>Reporter:</strong> ${esc(t.resident_name||'Unknown')} · Unit ${esc(t.unit_number||'—')} · ${fmtDate(t.created_at)}
+    </div>
+    <div style="font-size:14px;color:var(--text);line-height:1.6;background:var(--bg);padding:12px;border-radius:8px;margin-bottom:16px;white-space:pre-wrap;">${esc(t.description||'')}</div>
+
+    <!-- Status Actions -->
+    <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:16px;">
+      ${t.status!=='resolved'&&t.status!=='closed' ? `<button class="btn btn-success btn-sm" data-update-status="${id}" data-status="resolved">✅ Mark Resolved</button>` : ''}
+      ${t.status==='open' ? `<button class="btn btn-warning btn-sm" data-update-status="${id}" data-status="in-progress">🔧 In Progress</button>` : ''}
+      ${t.status!=='closed' ? `<button class="btn btn-secondary btn-sm" data-update-status="${id}" data-status="closed">🔒 Close</button>` : ''}
+    </div>
+
+    <!-- Comments -->
+    <div class="comment-wrap">
+      <div style="font-weight:700;font-size:14px;margin-bottom:12px;">💬 Comments (${comments.length})</div>
+      <div id="commentsList">
+        ${comments.length === 0
+          ? '<div style="color:var(--text-muted);font-size:13px;text-align:center;padding:12px 0;">No comments yet</div>'
+          : comments.sort((a,b)=>(a.timestamp||0)-(b.timestamp||0)).map(c => `
+              <div class="comment-item">
+                <div class="comment-avatar ${c.isAdmin ? 'admin-av' : ''}">${(c.userName||'?')[0].toUpperCase()}</div>
+                <div class="comment-bubble">
+                  <div class="meta"><strong>${esc(c.userName||'Unknown')}</strong> · ${c.timestamp ? new Date(c.timestamp).toLocaleString() : ''}</div>
+                  <div class="text">${esc(c.message||'')}</div>
+                </div>
+              </div>`).join('')
+        }
+      </div>
+      <div class="comment-input-row">
+        <input type="text" class="comment-input" id="ticketCommentInput" placeholder="Add admin comment...">
+        <button class="comment-send" id="sendCommentBtn">➤</button>
+      </div>
+    </div>
+  `;
+
+  openModal('ticketModal');
+
+  // Wire status buttons
+  document.querySelectorAll('[data-update-status]').forEach(btn => {
+    btn.addEventListener('click', () => updateTicketStatus(btn.dataset.updateStatus, btn.dataset.status));
+  });
+
+  // Wire comment send
+  document.getElementById('sendCommentBtn').addEventListener('click', () => addTicketComment(id));
+  document.getElementById('ticketCommentInput').addEventListener('keydown', e => { if (e.key === 'Enter') addTicketComment(id); });
+}
+
+async function updateTicketStatus(id, status) {
+  const { error } = await sb.from('tickets').update({ status }).eq('id', id);
+  if (error) { showToast('Error: '+error.message,'error'); return; }
+  showToast(`Ticket marked ${status}.`, 'success');
+  closeModal('ticketModal');
+  await loadTickets(); renderStats(); renderTickets();
+}
+
+async function addTicketComment(id) {
+  const input = document.getElementById('ticketCommentInput');
+  const text = input?.value.trim();
+  if (!text) return;
+
+  const ticket = allTickets.find(t => t.id === id);
+  if (!ticket) return;
+
+  const comments = [...(ticket.comments || []), {
+    userId: currentUser.id,
+    userName: '🛡️ Admin',
+    message: text,
+    isAdmin: true,
+    timestamp: Date.now()
+  }];
+
+  const { error } = await sb.from('tickets').update({ comments }).eq('id', id);
+  if (error) { showToast('Error: '+error.message,'error'); return; }
+
+  input.value = '';
+  await loadTickets();
+  renderTickets();
+  openTicket(id); // refresh modal
+}
+
+// ── SERVICE CONTACTS ──
+function renderServices() {
+  const el = document.getElementById('servicesList');
+  if (!allServices.length) {
+    el.innerHTML = `<div class="empty-state"><div class="empty-icon">📞</div><p>No service contacts yet</p></div>`;
+    return;
+  }
+  el.innerHTML = allServices.map(s => `
+    <div class="card">
+      <div class="card-header">
+        <div>
+          <div class="card-title">${esc(s.name)} <span class="badge badge-neutral" style="font-size:11px;">${esc(s.category||'')}</span></div>
+          <div class="card-meta">
+            ${s.phone ? `📱 ${esc(s.phone)}` : ''} ${s.email ? `&nbsp;|&nbsp; 📧 ${esc(s.email)}` : ''}
+          </div>
+          ${s.description ? `<div class="card-meta" style="margin-top:4px;">${esc(s.description)}</div>` : ''}
+        </div>
+        <div class="card-actions">
+          <button class="btn btn-secondary btn-sm" data-edit-service="${s.id}">✏️ Edit</button>
+          <button class="btn btn-danger btn-sm" data-delete-service="${s.id}" data-svc-name="${esc(s.name)}">🗑</button>
+        </div>
+      </div>
+    </div>`).join('');
+}
+
+function showServiceForm(clear = true) {
+  const form = document.getElementById('serviceForm');
+  form.classList.add('show');
+  if (clear) {
+    document.getElementById('editServiceId').value = '';
+    document.getElementById('serviceFormTitle').textContent = 'Add Service Contact';
+    document.getElementById('saveServiceBtn').textContent = '💾 Save Contact';
+    ['svcName','svcPhone','svcEmail','svcDesc'].forEach(id => document.getElementById(id).value = '');
+    document.getElementById('svcCategory').value = 'Plumbing';
+  }
+}
+
+function editService(id) {
+  const s = allServices.find(x => x.id === id);
+  if (!s) return;
+  document.getElementById('editServiceId').value = s.id;
+  document.getElementById('serviceFormTitle').textContent = 'Edit Service Contact';
+  document.getElementById('saveServiceBtn').textContent = '💾 Update Contact';
+  document.getElementById('svcName').value     = s.name||'';
+  document.getElementById('svcCategory').value = s.category||'Other';
+  document.getElementById('svcPhone').value    = s.phone||'';
+  document.getElementById('svcEmail').value    = s.email||'';
+  document.getElementById('svcDesc').value     = s.description||'';
+  showServiceForm(false);
+  document.getElementById('svcName').focus();
+}
+
+async function saveService() {
+  const id   = document.getElementById('editServiceId').value;
+  const name = document.getElementById('svcName').value.trim();
+  if (!name) { showToast('Name is required.','error'); return; }
+  const payload = {
+    tenant_id: tenantId,
+    name,
+    category:    document.getElementById('svcCategory').value,
+    phone:       document.getElementById('svcPhone').value.trim(),
+    email:       document.getElementById('svcEmail').value.trim(),
+    description: document.getElementById('svcDesc').value.trim(),
+  };
+  const { error } = id
+    ? await sb.from('service_contacts').update(payload).eq('id',id)
+    : await sb.from('service_contacts').insert([payload]);
+  if (error) { showToast('Error: '+error.message,'error'); return; }
+  showToast(id ? 'Contact updated.' : 'Contact added.', 'success');
+  document.getElementById('serviceForm').classList.remove('show');
+  await loadServices(); renderServices(); renderStats();
+}
+
+async function deleteService(id, name) {
+  if (!confirm(`Delete "${name}"?`)) return;
+  const { error } = await sb.from('service_contacts').delete().eq('id',id);
+  if (error) { showToast('Error: '+error.message,'error'); return; }
+  showToast(`${name} deleted.`,'info');
+  await loadServices(); renderServices(); renderStats();
+}
+
+// ── ANNOUNCEMENTS ──
+function renderAnnouncements() {
+  const el = document.getElementById('announcementsList');
+  if (!allAnnouncements.length) {
+    el.innerHTML = `<div class="empty-state"><div class="empty-icon">📢</div><p>No announcements yet</p></div>`;
+    return;
+  }
+  el.innerHTML = allAnnouncements.map(a => `
+    <div class="card">
+      <div class="card-header">
+        <div style="flex:1;">
+          <div class="card-title">${esc(a.title)}</div>
+          <div class="card-meta" style="margin-top:6px;line-height:1.6;">${esc(a.content)}</div>
+          <div class="card-meta" style="margin-top:6px;">📅 ${fmtDateTime(a.created_at)} &nbsp;|&nbsp; By ${esc(a.created_by_name||'Admin')}</div>
+        </div>
+        <div class="card-actions">
+          <button class="btn btn-secondary btn-sm" data-edit-ann="${a.id}">✏️ Edit</button>
+          <button class="btn btn-danger btn-sm" data-delete-ann="${a.id}" data-ann-title="${esc(a.title)}">🗑</button>
+        </div>
+      </div>
+    </div>`).join('');
+}
+
+function showAnnouncementForm(clear = true) {
+  const form = document.getElementById('announcementForm');
+  form.classList.add('show');
+  if (clear) {
+    document.getElementById('editAnnouncementId').value = '';
+    document.getElementById('announcementFormTitle').textContent = 'New Announcement';
+    document.getElementById('saveAnnouncementBtn').textContent = '📢 Send Announcement';
+    document.getElementById('annTitle').value = '';
+    document.getElementById('annContent').value = '';
+  }
+}
+
+function editAnnouncement(id) {
+  const a = allAnnouncements.find(x => x.id === id);
+  if (!a) return;
+  document.getElementById('editAnnouncementId').value = a.id;
+  document.getElementById('announcementFormTitle').textContent = 'Edit Announcement';
+  document.getElementById('saveAnnouncementBtn').textContent = '💾 Update Announcement';
+  document.getElementById('annTitle').value   = a.title||'';
+  document.getElementById('annContent').value = a.content||'';
+  showAnnouncementForm(false);
+  document.getElementById('annTitle').focus();
+}
+
+async function saveAnnouncement() {
+  const id      = document.getElementById('editAnnouncementId').value;
+  const title   = document.getElementById('annTitle').value.trim();
+  const content = document.getElementById('annContent').value.trim();
+  if (!title || !content) { showToast('Title and message are required.','error'); return; }
+
+  const btn = document.getElementById('saveAnnouncementBtn');
+  btn.textContent = 'Saving…'; btn.disabled = true;
+
+  const payload = {
+    tenant_id: tenantId,
+    title,
+    content,
+    created_by: currentUser.id,
+    created_by_name: currentProfile.name || currentProfile.email,
+  };
+
+  const { error } = id
+    ? await sb.from('announcements').update({ title, content }).eq('id', id)
+    : await sb.from('announcements').insert([payload]);
+
+  btn.textContent = id ? '💾 Update Announcement' : '📢 Send Announcement';
+  btn.disabled = false;
+
+  if (error) { showToast('Error: '+error.message,'error'); return; }
+  showToast(id ? 'Announcement updated.' : 'Announcement sent! Push notifications will be delivered.', 'success');
+  document.getElementById('announcementForm').classList.remove('show');
+  await loadAnnouncements(); renderAnnouncements();
+}
+
+async function deleteAnnouncement(id, title) {
+  if (!confirm(`Delete announcement "${title}"?`)) return;
+  const { error } = await sb.from('announcements').delete().eq('id', id);
+  if (error) { showToast('Error: '+error.message,'error'); return; }
+  showToast('Announcement deleted.','info');
+  await loadAnnouncements(); renderAnnouncements();
+}
+
+// ════════════════════════════════════════════════
+// EVENT WIRING
+// ════════════════════════════════════════════════
+document.addEventListener('DOMContentLoaded', () => {
+
+  checkSession();
+
+  // Login
+  document.getElementById('loginBtn').addEventListener('click', handleLogin);
+  document.getElementById('loginPassword').addEventListener('keydown', e => { if (e.key==='Enter') handleLogin(); });
+  document.getElementById('loginEmail').addEventListener('keydown', e => { if (e.key==='Enter') document.getElementById('loginPassword').focus(); });
+
+  // Sign out
+  document.getElementById('signoutBtn').addEventListener('click', handleSignOut);
+
+  // Tabs
+  document.querySelectorAll('.tab-btn[data-tab]').forEach(btn => {
+    btn.addEventListener('click', () => {
+      document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+      document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
+      btn.classList.add('active');
+      document.getElementById('tab-' + btn.dataset.tab).classList.add('active');
+    });
+  });
+
+  // Stat cards navigate to tabs
+  document.querySelectorAll('.stat-card[data-tab]').forEach(card => {
+    card.addEventListener('click', () => {
+      const btn = document.querySelector(`.tab-btn[data-tab="${card.dataset.tab}"]`);
+      if (btn) btn.click();
+    });
+  });
+
+  // Resident filters
+  document.querySelectorAll('#residentFilters .filter-pill').forEach(pill => {
+    pill.addEventListener('click', () => {
+      document.querySelectorAll('#residentFilters .filter-pill').forEach(p => p.classList.remove('active'));
+      pill.classList.add('active');
+      residentFilter = pill.dataset.filter;
+      renderResidents();
+    });
+  });
+
+  // Ticket filters
+  document.querySelectorAll('#ticketFilters .filter-pill').forEach(pill => {
+    pill.addEventListener('click', () => {
+      document.querySelectorAll('#ticketFilters .filter-pill').forEach(p => p.classList.remove('active'));
+      pill.classList.add('active');
+      ticketFilter = pill.dataset.filter;
+      renderTickets();
+    });
+  });
+
+  // Search boxes
+  document.getElementById('residentSearch').addEventListener('input', renderResidents);
+  document.getElementById('ticketSearch').addEventListener('input', renderTickets);
+
+  // Service form
+  document.getElementById('btnAddService').addEventListener('click', () => showServiceForm(true));
+  document.getElementById('saveServiceBtn').addEventListener('click', saveService);
+  document.getElementById('cancelServiceBtn').addEventListener('click', () => {
+    document.getElementById('serviceForm').classList.remove('show');
+  });
+
+  // Announcement form
+  document.getElementById('btnAddAnnouncement').addEventListener('click', () => showAnnouncementForm(true));
+  document.getElementById('saveAnnouncementBtn').addEventListener('click', saveAnnouncement);
+  document.getElementById('cancelAnnouncementBtn').addEventListener('click', () => {
+    document.getElementById('announcementForm').classList.remove('show');
+  });
+
+  // Close modals
+  document.querySelectorAll('[data-close]').forEach(btn => {
+    btn.addEventListener('click', () => closeModal(btn.dataset.close));
+  });
+  document.querySelectorAll('.modal-overlay').forEach(overlay => {
+    overlay.addEventListener('click', e => { if (e.target === overlay) overlay.classList.remove('open'); });
+  });
+
+  // Delegated clicks
+  document.addEventListener('click', e => {
+
+    // Approve resident
+    const approveBtn = e.target.closest('[data-approve]');
+    if (approveBtn) { approveResident(approveBtn.dataset.approve); return; }
+
+    // Reject resident
+    const rejectBtn = e.target.closest('[data-reject]');
+    if (rejectBtn) { rejectResident(rejectBtn.dataset.reject); return; }
+
+    // Revoke resident
+    const revokeBtn = e.target.closest('[data-revoke]');
+    if (revokeBtn) { revokeResident(revokeBtn.dataset.revoke); return; }
+
+    // Delete resident
+    const delResBtn = e.target.closest('[data-delete-resident]');
+    if (delResBtn) { deleteResident(delResBtn.dataset.deleteResident, delResBtn.dataset.resName); return; }
+
+    // Open ticket
+    const ticketCard = e.target.closest('[data-open-ticket]');
+    if (ticketCard) { openTicket(ticketCard.dataset.openTicket); return; }
+
+    // Edit service
+    const editSvcBtn = e.target.closest('[data-edit-service]');
+    if (editSvcBtn) { editService(editSvcBtn.dataset.editService); return; }
+
+    // Delete service
+    const delSvcBtn = e.target.closest('[data-delete-service]');
+    if (delSvcBtn) { deleteService(delSvcBtn.dataset.deleteService, delSvcBtn.dataset.svcName); return; }
+
+    // Edit announcement
+    const editAnnBtn = e.target.closest('[data-edit-ann]');
+    if (editAnnBtn) { editAnnouncement(editAnnBtn.dataset.editAnn); return; }
+
+    // Delete announcement
+    const delAnnBtn = e.target.closest('[data-delete-ann]');
+    if (delAnnBtn) { deleteAnnouncement(delAnnBtn.dataset.deleteAnn, delAnnBtn.dataset.annTitle); return; }
+  });
+});
+</script>
+</body>
+</html>
