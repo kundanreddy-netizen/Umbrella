@@ -17,6 +17,33 @@
     <meta name="apple-mobile-web-app-title" content="The Umbrella Connect">
     <title>The Umbrella Connect</title>
     
+    <!-- ╔═══════════════════════════════════════════════════════╗
+         ║  Supabase auth redirect — must run before everything  ║
+         ╚═══════════════════════════════════════════════════════╝ -->
+    <script>
+    (function() {
+      const hash = window.location.hash;
+      if (!hash.includes('access_token')) return;
+      try {
+        const params  = new URLSearchParams(hash.replace('#',''));
+        const type    = params.get('type');
+        if (type !== 'invite' && type !== 'recovery') return;
+        // Decode JWT to read role from user_metadata
+        const token   = params.get('access_token') || '';
+        const payload = JSON.parse(atob(token.split('.')[1]));
+        const role    = (payload.user_metadata || {}).role || '';
+        if (role === 'community_admin') {
+          window.location.replace('community-admin.html' + hash);
+        } else if (role === 'tuc_admin') {
+          window.location.replace('tuc-admin.html' + hash);
+        }
+        // Unknown role — fall through to normal app load
+      } catch(e) {
+        // Malformed token — ignore and load normally
+      }
+    })();
+    </script>
+
     <!-- Firebase SDK -->
     <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-auth-compat.js"></script>
