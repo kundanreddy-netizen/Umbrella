@@ -2456,6 +2456,10 @@ window.addEventListener('load', () => {
     if (!db) initFirebase();
 });
 
+// Call directly — script is at bottom of body so DOM is already ready
+// DOMContentLoaded already fired by the time this line runs
+loadCommunitiesForSignup();
+
 // ── STATE ──
 let currentUser  = null;
 let userData     = null;
@@ -2618,14 +2622,16 @@ sb.auth.onAuthStateChange(async (event, session) => {
 });
 
 // Safety net: if onAuthStateChange never fires (SDK load failure, network issue)
-// force show auth screen after 6 seconds so app doesn't stay stuck on loading
+// force show auth screen after 8 seconds so app doesn't stay stuck on loading
 setTimeout(() => {
     const loading = document.getElementById('loadingScreen');
     if (loading && loading.style.display !== 'none') {
         console.warn('Safety timeout: forcing showAuth()');
         showAuth();
+        // Also try loading communities in case DOMContentLoaded beat us here
+        setTimeout(() => loadCommunitiesForSignup(), 200);
     }
-}, 3000);
+}, 8000);
 
 async function loadCommunityName() {
     try {
@@ -2637,6 +2643,8 @@ async function loadCommunityName() {
 async function loadCommunitiesForSignup() {
     const sel = document.getElementById('signupCommunity');
     if (!sel) return;
+    // Don't reset to "Loading..." if already populated
+    if (sel.options.length > 0 && sel.options[0].value !== '') return;
     sel.innerHTML = '<option value="">Loading communities...</option>';
     try {
         const { data, error } = await sb.from('tenants')
@@ -2646,7 +2654,7 @@ async function loadCommunitiesForSignup() {
         if (error) throw error;
         if (!data || data.length === 0) {
             sel.innerHTML = '<option value="">No communities available</option>';
-            console.warn('loadCommunitiesForSignup: no active tenants found — check RLS policy on tenants table');
+            console.warn('loadCommunitiesForSignup: no active tenants — check RLS + status=active');
             return;
         }
         sel.innerHTML = data.map(t =>
@@ -2654,14 +2662,9 @@ async function loadCommunitiesForSignup() {
         ).join('');
         console.log('Communities loaded:', data.length);
     } catch(e) {
-        console.error('loadCommunitiesForSignup error:', e.message);
-        sel.innerHTML = '<option value="">Could not load communities</option>';
-        // Show error below dropdown so user knows what happened
-        const errDiv = document.getElementById('authError');
-        if (errDiv) {
-            errDiv.textContent = 'Could not load communities: ' + e.message + '. Please refresh and try again.';
-            errDiv.classList.add('show');
-        }
+        console.error('loadCommunitiesForSignup error:', e.message, e);
+        sel.innerHTML = '<option value="">Error: ' + e.message + ' — tap to retry</option>';
+        sel.onclick = () => { sel.onclick = null; loadCommunitiesForSignup(); };
     }
 }
 
