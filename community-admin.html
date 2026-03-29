@@ -777,10 +777,39 @@ async function loadAllData() {
 
 async function loadResidents() {
   try {
-    const { data, error } = await sb.from('residents').select('*')
+    // Query residents table (registration records)
+    const { data: resData, error: resErr } = await sb.from('residents').select('*')
       .eq('tenant_id', tenantId).order('created_at', { ascending: false });
-    if (error) throw error;
-    allResidents = data || [];
+    if (resErr) throw resErr;
+
+    // Also query users table for any pending residents not yet in residents table
+    // (can happen if residents insert failed during signup but users insert succeeded)
+    const { data: usersData, error: usersErr } = await sb.from('users')
+      .select('id, name, email, phone, unit_number, is_approved, tenant_id, created_at, role')
+      .eq('tenant_id', tenantId)
+      .eq('role', 'resident')
+      .order('created_at', { ascending: false });
+    if (usersErr) console.warn('[TUC] users query:', usersErr.message);
+
+    // Merge: start with residents table, add any users not already in residents
+    const residentUserIds = new Set((resData || []).map(r => r.user_id));
+    const extraFromUsers  = (usersData || [])
+      .filter(u => !residentUserIds.has(u.id))
+      .map(u => ({
+        id:          null,           // no residents row yet
+        user_id:     u.id,
+        name:        u.name,
+        email:       u.email,
+        phone:       u.phone,
+        unit_number: u.unit_number,
+        is_approved: u.is_approved,
+        status:      u.is_approved ? 'approved' : 'pending',
+        tenant_id:   u.tenant_id,
+        created_at:  u.created_at,
+        _from_users_only: true      // flag: no residents row exists
+      }));
+
+    allResidents = [...(resData || []), ...extraFromUsers];
   } catch(e) { console.error('[TUC] loadResidents:', e.message); allResidents = []; }
 }
 async function loadTickets() {
@@ -851,14 +880,44 @@ function renderApprovals() {
 
 async function approveResident(id) {
   if (!id) return;
-  const r = allResidents.find(x => x.id === id);
+  // id may be the residents.id OR a user.id (if _from_users_only)
+  const r = allResidents.find(x => x.id === id || x.user_id === id);
   if (!r) return;
-  if (!confirm(`Approve ${r.name}?`)) return;
+  if (!confirm(`Approve ${r.name}?\n\nThey will be able to log in to the resident app immediately.`)) return;
   try {
-    const { error } = await sb.from('residents')
-      .update({ is_approved: true, status: 'approved', updated_at: new Date().toISOString() }).eq('id', id);
-    if (error) throw error;
-    showToast(`${r.name} approved!`, 'success');
+    const now = new Date().toISOString();
+    // 1. Update or insert residents table
+    if (r._from_users_only || !r.id) {
+      // No residents row yet — create one
+      const { error: insErr } = await sb.from('residents').insert([{
+        tenant_id:   tenantId,
+        user_id:     r.user_id,
+        name:        r.name,
+        email:       r.email,
+        phone:       r.phone,
+        unit_number: r.unit_number,
+        is_approved: true,
+        status:      'approved'
+      }]);
+      if (insErr) console.warn('[TUC] residents insert:', insErr.message);
+    } else {
+      const { error: resErr } = await sb.from('residents')
+        .update({ is_approved: true, status: 'approved', updated_at: now }).eq('id', r.id);
+      if (resErr) throw resErr;
+    }
+    // 2. Update users table — this is what resident.html checks for login access
+    if (r.user_id) {
+      const { error: userErr } = await sb.from('users')
+        .update({ is_approved: true, updated_at: now }).eq('id', r.user_id);
+      if (userErr) console.warn('[TUC] users update:', userErr.message);
+    }
+    // 3. Update profiles table
+    if (r.user_id) {
+      const { error: profErr } = await sb.from('profiles')
+        .update({ is_active: true, updated_at: now }).eq('id', r.user_id);
+      if (profErr) console.warn('[TUC] profiles update:', profErr.message);
+    }
+    showToast(`✅ ${r.name} approved! They can now log in.`, 'success');
     await loadResidents(); renderStats(); renderApprovals(); renderResidents();
   } catch(e) { showToast('Error: ' + e.message, 'error'); }
 }
@@ -867,11 +926,19 @@ async function rejectResident(id) {
   if (!id) return;
   const r = allResidents.find(x => x.id === id);
   if (!r) return;
-  if (!confirm(`Reject ${r.name}? They will not be able to access the community.`)) return;
+  if (!confirm(`Reject ${r.name}?\n\nThey will not be able to access the community.`)) return;
   try {
-    const { error } = await sb.from('residents')
-      .update({ is_approved: false, status: 'rejected', updated_at: new Date().toISOString() }).eq('id', id);
-    if (error) throw error;
+    const now = new Date().toISOString();
+    // 1. Update residents table
+    const { error: resErr } = await sb.from('residents')
+      .update({ is_approved: false, status: 'rejected', updated_at: now }).eq('id', id);
+    if (resErr) throw resErr;
+    // 2. Lock out from resident app
+    if (r.user_id) {
+      const { error: userErr } = await sb.from('users')
+        .update({ is_approved: false, updated_at: now }).eq('id', r.user_id);
+      if (userErr) console.warn('[TUC] users update:', userErr.message);
+    }
     showToast(`${r.name} rejected.`, 'info');
     await loadResidents(); renderStats(); renderApprovals(); renderResidents();
   } catch(e) { showToast('Error: ' + e.message, 'error'); }
@@ -922,11 +989,19 @@ function renderResidents() {
 async function revokeResident(id) {
   if (!id) return;
   const r = allResidents.find(x => x.id === id);
-  if (!r || !confirm(`Suspend ${r.name}? They will lose app access until re-approved.`)) return;
+  if (!r || !confirm(`Suspend ${r.name}?\n\nThey will lose app access immediately until re-approved.`)) return;
   try {
-    const { error } = await sb.from('residents')
-      .update({ is_approved: false, status: 'pending', updated_at: new Date().toISOString() }).eq('id', id);
-    if (error) throw error;
+    const now = new Date().toISOString();
+    // 1. Update residents table
+    const { error: resErr } = await sb.from('residents')
+      .update({ is_approved: false, status: 'pending', updated_at: now }).eq('id', id);
+    if (resErr) throw resErr;
+    // 2. Revoke login access in users table
+    if (r.user_id) {
+      const { error: userErr } = await sb.from('users')
+        .update({ is_approved: false, updated_at: now }).eq('id', r.user_id);
+      if (userErr) console.warn('[TUC] users update:', userErr.message);
+    }
     showToast(`${r.name} suspended.`, 'warning');
     await loadResidents(); renderStats(); renderResidents();
   } catch(e) { showToast('Error: ' + e.message, 'error'); }
@@ -934,13 +1009,21 @@ async function revokeResident(id) {
 
 async function deleteResident(id, name) {
   if (!id) return;
-  if (!confirm(`Permanently delete "${name}"?\n\nThis cannot be undone and will remove all their data.`)) return;
+  if (!confirm(`Permanently delete "${name}"?\n\nThis will remove them from ALL tables including their login account. This CANNOT be undone.`)) return;
   try {
-    const { error } = await sb.from('residents').delete().eq('id', id);
+    // Use the server-side function which handles cascade delete across all tables
+    // including auth.users — requires security definer to delete from auth schema
+    const { error } = await sb.rpc('delete_resident_completely', {
+      p_resident_id: id,
+      p_tenant_id:   tenantId
+    });
     if (error) throw error;
-    showToast(`${name} deleted.`, 'info');
+    showToast(`${name} permanently deleted.`, 'info');
     await loadResidents(); renderStats(); renderApprovals(); renderResidents();
-  } catch(e) { showToast('Error: ' + e.message, 'error'); }
+  } catch(e) {
+    console.error('[TUC] deleteResident error:', e);
+    showToast('Error deleting resident: ' + e.message, 'error');
+  }
 }
 
 // ═══════════════════════════════════════════════════════

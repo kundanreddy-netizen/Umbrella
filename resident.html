@@ -2450,6 +2450,7 @@ let swRegistration  = null;
 let termsAcceptanceContext = 'existing';
 let pendingSignupData = null;
 let allServiceContacts = [];
+let _signingUp = false; // prevents onAuthStateChange firing mid-signup
 
 // ────────────────────────────────────────────────
 // SERVICE WORKER + FCM (unchanged from original)
@@ -2514,6 +2515,12 @@ document.addEventListener('visibilitychange', async () => {
 // SUPABASE AUTH
 // ────────────────────────────────────────────────
 sb.auth.onAuthStateChange(async (event, session) => {
+    // Skip if we are in the middle of creating a new account —
+    // completeSignup() sets _signingUp=true and signs out after writing DB rows
+    if (_signingUp) {
+        console.log('onAuthStateChange: signup in progress, skipping');
+        return;
+    }
     if (session && session.user) {
         currentUser = session.user;
         const { data: userRow, error: userErr } = await sb.from('users')
@@ -2702,6 +2709,8 @@ async function completeSignup() {
     console.log('=== completeSignup START ===');
     console.log('email:', email, '| community:', communityId);
 
+    _signingUp = true; // prevent onAuthStateChange from firing mid-signup
+
     try {
         // Step 1: Create Supabase Auth user
         console.log('Step 1: sb.auth.signUp...');
@@ -2763,6 +2772,18 @@ async function completeSignup() {
             if (updateErr) console.warn('users update also failed:', updateErr.message);
         }
 
+        // Step 3a: Update profiles table with tenant_id (trigger creates the row but misses tenant_id sometimes)
+        console.log('Step 3a: update profiles tenant_id...');
+        const { error: profileErr } = await sb.from('profiles').upsert({
+            id: uid,
+            email,
+            name,
+            role: 'resident',
+            tenant_id: communityId,
+            is_active: false
+        }, { onConflict: 'id' });
+        if (profileErr) console.warn('profiles upsert:', profileErr.message);
+
         // Step 3: Insert residents row (for admin approval queue)
         console.log('Step 3: insert residents...');
         const { error: resErr } = await sb.from('residents').insert([{
@@ -2789,6 +2810,7 @@ async function completeSignup() {
 
         console.log('=== completeSignup SUCCESS ===');
         pendingSignupData = null;
+        _signingUp = false; // re-enable auth handler before signing out
         await sb.auth.signOut();
 
         alert('✅ Account created successfully!\n\nYour registration is pending admin approval.\nYou will be notified once approved.\n\nYou can login after approval.');
@@ -2796,6 +2818,7 @@ async function completeSignup() {
 
     } catch(e) {
         console.error('=== completeSignup FAILED ===', e);
+        _signingUp = false; // re-enable auth handler
         pendingSignupData = null;
 
         // Re-enable accept button
