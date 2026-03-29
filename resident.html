@@ -2460,6 +2460,36 @@ window.addEventListener('load', () => {
 // DOMContentLoaded already fired by the time this line runs
 loadCommunitiesForSignup();
 
+// ── STARTUP: resolve loading screen immediately via direct session check ──
+// Don't rely solely on onAuthStateChange which can be delayed on GitHub Pages
+(async function startup() {
+    try {
+        const { data: { session } } = await sb.auth.getSession();
+        const loading = document.getElementById('loadingScreen');
+        if (!loading || loading.style.display === 'none') return; // already handled
+        if (!session) {
+            // No session — show login immediately, don't wait for event
+            showAuth();
+        }
+        // If session exists, onAuthStateChange will handle it
+        // but set a backup in case it's slow
+        if (session) {
+            setTimeout(() => {
+                const l = document.getElementById('loadingScreen');
+                if (l && l.style.display !== 'none') {
+                    console.warn('startup: onAuthStateChange too slow, retrying getSession');
+                    sb.auth.getSession().then(({ data: { session: s } }) => {
+                        if (!s) showAuth();
+                    });
+                }
+            }, 5000);
+        }
+    } catch(e) {
+        console.error('startup error:', e.message);
+        showAuth();
+    }
+})();
+
 // ── STATE ──
 let currentUser  = null;
 let userData     = null;
@@ -2516,7 +2546,10 @@ if ('serviceWorker' in navigator) {
             } // end setupMessagingListener
             setupMessagingListener();
         })
-        .catch((err) => console.error('SW registration failed:', err));
+        .catch((err) => {
+            // SW missing or failed — app still works, just no background push
+            console.warn('SW not registered (firebase-messaging-sw.js missing?):', err.message);
+        });
 }
 
 // App resume handler
