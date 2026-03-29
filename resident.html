@@ -2643,28 +2643,41 @@ async function loadCommunityName() {
 async function loadCommunitiesForSignup() {
     const sel = document.getElementById('signupCommunity');
     if (!sel) return;
-    // Don't reset to "Loading..." if already populated
+    // Already loaded
     if (sel.options.length > 0 && sel.options[0].value !== '') return;
+
     sel.innerHTML = '<option value="">Loading communities...</option>';
-    try {
-        const { data, error } = await sb.from('tenants')
-            .select('id, name')
-            .eq('status', 'active')
-            .order('name');
-        if (error) throw error;
-        if (!data || data.length === 0) {
-            sel.innerHTML = '<option value="">No communities available</option>';
-            console.warn('loadCommunitiesForSignup: no active tenants — check RLS + status=active');
+
+    // Retry up to 5 times with 3s gap — handles Supabase cold start on free tier
+    for (let attempt = 1; attempt <= 5; attempt++) {
+        try {
+            console.log('loadCommunitiesForSignup attempt', attempt);
+            const { data, error } = await sb.from('tenants')
+                .select('id, name')
+                .eq('status', 'active')
+                .order('name');
+            if (error) throw error;
+            if (!data || data.length === 0) {
+                sel.innerHTML = '<option value="">No communities found</option>';
+                console.warn('No active tenants returned');
+                return;
+            }
+            // Success
+            sel.innerHTML = data.map(t =>
+                '<option value="' + t.id + '">' + t.name + '</option>'
+            ).join('');
+            console.log('Communities loaded:', data.length, 'on attempt', attempt);
             return;
+        } catch(e) {
+            console.warn('Attempt', attempt, 'failed:', e.message);
+            if (attempt < 5) {
+                sel.innerHTML = '<option value="">Connecting... (' + attempt + '/5)</option>';
+                await new Promise(r => setTimeout(r, 3000));
+            } else {
+                sel.innerHTML = '<option value="">Tap to retry</option>';
+                sel.onclick = () => { sel.onclick = null; loadCommunitiesForSignup(); };
+            }
         }
-        sel.innerHTML = data.map(t =>
-            '<option value="' + t.id + '">' + t.name + '</option>'
-        ).join('');
-        console.log('Communities loaded:', data.length);
-    } catch(e) {
-        console.error('loadCommunitiesForSignup error:', e.message, e);
-        sel.innerHTML = '<option value="">Error: ' + e.message + ' — tap to retry</option>';
-        sel.onclick = () => { sel.onclick = null; loadCommunitiesForSignup(); };
     }
 }
 
