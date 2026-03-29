@@ -2485,7 +2485,13 @@ if ('serviceWorker' in navigator) {
     navigator.serviceWorker.register('./firebase-messaging-sw.js')
         .then((reg) => {
             swRegistration = reg;
-            messaging.onMessage((payload) => {
+            // Wait for Firebase to be ready before setting up messaging
+            function setupMessagingListener() {
+                if (!messaging) {
+                    setTimeout(setupMessagingListener, 500);
+                    return;
+                }
+                messaging.onMessage((payload) => {
                 const title = payload.notification?.title || payload.data?.title || 'New update';
                 const body  = payload.notification?.body  || payload.data?.body  || '';
                 if (payload.data?.type) refreshDataBasedOnNotificationType(payload.data.type);
@@ -2507,6 +2513,8 @@ if ('serviceWorker' in navigator) {
                 document.body.appendChild(toast);
                 setTimeout(() => { toast.style.opacity='0'; toast.style.transform='translateX(-50%) translateY(10px)'; setTimeout(()=>toast.remove(),300); }, 4000);
             });
+            } // end setupMessagingListener
+            setupMessagingListener();
         })
         .catch((err) => console.error('SW registration failed:', err));
 }
@@ -2621,17 +2629,26 @@ sb.auth.onAuthStateChange(async (event, session) => {
     }
 });
 
-// Safety net: if onAuthStateChange never fires (SDK load failure, network issue)
-// force show auth screen after 8 seconds so app doesn't stay stuck on loading
-setTimeout(() => {
+// Safety net: if onAuthStateChange never fires within 12s, force showAuth
+// Use 12s to allow for Supabase free tier cold start (can take 8-10s)
+setTimeout(async () => {
     const loading = document.getElementById('loadingScreen');
     if (loading && loading.style.display !== 'none') {
-        console.warn('Safety timeout: forcing showAuth()');
-        showAuth();
-        // Also try loading communities in case DOMContentLoaded beat us here
-        setTimeout(() => loadCommunitiesForSignup(), 200);
+        console.warn('Safety timeout: checking session before forcing showAuth...');
+        // Try one direct session check before giving up
+        try {
+            const { data: { session } } = await sb.auth.getSession();
+            if (!session) {
+                console.warn('No session confirmed — showing auth screen');
+                showAuth();
+            }
+            // If session exists, onAuthStateChange will fire shortly — keep waiting
+        } catch(e) {
+            console.warn('Session check failed, forcing showAuth:', e.message);
+            showAuth();
+        }
     }
-}, 8000);
+}, 12000);
 
 async function loadCommunityName() {
     try {
@@ -2648,33 +2665,56 @@ async function loadCommunitiesForSignup() {
 
     sel.innerHTML = '<option value="">Loading communities...</option>';
 
-    // Retry up to 5 times with 3s gap — handles Supabase cold start on free tier
+    // Retry up to 5 times — each attempt has a hard 8s timeout via AbortController
     for (let attempt = 1; attempt <= 5; attempt++) {
         try {
             console.log('loadCommunitiesForSignup attempt', attempt);
-            const { data, error } = await sb.from('tenants')
-                .select('id, name')
-                .eq('status', 'active')
-                .order('name');
-            if (error) throw error;
+
+            // Direct fetch with timeout — bypasses any Supabase client hanging
+            const controller = new AbortController();
+            const timeoutId  = setTimeout(() => controller.abort(), 8000);
+
+            const res = await fetch(
+                SUPABASE_URL + '/rest/v1/tenants?select=id%2Cname&status=eq.active&order=name',
+                {
+                    headers: {
+                        'apikey':        SUPABASE_ANON,
+                        'Authorization': 'Bearer ' + SUPABASE_ANON,
+                        'Content-Type':  'application/json'
+                    },
+                    signal: controller.signal
+                }
+            );
+            clearTimeout(timeoutId);
+
+            if (!res.ok) {
+                const txt = await res.text();
+                throw new Error('HTTP ' + res.status + ': ' + txt);
+            }
+
+            const data = await res.json();
+            console.log('tenants response:', data);
+
             if (!data || data.length === 0) {
                 sel.innerHTML = '<option value="">No communities found</option>';
                 console.warn('No active tenants returned');
                 return;
             }
-            // Success
+
             sel.innerHTML = data.map(t =>
                 '<option value="' + t.id + '">' + t.name + '</option>'
             ).join('');
             console.log('Communities loaded:', data.length, 'on attempt', attempt);
             return;
+
         } catch(e) {
-            console.warn('Attempt', attempt, 'failed:', e.message);
+            const msg = e.name === 'AbortError' ? 'Request timed out' : e.message;
+            console.warn('Attempt', attempt, 'failed:', msg);
             if (attempt < 5) {
-                sel.innerHTML = '<option value="">Connecting... (' + attempt + '/5)</option>';
+                sel.innerHTML = '<option value="">Connecting... (' + attempt + '/5) — ' + msg + '</option>';
                 await new Promise(r => setTimeout(r, 3000));
             } else {
-                sel.innerHTML = '<option value="">Tap to retry</option>';
+                sel.innerHTML = '<option value="">Failed: ' + msg + ' — tap to retry</option>';
                 sel.onclick = () => { sel.onclick = null; loadCommunitiesForSignup(); };
             }
         }
