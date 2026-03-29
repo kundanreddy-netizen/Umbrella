@@ -18,12 +18,13 @@
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 
     <!-- Firebase — ONLY for FCM push notifications + notifications Firestore collection -->
-    <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
-    <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js"></script>
-    <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-messaging-compat.js"></script>
+    <!-- defer so they don't block the login screen from rendering -->
+    <script defer src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
+    <script defer src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js"></script>
+    <script defer src="https://www.gstatic.com/firebasejs/10.7.1/firebase-messaging-compat.js"></script>
 
-    <!-- QR Code -->
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+    <!-- QR Code — defer, only needed after login -->
+    <script defer src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
 
     <style>
         * {
@@ -2430,9 +2431,30 @@ const firebaseConfig = {
 const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON, {
     auth: { persistSession: true, autoRefreshToken: true }
 });
-firebase.initializeApp(firebaseConfig);
-const db        = firebase.firestore();   // ONLY for notifications collection
-const messaging = firebase.messaging();
+
+// Firebase scripts are deferred — init them only after they load
+// db and messaging are set when firebase is ready
+let db        = null;
+let messaging = null;
+
+function initFirebase() {
+    try {
+        if (typeof firebase !== 'undefined' && !firebase.apps.length) {
+            firebase.initializeApp(firebaseConfig);
+        }
+        db        = firebase.firestore();
+        messaging = firebase.messaging();
+        console.log('Firebase ready');
+    } catch(e) {
+        console.warn('Firebase init error:', e.message);
+    }
+}
+
+// Try immediately (in case scripts already loaded), then on window load
+try { initFirebase(); } catch(e) {}
+window.addEventListener('load', () => {
+    if (!db) initFirebase();
+});
 
 // ── STATE ──
 let currentUser  = null;
@@ -2603,7 +2625,7 @@ setTimeout(() => {
         console.warn('Safety timeout: forcing showAuth()');
         showAuth();
     }
-}, 6000);
+}, 3000);
 
 async function loadCommunityName() {
     try {
@@ -2919,6 +2941,7 @@ async function openPostById(postType, postId) {
 
 async function sendCommunityNotification(type,title,body,data={}) {
     try {
+        if (!db) { console.warn('sendCommunityNotification: Firebase not ready yet'); return; }
         const ts=Date.now();
         const uniqueId=type+'_'+userCommunityId+'_'+currentUser.id+'_'+ts;
         const check=await db.collection('notifications').where('uniqueId','==',uniqueId).limit(1).get();
