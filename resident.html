@@ -2589,9 +2589,21 @@ sb.auth.onAuthStateChange(async (event, session) => {
             }, 2000);
         }
     } else {
-        if (event === 'SIGNED_OUT' || event === 'INITIAL_SESSION') showAuth();
+        // No session — always show auth screen regardless of event type
+        console.log('onAuthStateChange: no session, event=', event);
+        showAuth();
     }
 });
+
+// Safety net: if onAuthStateChange never fires (SDK load failure, network issue)
+// force show auth screen after 6 seconds so app doesn't stay stuck on loading
+setTimeout(() => {
+    const loading = document.getElementById('loadingScreen');
+    if (loading && loading.style.display !== 'none') {
+        console.warn('Safety timeout: forcing showAuth()');
+        showAuth();
+    }
+}, 6000);
 
 async function loadCommunityName() {
     try {
