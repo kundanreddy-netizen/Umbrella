@@ -2911,12 +2911,17 @@
                     }
                     // If terms not accepted, modal is shown and data won't load until accepted
                 } else {
-                    console.log('ERROR: User document does not exist in Firestore!');
-                    console.log('Looking for document ID:', user.id);
-                    // User exists in auth but not in Firestore - need to create profile
-                    alert('Profile not found. Please contact admin.');
-                    await sb.auth.signOut();
-                    showAuth();
+                    console.log('[TUC] User document not found for:', user.id);
+                    // This happens during signup (user row not yet created) or orphan auth accounts.
+                    // During signup: completeSignup() will sign out when done → auth fires again → showAuth()
+                    // Orphan accounts: sign out gracefully
+                    if (!isSigningUp) {
+                        console.log('[TUC] Not a signup flow — signing out orphan session');
+                        await sb.auth.signOut();
+                        showAuth();
+                    } else {
+                        console.log('[TUC] Signup in progress — waiting for completeSignup to finish');
+                    }
                 }
             } else {
                 showAuth();
@@ -3130,11 +3135,11 @@
 
             console.log('✅ Terms accepted, creating account...');
 
+            // Set flag BEFORE try block — onAuthStateChange may fire during signUp()
+            isSigningUp = true;
+
             try {
                 const { name, email, unit, phone, password, communityId } = pendingSignupData;
-
-                // Suppress onAuthStateChange during signup — we'll sign out at the end
-                isSigningUp = true;
 
                 // Create Supabase Auth account (only after terms accepted)
                 const { data: signUpData, error: signUpError } = await sb.auth.signUp({ email, password, options: { data: { name, role: 'resident' } } });
