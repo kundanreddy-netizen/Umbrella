@@ -2338,6 +2338,7 @@
         let messagingToken = null; // FCM token
         let swRegistration = null; // Service worker registration
         let termsAcceptanceContext = 'existing'; // 'signup' or 'existing'
+        let isSigningUp = false; // suppress auth state change during signup flow
 
         // Register service worker and setup push notifications (non-blocking)
         if ('serviceWorker' in navigator && messaging) {
@@ -2745,6 +2746,12 @@
             const user = session?.user || null;
             console.log('=== AUTH STATE CHANGED ===', event);
             console.log('User:', user?.email, user?.id);
+
+            // During signup, suppress this handler — completeSignup manages everything
+            if (isSigningUp) {
+                console.log('[TUC] Signup in progress — skipping auth state handler');
+                return;
+            }
             
             if (user) {
                 currentUser = user;
@@ -3126,7 +3133,10 @@
             try {
                 const { name, email, unit, phone, password, communityId } = pendingSignupData;
 
-                // NOW create Firebase Auth account (only after terms accepted)
+                // Suppress onAuthStateChange during signup — we'll sign out at the end
+                isSigningUp = true;
+
+                // Create Supabase Auth account (only after terms accepted)
                 const { data: signUpData, error: signUpError } = await sb.auth.signUp({ email, password, options: { data: { name, role: 'resident' } } });
                 if (signUpError) throw signUpError;
                 const user = signUpData.user;
@@ -3181,7 +3191,10 @@
                 // Clear pending data
                 pendingSignupData = null;
 
-                // Logout and show success message
+                // Done with signup flow — allow auth state changes again
+                isSigningUp = false;
+
+                // Logout and show success message  
                 await sb.auth.signOut();
                 
                 // Show success screen
@@ -3195,6 +3208,7 @@
 
             } catch (error) {
                 console.error('❌ Signup error:', error);
+                isSigningUp = false;
                 
                 showAuthError(error.message?.includes('already registered') 
                     ? 'An account with this email already exists. Please sign in or use Forgot Password.' 
