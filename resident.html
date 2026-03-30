@@ -2304,17 +2304,24 @@
         // ╔══════════════════════════════════════════════════════╗
         // ║  FIREBASE — ONLY for FCM Push Notifications           ║
         // ╚══════════════════════════════════════════════════════╝
-        const firebaseConfig = {
-            apiKey: "AIzaSyDY_2X7mk9eCM24sVj0glrJhG7n2PSAff8",
-            authDomain: "umbrella-6b57a.firebaseapp.com",
-            projectId: "umbrella-6b57a",
-            storageBucket: "umbrella-6b57a.firebasestorage.app",
-            messagingSenderId: "636033970250",
-            appId: "1:636033970250:web:a49918b1f0d6e46cdcb6b3",
-            measurementId: "G-Y7VH8K070Z"
-        };
-        firebase.initializeApp(firebaseConfig);
-        const messaging = firebase.messaging();
+        // Firebase — ONLY for FCM push notifications (optional, won't block app)
+        let messaging = null;
+        try {
+            const firebaseConfig = {
+                apiKey: "AIzaSyDY_2X7mk9eCM24sVj0glrJhG7n2PSAff8",
+                authDomain: "umbrella-6b57a.firebaseapp.com",
+                projectId: "umbrella-6b57a",
+                storageBucket: "umbrella-6b57a.firebasestorage.app",
+                messagingSenderId: "636033970250",
+                appId: "1:636033970250:web:a49918b1f0d6e46cdcb6b3",
+                measurementId: "G-Y7VH8K070Z"
+            };
+            firebase.initializeApp(firebaseConfig);
+            messaging = firebase.messaging();
+            console.log('[TUC] Firebase Messaging initialised.');
+        } catch(fcmErr) {
+            console.warn('[TUC] Firebase Messaging unavailable (push notifications disabled):', fcmErr.message);
+        }
 
         // Current user
         let currentUser = null;
@@ -2332,8 +2339,8 @@
         let swRegistration = null; // Service worker registration
         let termsAcceptanceContext = 'existing'; // 'signup' or 'existing'
 
-        // Register service worker and setup push notifications
-        if ('serviceWorker' in navigator) {
+        // Register service worker and setup push notifications (non-blocking)
+        if ('serviceWorker' in navigator && messaging) {
             navigator.serviceWorker.register('./firebase-messaging-sw.js')
                 .then((registration) => {
                     console.log('✅ Service Worker registered:', registration);
@@ -2856,6 +2863,7 @@
                                 console.log('Permission already granted - refreshing FCM token...');
                                 try {
                                     if (messaging && swRegistration) {
+                                        if (!messaging) { console.log('[TUC] FCM not available'); return; }
                                         const freshToken = await messaging.getToken({
                                             vapidKey: 'BCBEpCo4UocKSb7RmyWt3YSMcglffvyygQZfw2pcjWTgwgU5MaYX1ZkXKVjCj0CEmzg_WRR8EHJuQapgsvnhRbg',
                                             serviceWorkerRegistration: swRegistration
