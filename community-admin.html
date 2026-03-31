@@ -465,60 +465,6 @@ let allResidents   = [];
 let allTickets     = [];
 let allServices    = [];
 let allAnnouncements = [];
-// ═══════════════════════════════════════════════════════
-// REALTIME SUBSCRIPTIONS
-// ═══════════════════════════════════════════════════════
-let activeSubscriptions = {};
-
-async function subscribeToTable(tableName, refreshCallback, filterField = null, filterValue = null) {
-  if (activeSubscriptions[tableName]) {
-    await sb.removeChannel(activeSubscriptions[tableName]);
-  }
-  const channel = sb.channel(`public:${tableName}:*`, { config: { broadcast: { self: true } } })
-    .on('postgres_changes', {
-      event: '*',
-      schema: 'public',
-      table: tableName,
-      filter: filterField ? `${filterField}=eq.${filterValue}` : undefined
-    },
-    (payload) => {
-      console.log(`[TUC] Real-time: ${tableName} changed`, payload);
-      refreshCallback();
-    })
-    .subscribe(async (status) => {
-      if (status === 'SUBSCRIBED') console.log(`✅ Subscribed to ${tableName}`);
-      else if (status === 'CHANNEL_ERROR') console.warn(`⚠️ ${tableName} subscription error`);
-    });
-  activeSubscriptions[tableName] = channel;
-}
-
-async function unsubscribeAll() {
-  for (const tableName of Object.keys(activeSubscriptions)) {
-    await sb.removeChannel(activeSubscriptions[tableName]);
-    delete activeSubscriptions[tableName];
-  }
-}
-
-async function onResidentsChanged() {
-  await loadResidents();
-  renderStats(); renderApprovals(); renderResidents();
-}
-
-async function onTicketsChanged() {
-  await loadTickets();
-  renderStats(); renderTickets();
-}
-
-async function onServicesChanged() {
-  await loadServices();
-  renderServices();
-}
-
-async function onAnnouncementsChanged() {
-  await loadAnnouncements();
-  renderAnnouncements();
-}
-
 let residentFilter = 'all';
 let ticketFilter   = 'all';
 let currentTicketId = null;
@@ -807,21 +753,10 @@ async function enterApp(user, profile) {
   } catch(e) { console.warn('[TUC] Could not load tenant name:', e.message); }
 
   await loadAllData();
-  // Setup real-time subscriptions
-  if (!window.realtimeInitialized) {
-    subscribeToTable("residents", onResidentsChanged, "tenant_id", tenantId);
-    subscribeToTable("tickets", onTicketsChanged, "tenant_id", tenantId);
-    subscribeToTable("service_contacts", onServicesChanged, "tenant_id", tenantId);
-    subscribeToTable("announcements", onAnnouncementsChanged, "tenant_id", tenantId);
-    window.realtimeInitialized = true;
-    console.log("[TUC] Real-time subscriptions initialized");
-  }
 }
 
 async function handleSignOut() {
   if (!confirm('Sign out of the Community Admin portal?')) return;
-    await unsubscribeAll();
-    window.realtimeInitialized = false;
   try { await sb.auth.signOut(); } catch(e) {}
   location.reload();
 }
@@ -842,39 +777,39 @@ async function loadAllData() {
 
 async function loadResidents() {
   try {
-    // Query residents table (registration records)
-    const { data: resData, error: resErr } = await sb.from('residents').select('*')
-      .eq('tenant_id', tenantId).order('created_at', { ascending: false });
-    if (resErr) throw resErr;
-
-    // Also query users table for any pending residents not yet in residents table
-    // (can happen if residents insert failed during signup but users insert succeeded)
+    // Query users table (signup creates users only)
     const { data: usersData, error: usersErr } = await sb.from('users')
       .select('id, name, email, phone, unit_number, is_approved, tenant_id, created_at, role')
       .eq('tenant_id', tenantId)
       .eq('role', 'resident')
       .order('created_at', { ascending: false });
-    if (usersErr) console.warn('[TUC] users query:', usersErr.message);
+    if (usersErr) throw usersErr;
 
-    // Merge: start with residents table, add any users not already in residents
-    const residentUserIds = new Set((resData || []).map(r => r.user_id));
-    const extraFromUsers  = (usersData || [])
-      .filter(u => !residentUserIds.has(u.id))
-      .map(u => ({
-        id:          null,           // no residents row yet
-        user_id:     u.id,
-        name:        u.name,
-        email:       u.email,
-        phone:       u.phone,
-        unit_number: u.unit_number,
-        is_approved: u.is_approved,
-        status:      u.is_approved ? 'approved' : 'pending',
-        tenant_id:   u.tenant_id,
-        created_at:  u.created_at,
-        _from_users_only: true      // flag: no residents row exists
-      }));
+    // Query residents table (for approved residents info)
+    const { data: resData, error: resErr } = await sb.from('residents').select('*')
+      .eq('tenant_id', tenantId).order('created_at', { ascending: false });
+    if (resErr) console.warn('[TUC] residents query:', resErr.message);
 
-    allResidents = [...(resData || []), ...extraFromUsers];
+    // Create map of approved residents by user_id
+    const approvedMap = {};
+    (resData || []).forEach(r => {
+      if (r.user_id) approvedMap[r.user_id] = r;
+    });
+
+    // Map users to residents view
+    allResidents = (usersData || []).map(u => ({
+      id:          approvedMap[u.id]?.id || null,
+      user_id:     u.id,
+      name:        u.name,
+      email:       u.email,
+      phone:       u.phone,
+      unit_number: u.unit_number,
+      is_approved: u.is_approved,
+      status:      approvedMap[u.id]?.status || (u.is_approved ? 'approved' : 'pending'),
+      tenant_id:   u.tenant_id,
+      created_at:  u.created_at,
+      updated_at:  approvedMap[u.id]?.updated_at || null
+    }));
   } catch(e) { console.error('[TUC] loadResidents:', e.message); allResidents = []; }
 }
 async function loadTickets() {
