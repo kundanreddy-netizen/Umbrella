@@ -465,6 +465,60 @@ let allResidents   = [];
 let allTickets     = [];
 let allServices    = [];
 let allAnnouncements = [];
+// ═══════════════════════════════════════════════════════
+// REALTIME SUBSCRIPTIONS
+// ═══════════════════════════════════════════════════════
+let activeSubscriptions = {};
+
+async function subscribeToTable(tableName, refreshCallback, filterField = null, filterValue = null) {
+  if (activeSubscriptions[tableName]) {
+    await sb.removeChannel(activeSubscriptions[tableName]);
+  }
+  const channel = sb.channel(`public:${tableName}:*`, { config: { broadcast: { self: true } } })
+    .on('postgres_changes', {
+      event: '*',
+      schema: 'public',
+      table: tableName,
+      filter: filterField ? `${filterField}=eq.${filterValue}` : undefined
+    },
+    (payload) => {
+      console.log(`[TUC] Real-time: ${tableName} changed`, payload);
+      refreshCallback();
+    })
+    .subscribe(async (status) => {
+      if (status === 'SUBSCRIBED') console.log(`✅ Subscribed to ${tableName}`);
+      else if (status === 'CHANNEL_ERROR') console.warn(`⚠️ ${tableName} subscription error`);
+    });
+  activeSubscriptions[tableName] = channel;
+}
+
+async function unsubscribeAll() {
+  for (const tableName of Object.keys(activeSubscriptions)) {
+    await sb.removeChannel(activeSubscriptions[tableName]);
+    delete activeSubscriptions[tableName];
+  }
+}
+
+async function onResidentsChanged() {
+  await loadResidents();
+  renderStats(); renderApprovals(); renderResidents();
+}
+
+async function onTicketsChanged() {
+  await loadTickets();
+  renderStats(); renderTickets();
+}
+
+async function onServicesChanged() {
+  await loadServices();
+  renderServices();
+}
+
+async function onAnnouncementsChanged() {
+  await loadAnnouncements();
+  renderAnnouncements();
+}
+
 let residentFilter = 'all';
 let ticketFilter   = 'all';
 let currentTicketId = null;
@@ -753,10 +807,21 @@ async function enterApp(user, profile) {
   } catch(e) { console.warn('[TUC] Could not load tenant name:', e.message); }
 
   await loadAllData();
+  // Setup real-time subscriptions
+  if (!window.realtimeInitialized) {
+    subscribeToTable("residents", onResidentsChanged, "tenant_id", tenantId);
+    subscribeToTable("tickets", onTicketsChanged, "tenant_id", tenantId);
+    subscribeToTable("service_contacts", onServicesChanged, "tenant_id", tenantId);
+    subscribeToTable("announcements", onAnnouncementsChanged, "tenant_id", tenantId);
+    window.realtimeInitialized = true;
+    console.log("[TUC] Real-time subscriptions initialized");
+  }
 }
 
 async function handleSignOut() {
   if (!confirm('Sign out of the Community Admin portal?')) return;
+    await unsubscribeAll();
+    window.realtimeInitialized = false;
   try { await sb.auth.signOut(); } catch(e) {}
   location.reload();
 }
