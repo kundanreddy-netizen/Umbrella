@@ -3142,7 +3142,7 @@
                 const { name, email, unit, phone, password, communityId } = pendingSignupData;
 
                 // Create Supabase Auth account (only after terms accepted)
-                const { data: signUpData, error: signUpError } = await sb.auth.signUp({ email, password, options: { data: { name, role: 'resident' } } });
+                const { data: signUpData, error: signUpError } = await sb.auth.signUp({ email, password, options: { data: { name, role: 'resident', tenant_id: communityId } } });
                 if (signUpError) throw signUpError;
                 const user = signUpData.user;
                 console.log('✅ Auth account created:', user.id);
@@ -3163,10 +3163,29 @@
                     terms_accepted_at: new Date().toISOString(),
                     created_at: new Date().toISOString()
                 }]);
-                if (userInsertErr) throw userInsertErr;
+                if (userInsertErr) { console.error("[TUC] Users insert failed:", userInsertErr); throw new Error("Failed to create user record: " + userInsertErr.message); }
 
-                // Update profile with tenant_id (trigger created profile without it)
-                await sb.from('profiles').update({ tenant_id: communityId, name: name }).eq('id', user.id);
+                // Update profile with tenant_id (trigger may have created it without tenant_id)
+                const { error: profErr } = await sb.from('profiles').update({ 
+                    tenant_id: communityId, 
+                    name: name 
+                }).eq('id', user.id);
+                if (profErr) {
+                    console.warn('[TUC] Profile update failed (will retry via upsert):', profErr.message);
+                    // Fallback: upsert the profile directly
+                    const { error: upsertErr } = await sb.from('profiles').upsert({
+                        id: user.id,
+                        email: email,
+                        name: name,
+                        role: 'resident',
+                        tenant_id: communityId,
+                        is_active: true
+                    }, { onConflict: 'id' });
+                    if (upsertErr) console.error('[TUC] Profile upsert also failed:', upsertErr.message);
+                    else console.log('✅ Profile upserted with tenant_id');
+                } else {
+                    console.log('✅ Profile updated with tenant_id');
+                }
 
                 // Resident document
                 const { error: resInsertErr } = await sb.from('residents').insert([{
@@ -3179,7 +3198,7 @@
                     is_approved: false,
                     status: 'pending'
                 }]);
-                if (resInsertErr) console.warn('[TUC] residents insert error:', resInsertErr.message);
+                if (resInsertErr) console.warn('[TUC] Residents insert error:', resInsertErr.message, resInsertErr.details, resInsertErr.hint);
                 console.log('✅ Firestore documents created');
 
                 // Also create terms acceptance record for audit trail
