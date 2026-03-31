@@ -3134,23 +3134,28 @@
             }
 
             console.log('✅ Terms accepted, creating account...');
-
-            // Set flag BEFORE try block — onAuthStateChange may fire during signUp()
             isSigningUp = true;
 
             try {
                 const { name, email, unit, phone, password, communityId } = pendingSignupData;
 
-                // Create Supabase Auth account (only after terms accepted)
-                const { data: signUpData, error: signUpError } = await sb.auth.signUp({ email, password, options: { data: { name, role: 'resident', tenant_id: communityId } } });
-                if (signUpError) throw signUpError;
+                console.log('[SIGNUP] Step 0: Data ready', { name, email, unit, phone, communityId });
+                if (!communityId) throw new Error('No community selected — communityId is empty');
+
+                // ── STEP 1: Create auth account ──
+                console.log('[SIGNUP] Step 1: Creating auth account...');
+                const { data: signUpData, error: signUpError } = await sb.auth.signUp({ 
+                    email, password, 
+                    options: { data: { name, role: 'resident', tenant_id: communityId } } 
+                });
+                if (signUpError) throw new Error('Auth signup failed: ' + signUpError.message);
                 const user = signUpData.user;
-                console.log('✅ Auth account created:', user.id);
+                if (!user) throw new Error('Auth signup returned no user object');
+                console.log('[SIGNUP] Step 1 ✅ Auth user created:', user.id);
 
-                // Create user + resident records in Supabase
-
-                // User document
-                const { error: userInsertErr } = await sb.from('users').insert([{
+                // ── STEP 2: Insert into users table ──
+                console.log('[SIGNUP] Step 2: Inserting into users table...');
+                const { data: userRow, error: userInsertErr } = await sb.from('users').insert([{
                     id: user.id,
                     tenant_id: communityId,
                     email: email,
@@ -3159,36 +3164,44 @@
                     phone: phone,
                     role: 'resident',
                     is_approved: false,
-                    terms_accepted: true, // Already accepted!
+                    terms_accepted: true,
                     terms_accepted_at: new Date().toISOString(),
                     created_at: new Date().toISOString()
-                }]);
-                if (userInsertErr) { console.error("[TUC] Users insert failed:", userInsertErr); throw new Error("Failed to create user record: " + userInsertErr.message); }
+                }]).select().single();
+                if (userInsertErr) throw new Error('Users INSERT failed: ' + userInsertErr.message + ' | Details: ' + (userInsertErr.details || '') + ' | Hint: ' + (userInsertErr.hint || ''));
+                console.log('[SIGNUP] Step 2 ✅ Users row created:', userRow);
 
-                // Update profile with tenant_id (trigger may have created it without tenant_id)
+                // ── STEP 3: Verify users row ──
+                const { data: userVerify } = await sb.from('users').select('id, tenant_id, is_approved').eq('id', user.id).maybeSingle();
+                console.log('[SIGNUP] Step 3: Users verification:', userVerify);
+                if (!userVerify) console.error('[SIGNUP] ❌ Users row NOT FOUND after insert!');
+                if (userVerify && !userVerify.tenant_id) console.error('[SIGNUP] ❌ Users row has NULL tenant_id!');
+
+                // ── STEP 4: Update profile with tenant_id ──
+                console.log('[SIGNUP] Step 4: Updating profile with tenant_id...');
                 const { error: profErr } = await sb.from('profiles').update({ 
-                    tenant_id: communityId, 
-                    name: name 
+                    tenant_id: communityId, name: name 
                 }).eq('id', user.id);
                 if (profErr) {
-                    console.warn('[TUC] Profile update failed (will retry via upsert):', profErr.message);
-                    // Fallback: upsert the profile directly
+                    console.warn('[SIGNUP] Profile update failed, trying upsert:', profErr.message);
                     const { error: upsertErr } = await sb.from('profiles').upsert({
-                        id: user.id,
-                        email: email,
-                        name: name,
-                        role: 'resident',
-                        tenant_id: communityId,
-                        is_active: true
+                        id: user.id, email: email, name: name,
+                        role: 'resident', tenant_id: communityId, is_active: true
                     }, { onConflict: 'id' });
-                    if (upsertErr) console.error('[TUC] Profile upsert also failed:', upsertErr.message);
-                    else console.log('✅ Profile upserted with tenant_id');
+                    if (upsertErr) console.error('[SIGNUP] ❌ Profile upsert also failed:', upsertErr.message);
+                    else console.log('[SIGNUP] Step 4 ✅ Profile upserted');
                 } else {
-                    console.log('✅ Profile updated with tenant_id');
+                    console.log('[SIGNUP] Step 4 ✅ Profile updated');
                 }
 
-                // Resident document
-                const { error: resInsertErr } = await sb.from('residents').insert([{
+                // ── STEP 5: Verify profile ──
+                const { data: profVerify } = await sb.from('profiles').select('id, tenant_id, role').eq('id', user.id).maybeSingle();
+                console.log('[SIGNUP] Step 5: Profile verification:', profVerify);
+                if (profVerify && !profVerify.tenant_id) console.error('[SIGNUP] ❌ Profile STILL has NULL tenant_id!');
+
+                // ── STEP 6: Insert into residents table ──
+                console.log('[SIGNUP] Step 6: Inserting into residents table...');
+                const { data: resRow, error: resInsertErr } = await sb.from('residents').insert([{
                     tenant_id: communityId,
                     user_id: user.id,
                     name: name,
@@ -3197,11 +3210,16 @@
                     unit_number: unit,
                     is_approved: false,
                     status: 'pending'
-                }]);
-                if (resInsertErr) console.warn('[TUC] Residents insert error:', resInsertErr.message, resInsertErr.details, resInsertErr.hint);
-                console.log('✅ Firestore documents created');
+                }]).select().single();
+                if (resInsertErr) {
+                    console.error('[SIGNUP] ❌ Residents INSERT failed:', resInsertErr.message, resInsertErr.details, resInsertErr.hint, resInsertErr.code);
+                    // Don't throw — user record exists, admin can still see them via users table
+                } else {
+                    console.log('[SIGNUP] Step 6 ✅ Residents row created:', resRow);
+                }
 
-                // Also create terms acceptance record for audit trail
+                // ── STEP 7: Insert terms acceptance ──
+                console.log('[SIGNUP] Step 7: Recording terms acceptance...');
                 await sb.from('terms_acceptances').insert([{
                     user_id: user.id,
                     user_email: email,
@@ -3210,24 +3228,30 @@
                     terms_version: '1.0',
                     context: 'signup'
                 }]);
-                console.log('✅ Terms acceptance recorded');
+                console.log('[SIGNUP] Step 7 ✅ Terms recorded');
 
-                // Clear pending data
+                // ── STEP 8: Final verification ──
+                console.log('[SIGNUP] ═══ FINAL VERIFICATION ═══');
+                const { data: finalUsers } = await sb.from('users').select('id, tenant_id, name, is_approved').eq('id', user.id).maybeSingle();
+                const { data: finalProf } = await sb.from('profiles').select('id, tenant_id, role').eq('id', user.id).maybeSingle();
+                const { data: finalRes } = await sb.from('residents').select('id, tenant_id, user_id, name, is_approved, status').eq('user_id', user.id);
+                console.log('[SIGNUP] Users table:', finalUsers);
+                console.log('[SIGNUP] Profiles table:', finalProf);
+                console.log('[SIGNUP] Residents table:', finalRes);
+
+                if (!finalUsers?.tenant_id || !finalProf?.tenant_id) {
+                    console.error('[SIGNUP] ⚠️ tenant_id is NULL in users or profiles — admin won\'t see this user!');
+                }
+
+                // ── STEP 9: Sign out and show success ──
                 pendingSignupData = null;
-
-                // Done with signup flow — allow auth state changes again
                 isSigningUp = false;
-
-                // Logout and show success message  
                 await sb.auth.signOut();
                 
-                // Show success screen
                 document.getElementById('authScreen').style.display = 'block';
                 document.getElementById('mainApp').style.display = 'none';
                 
                 alert('✅ Account created successfully!\n\nYour registration is now pending admin approval.\nYou will receive an email once approved.\n\nYou can login after approval.');
-                
-                // Switch to login tab
                 showLogin();
 
             } catch (error) {
@@ -3236,7 +3260,7 @@
                 
                 showAuthError(error.message?.includes('already registered') 
                     ? 'An account with this email already exists. Please sign in or use Forgot Password.' 
-                    : 'Signup failed. Please try again.');
+                    : 'Signup failed: ' + error.message);
                 pendingSignupData = null;
             }
         }
