@@ -4305,6 +4305,13 @@
         // ========================================
 
         function loadAllData() {
+            // SAFETY CHECK: Ensure userData is loaded before proceeding
+            if (!userData || !userData.uid) {
+                console.log('⏳ userData not ready yet, will retry in 500ms...');
+                setTimeout(() => loadAllData(), 500);
+                return;
+            }
+            
             loadAnnouncements();
             loadDirectory();
             loadVisitors();
@@ -4751,6 +4758,12 @@
             const container = document.getElementById('visitorsContent');
             
             try {
+                // SAFETY CHECK: Ensure userData is loaded before proceeding
+                if (!userData || !userData.uid) {
+                    console.log('⏳ userData not ready yet, skipping loadVisitors');
+                    return;
+                }
+                
                 let query;
                 
                 // Admins can see all visitors in their community, residents only see their own
