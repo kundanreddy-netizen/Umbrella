@@ -753,6 +753,12 @@ async function enterApp(user, profile) {
   } catch(e) { console.warn('[TUC] Could not load tenant name:', e.message); }
 
   await loadAllData();
+  
+  // Validate data integrity on load
+  const validation = await validateAndRepairData();
+  if (validation.status === 'error') {
+    console.warn('[ADMIN] Data validation had errors, but continuing');
+  }
 }
 
 async function handleSignOut() {
@@ -880,46 +886,195 @@ function renderApprovals() {
 
 async function approveResident(id) {
   if (!id) return;
-  // id may be the residents.id OR a user.id (if _from_users_only)
   const r = allResidents.find(x => x.id === id || x.user_id === id);
   if (!r) return;
-  if (!confirm(`Approve ${r.name}?\n\nThey will be able to log in to the resident app immediately.`)) return;
+  if (!confirm(`Approve ${r.name}?\n\nThey will be able to log in immediately.`)) return;
+  
   try {
     const now = new Date().toISOString();
-    // 1. Update or insert residents table
+    const userId = r.user_id || r.id;
+    
+    console.log('[APPROVAL] Starting approval workflow...');
+    console.log('[APPROVAL] Resident:', { name: r.name, email: r.email, userId });
+    
+    // ── STEP 1: Update users table ──
+    console.log('[APPROVAL] Step 1: Updating users table...');
+    const { error: userErr } = await sb.from('users')
+      .update({ is_approved: true, updated_at: now })
+      .eq('id', userId);
+    
+    if (userErr) {
+      throw new Error('Users update failed: ' + userErr.message);
+    }
+    console.log('[APPROVAL] Step 1 ✅ Users table updated');
+    
+    // ── STEP 2: Update residents table ──
+    console.log('[APPROVAL] Step 2: Updating residents table...');
+    let residentCreated = false;
+    
     if (r._from_users_only || !r.id) {
       // No residents row yet — create one
       const { error: insErr } = await sb.from('residents').insert([{
-        tenant_id:   tenantId,
-        user_id:     r.user_id,
-        name:        r.name,
-        email:       r.email,
-        phone:       r.phone,
+        tenant_id: tenantId,
+        user_id: userId,
+        name: r.name,
+        email: r.email,
+        phone: r.phone,
         unit_number: r.unit_number,
         is_approved: true,
-        status:      'approved'
+        status: 'approved'
       }]);
-      if (insErr) console.warn('[TUC] residents insert:', insErr.message);
+      if (insErr) {
+        console.warn('[APPROVAL] Residents insert warning:', insErr.message);
+        // Don't fail if residents table doesn't exist or conflicts
+      } else {
+        residentCreated = true;
+        console.log('[APPROVAL] Step 2a ✅ Residents row created');
+      }
     } else {
       const { error: resErr } = await sb.from('residents')
-        .update({ is_approved: true, status: 'approved', updated_at: now }).eq('id', r.id);
-      if (resErr) throw resErr;
+        .update({ is_approved: true, status: 'approved', updated_at: now })
+        .eq('id', r.id);
+      if (resErr) {
+        console.warn('[APPROVAL] Residents update warning:', resErr.message);
+      } else {
+        console.log('[APPROVAL] Step 2b ✅ Residents row updated');
+      }
     }
-    // 2. Update users table — this is what resident.html checks for login access
-    if (r.user_id) {
-      const { error: userErr } = await sb.from('users')
-        .update({ is_approved: true, updated_at: now }).eq('id', r.user_id);
-      if (userErr) console.warn('[TUC] users update:', userErr.message);
+    
+    // ── STEP 3: Update profiles table WITH ROLE ENFORCEMENT ──
+    console.log('[APPROVAL] Step 3: Updating profiles with role enforcement...');
+    const { error: profErr } = await sb.from('profiles')
+      .update({ 
+        role: 'resident',              // ← CRITICAL: Enforce correct role
+        tenant_id: tenantId,           // ← Ensure correct tenant
+        is_active: true,               // ← Enable the account
+        updated_at: now
+      })
+      .eq('id', userId);
+    
+    if (profErr) {
+      throw new Error('Profiles update failed: ' + profErr.message);
     }
-    // 3. Update profiles table
-    if (r.user_id) {
-      const { error: profErr } = await sb.from('profiles')
-        .update({ is_active: true, updated_at: now }).eq('id', r.user_id);
-      if (profErr) console.warn('[TUC] profiles update:', profErr.message);
+    console.log('[APPROVAL] Step 3 ✅ Profiles updated with role enforcement');
+    
+    // ── STEP 4: Verify approval succeeded ──
+    console.log('[APPROVAL] Step 4: Verifying approval...');
+    const { data: userVerify } = await sb.from('users')
+      .select('id, email, is_approved')
+      .eq('id', userId)
+      .maybeSingle();
+    
+    const { data: profVerify } = await sb.from('profiles')
+      .select('id, role, is_active, tenant_id')
+      .eq('id', userId)
+      .maybeSingle();
+    
+    console.log('[APPROVAL] Verification results:', {
+      user_approved: userVerify?.is_approved,
+      profile_role: profVerify?.role,
+      profile_active: profVerify?.is_active,
+      profile_tenant: profVerify?.tenant_id
+    });
+    
+    // Sanity checks
+    if (!userVerify?.is_approved) {
+      throw new Error('Verification failed: users.is_approved not true');
     }
+    
+    if (profVerify?.role !== 'resident') {
+      throw new Error('Verification failed: profiles.role is ' + profVerify?.role);
+    }
+    
+    if (!profVerify?.is_active) {
+      throw new Error('Verification failed: profiles.is_active not true');
+    }
+    
+    console.log('[APPROVAL] Step 4 ✅ All verifications passed');
+    
+    // ── STEP 5: Log to audit trail ──
+    console.log('[APPROVAL] Step 5: Logging approval...');
+    try {
+      await sb.from('audit_log').insert([{
+        action: 'approve',
+        user_id: userId,
+        user_email: r.email,
+        tenant_id: tenantId,
+        success: true,
+        data_after: {
+          users_approved: userVerify?.is_approved,
+          profile_role: profVerify?.role,
+          profile_active: profVerify?.is_active,
+          residents_created: residentCreated
+        }
+      }]);
+      console.log('[APPROVAL] Step 5 ✅ Audit logged');
+    } catch (auditErr) {
+      console.warn('[APPROVAL] Audit logging failed (non-critical):', auditErr.message);
+    }
+    
+    // ── STEP 6: Success and refresh ──
     showToast(`✅ ${r.name} approved! They can now log in.`, 'success');
-    await loadResidents(); renderStats(); renderApprovals(); renderResidents();
-  } catch(e) { showToast('Error: ' + e.message, 'error'); }
+    console.log('[APPROVAL] Step 6: Refreshing dashboard...');
+    await loadResidents();
+    renderStats();
+    renderApprovals();
+    renderResidents();
+    console.log('[APPROVAL] ✅ COMPLETE - Dashboard refreshed');
+    
+  } catch(e) {
+    console.error('[APPROVAL] ❌ FAILED:', e.message);
+    showToast('Error: ' + e.message, 'error');
+  }
+}
+
+// ═══════════════════════════════════════════════════════════════════════
+// DATA VALIDATION & AUTOMATIC REPAIR
+// ═══════════════════════════════════════════════════════════════════════
+
+async function validateAndRepairData() {
+  console.log('[ADMIN] Starting data validation...');
+  const issues = [];
+  const repairs = [];
+  
+  try {
+    // Query validation function from database
+    const { data: problems } = await sb
+      .rpc('check_approval_mismatch');
+    
+    if (problems && problems.length > 0) {
+      console.warn('[ADMIN] Found', problems.length, 'data issues:', problems);
+      
+      problems.forEach(p => {
+        if (p.issue !== 'Data consistent') {
+          issues.push(p.issue);
+        }
+      });
+      
+      // Auto-repair if there are issues
+      const { data: repairResult } = await sb
+        .rpc('repair_resident_data');
+      
+      if (repairResult && repairResult[0]?.repairs_applied) {
+        repairs.push(...repairResult[0].repairs_applied);
+      }
+      
+      if (repairs.length > 0) {
+        console.log('[ADMIN] Repairs applied:', repairs);
+        showToast(`⚠️ Fixed ${repairs.length} data issues`, 'warning');
+        // Reload data after repairs
+        await loadResidents();
+      }
+    } else {
+      console.log('[ADMIN] ✅ Data validation passed - no issues found');
+    }
+    
+    return { issues, repairs, status: issues.length > 0 ? 'warning' : 'ok' };
+    
+  } catch (e) {
+    console.error('[ADMIN] Validation error:', e);
+    return { issues: [e.message], repairs: [], status: 'error' };
+  }
 }
 
 async function rejectResident(id) {

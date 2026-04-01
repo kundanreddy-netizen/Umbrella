@@ -3177,21 +3177,86 @@
                 if (!userVerify) console.error('[SIGNUP] ❌ Users row NOT FOUND after insert!');
                 if (userVerify && !userVerify.tenant_id) console.error('[SIGNUP] ❌ Users row has NULL tenant_id!');
 
-                // ── STEP 4: Update profile with tenant_id ──
-                console.log('[SIGNUP] Step 4: Updating profile with tenant_id...');
-                const { error: profErr } = await sb.from('profiles').update({ 
-                    tenant_id: communityId, name: name 
-                }).eq('id', user.id);
-                if (profErr) {
-                    console.warn('[SIGNUP] Profile update failed, trying upsert:', profErr.message);
-                    const { error: upsertErr } = await sb.from('profiles').upsert({
-                        id: user.id, email: email, name: name,
-                        role: 'resident', tenant_id: communityId, is_active: true
-                    }, { onConflict: 'id' });
-                    if (upsertErr) console.error('[SIGNUP] ❌ Profile upsert also failed:', upsertErr.message);
-                    else console.log('[SIGNUP] Step 4 ✅ Profile upserted');
+                // ── STEP 4: Verify and enforce profile role ──
+                console.log('[SIGNUP] Step 4: Verifying and enforcing profile...');
+                const { data: currentProf, error: profCheckErr } = await sb
+                    .from('profiles')
+                    .select('id, role, tenant_id, is_active')
+                    .eq('id', user.id)
+                    .maybeSingle();
+                
+                if (profCheckErr) {
+                    console.warn('[SIGNUP] Profile check error:', profCheckErr.message);
+                }
+                
+                if (currentProf) {
+                    // Profile exists - verify/enforce critical fields
+                    console.log('[SIGNUP] Step 4a: Profile exists, current state:', currentProf);
+                    
+                    if (currentProf.role !== 'resident' || !currentProf.tenant_id) {
+                        console.log('[SIGNUP] Step 4b: Enforcing correct profile role and tenant...');
+                        const { error: fixErr } = await sb
+                            .from('profiles')
+                            .update({ 
+                                role: 'resident',              // ← ENFORCE correct role
+                                tenant_id: communityId,        // ← ENFORCE correct tenant
+                                name: name,
+                                email: email,
+                                is_active: true,
+                                updated_at: new Date().toISOString()
+                            })
+                            .eq('id', user.id);
+                        
+                        if (fixErr) {
+                            console.error('[SIGNUP] ❌ Step 4b Profile fix failed:', fixErr.message);
+                            // Don't throw - user record exists, this is secondary
+                        } else {
+                            console.log('[SIGNUP] Step 4b ✅ Profile enforced and fixed');
+                        }
+                    } else {
+                        console.log('[SIGNUP] Step 4 ✅ Profile already correct (role=resident, has tenant)');
+                    }
                 } else {
-                    console.log('[SIGNUP] Step 4 ✅ Profile updated');
+                    // Profile doesn't exist yet - create it explicitly
+                    console.log('[SIGNUP] Step 4c: Profile not found, creating...');
+                    const { error: insertErr } = await sb
+                        .from('profiles')
+                        .insert([{
+                            id: user.id,
+                            email: email,
+                            name: name,
+                            role: 'resident',              // ← EXPLICIT
+                            tenant_id: communityId,        // ← EXPLICIT
+                            is_active: true
+                        }]);
+                    
+                    if (insertErr) {
+                        console.error('[SIGNUP] ❌ Step 4c Profile creation failed:', insertErr.message);
+                        // Don't throw - user record exists
+                    } else {
+                        console.log('[SIGNUP] Step 4c ✅ Profile created with role=resident');
+                    }
+                }
+                
+                // ── STEP 4d: Log this signup to audit trail ──
+                try {
+                    await sb.from('audit_log').insert([{
+                        action: 'signup',
+                        user_id: user.id,
+                        user_email: email,
+                        tenant_id: communityId,
+                        success: true,
+                        data_after: {
+                            auth_created: !!user,
+                            users_created: !!userRow,
+                            profile_verified: !!currentProf,
+                            residents_created: !!resRow
+                        }
+                    }]);
+                    console.log('[SIGNUP] Step 4d ✅ Audit logged');
+                } catch (auditErr) {
+                    console.warn('[SIGNUP] Audit logging failed (non-critical):', auditErr.message);
+                    // Non-critical - don't fail signup for audit issues
                 }
 
                 // ── STEP 5: Verify profile ──
