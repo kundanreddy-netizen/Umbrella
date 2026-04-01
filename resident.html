@@ -3138,6 +3138,10 @@
 
             try {
                 const { name, email, unit, phone, password, communityId } = pendingSignupData;
+                console.log('[SIGNUP] Step 0.5: pendingSignupData =', pendingSignupData);
+                console.log('[SIGNUP] Step 0.6: communityId =', communityId);
+                console.log('[SIGNUP] Step 0.7: communityId type =', typeof communityId);
+                console.log('[SIGNUP] Step 0.8: communityId empty?', !communityId);
 
                 console.log('[SIGNUP] Step 0: Data ready', { name, email, unit, phone, communityId });
                 if (!communityId) throw new Error('No community selected — communityId is empty');
