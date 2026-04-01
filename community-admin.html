@@ -729,9 +729,22 @@ async function checkSession() {
 async function enterApp(user, profile) {
   if (!user || !profile) { console.error('[TUC] enterApp: missing user or profile'); return; }
 
+  console.log('[ADMIN] enterApp called');
+  console.log('[ADMIN] user.email:', user.email);
+  console.log('[ADMIN] profile:', profile);
+  console.log('[ADMIN] profile.tenant_id:', profile.tenant_id);
+
   currentUser    = user;
   currentProfile = profile;
   tenantId       = profile.tenant_id;
+
+  console.log('[ADMIN] tenantId SET to:', tenantId);
+
+  if (!tenantId) {
+    console.error('[ADMIN] ❌ ERROR: tenantId is null/undefined!');
+    alert('Error: Admin profile missing tenant_id. Contact support.');
+    return;
+  }
 
   document.getElementById('view-login').style.display = 'none';
   document.getElementById('view-app').classList.add('visible');
