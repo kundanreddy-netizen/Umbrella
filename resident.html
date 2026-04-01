@@ -5932,7 +5932,7 @@
                     return;
                 }
                 
-                const { data: communityDoc, error: communityDocErr } = await sb.from('communities').select('*').eq('id', userCommunityId).maybeSingle();
+                const { data: communityDoc, error: communityDocErr } = await sb.from('tenants').select('*').eq('id', userCommunityId).maybeSingle();
                 
                 if ((communityDoc !== null)) {
                     const communityData = communityDoc;
