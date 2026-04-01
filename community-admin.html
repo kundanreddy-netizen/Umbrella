@@ -795,6 +795,7 @@ async function loadAllData() {
 }
 
 async function loadResidents() {
+  console.log('[DEBUG] loadResidents called, tenantId:', tenantId);
   try {
     // Query users table (signup creates users only)
     const { data: usersData, error: usersErr } = await sb.from('users')
