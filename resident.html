@@ -2756,11 +2756,19 @@
             if (user) {
                 currentUser = user;
                 
-                // Get user data from Firestore
-                console.log('Fetching user document from Firestore...');
+                // Get user data from Supabase
+                console.log('Fetching user document from Supabase...');
                 const { data: userDoc, error: userDocErr } = await sb.from('users').select('*').eq('id', user.id).maybeSingle();
                 
                 console.log('Document exists?', (userDoc !== null));
+                console.log('Query error:', userDocErr);
+                
+                // If query fails due to RLS or other issues, show auth and return
+                if (userDocErr) {
+                    console.error('Error fetching user:', userDocErr);
+                    showAuth();
+                    return;
+                }
                 
                 if ((userDoc !== null)) {
                     const userDataFromDb = userDoc;
