@@ -2784,7 +2784,11 @@
                     // Check if user is approved
                     if (!userDataFromDb.is_approved) {
                         alert('⏳ Your account is pending approval. Please wait for admin to approve your account.');
-                        await sb.auth.signOut();
+                        try {
+                            try { await sb.auth.signOut(); } catch (err) { console.error("Signout error:", err); }
+                        } catch (err) {
+                            console.error('Signout error:', err);
+                        }
                         showAuth();
                         return;
                     }
@@ -2925,7 +2929,11 @@
                     // Orphan accounts: sign out gracefully
                     if (!isSigningUp) {
                         console.log('[TUC] Not a signup flow — signing out orphan session');
-                        await sb.auth.signOut();
+                        try {
+                            try { await sb.auth.signOut(); } catch (err) { console.error("Signout error:", err); }
+                        } catch (err) {
+                            console.error('Signout error:', err);
+                        }
                         showAuth();
                     } else {
                         console.log('[TUC] Signup in progress — waiting for completeSignup to finish');
@@ -3323,7 +3331,7 @@
                 // ── STEP 9: Sign out and show success ──
                 pendingSignupData = null;
                 isSigningUp = false;
-                await sb.auth.signOut();
+                try { await sb.auth.signOut(); } catch (err) { console.error("Signout error:", err); }
                 
                 document.getElementById('authScreen').style.display = 'block';
                 document.getElementById('mainApp').style.display = 'none';
@@ -3344,7 +3352,7 @@
 
         async function logout() {
             try {
-                await sb.auth.signOut();
+                try { await sb.auth.signOut(); } catch (err) { console.error("Signout error:", err); }
                 // Auth state change will handle showing login screen
             } catch (error) {
                 console.error('Logout error:', error);
