@@ -3153,6 +3153,10 @@
                 if (!user) throw new Error('Auth signup returned no user object');
                 console.log('[SIGNUP] Step 1 ✅ Auth user created:', user.id);
 
+                console.log('[SIGNUP] communityId value:', communityId);
+                console.log('[SIGNUP] user.id:', user.id);
+                console.log('[SIGNUP] All data before insert:', { communityId, email, name, unit, phone });
+
                 // ── STEP 2: Insert into users table ──
                 console.log('[SIGNUP] Step 2: Inserting into users table...');
                 const { data: userRow, error: userInsertErr } = await sb.from('users').insert([{
