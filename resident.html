@@ -2194,7 +2194,7 @@
                 <span class="tab-icon">🏪</span>
                 <span>Marketplace</span>
             </button>
-            <button class="tab-btn" onclick="switchTab('community_share')">
+            <button class="tab-btn" onclick="switchTab('communityshare')">
                 <span class="tab-icon">🤝</span>
                 <span>Comm Share</span>
             </button>
@@ -2710,7 +2710,7 @@
                 case 'ticket':
                     loadTickets();
                     break;
-                case 'community_share':
+                case 'communityshare':
                     loadCommunityShare();
                     break;
                 case 'security':
@@ -2759,8 +2759,7 @@
                     'announcement':  'announcements',
                     'marketplace':   'marketplace',
                     'ticket':        'tickets',
-                    'community_share': 'community_share',
-                    'community_share':  'community_share',
+                    'community_share': 'communityshare',
                     'event':         'events',
                     'security':      'security',
                     'lostfound':     'lostandfound',
@@ -2771,7 +2770,6 @@
                     'marketplace':     () => viewMarketplaceItem(postId),
                     'ticket':          () => viewTicket(postId),
                     'community_share': () => viewCommunityShareItem(postId),
-                    'community_share':  () => viewCommunityShareItem(postId),
                     'event':           () => viewEvent(postId),
                     'security':        () => viewSecurityAlert(postId),
                     'lostfound':       () => viewLostFoundItem(postId),
@@ -4478,7 +4476,7 @@
             currentTab = tabName;
             const fab = document.getElementById('fab');
             if (fab) {
-                if (['visitors','tickets','marketplace','community_share','events','security','lostandfound'].includes(tabName)) {
+                if (['visitors','tickets','marketplace','communityshare','events','security','lostandfound'].includes(tabName)) {
                     fab.classList.remove('hidden');
                 } else {
                     fab.classList.add('hidden');
@@ -4504,7 +4502,7 @@
             // Show/hide FAB based on tab
             const fab = document.getElementById('fab');
             if (tabName === 'visitors' || tabName === 'tickets' || tabName === 'marketplace' || 
-                tabName === 'community_share' || tabName === 'events' || 
+                tabName === 'communityshare' || tabName === 'events' || 
                 tabName === 'security' || tabName === 'lostandfound') {
                 fab.classList.remove('hidden');
             } else {
@@ -5375,7 +5373,7 @@
                     ${mediaUploadHtml('mp-upload','marketplace')}
                     <button class="btn" onclick="createMarketplaceItem()">Post Item</button>
                 `;
-            } else if (currentTab === 'community_share') {
+            } else if (currentTab === 'communityshare') {
                 modalTitle.textContent = 'Share with Community';
                 modalBody.innerHTML = `
                     <div class="input-group">
@@ -5523,10 +5521,10 @@
         }
 
         async function createVisitor() {
-            const name = document.getElementById('visitor_name').value.trim();
-            const phone = document.getElementById('visitor_phone').value.trim();
+            const name = document.getElementById('visitorName').value.trim();
+            const phone = document.getElementById('visitorPhone').value.trim();
             const vehicle = document.getElementById('visitorVehicle').value.trim();
-            const date = document.getElementById('visit_date').value;
+            const date = document.getElementById('visitDate').value;
             const purpose = document.getElementById('visitPurpose').value.trim();
 
             if (!name || !phone || !date) {
@@ -6103,7 +6101,8 @@
                     posted_by_name: userData.displayName || 'Unknown',
                     unit_number: userData.unit_number || 'N/A',
                     title: title,
-                    content: description,
+                    type: type,
+                    description: description,
                     status: 'active',
                     comments: [],
                     media_urls: getMediaUrls('cs-upload'),
@@ -6115,8 +6114,8 @@
                 const typeLabel = type === 'offer' ? 'offering' : 'looking for';
                 await sendCommunityNotification(
                     'community_share',
-                    `🤝 Community Share - ${shareType === 'offer' ? 'Offer' : 'Request'}`,
-                    `${userData.displayName || 'Someone'} shared: ${$title}`,
+                    `🤝 Community Share - ${type === 'offer' ? 'Offer' : 'Request'}`,
+                    `${userData.displayName || 'Someone'} shared: ${title}`,
                     { postId: csRef.id, postType: 'community_share' }
                 );
 
@@ -6800,15 +6799,15 @@
             
             const title = document.getElementById('eventTitle');
             const description = document.getElementById('eventDescription');
-            const eventDate = document.getElementById('event_date');
-            const eventTime = document.getElementById('event_time');
-            const location = document.getElementById('event_location');
+            const eventDate = document.getElementById('eventDate');
+            const eventTime = document.getElementById('eventTime');
+            const location = document.getElementById('eventLocation');
             const contact = document.getElementById('eventContact');
             
             console.log('Form elements found:', {
                 title: title ? 'YES' : 'NO',
                 description: description ? 'YES' : 'NO',
-                event_date: eventDate ? 'YES' : 'NO',
+                eventDate: eventDate ? 'YES' : 'NO',
                                 location: location ? 'YES' : 'NO',
                 contact: contact ? 'YES' : 'NO'
             });
