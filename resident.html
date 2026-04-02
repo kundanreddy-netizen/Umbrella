@@ -2558,7 +2558,8 @@
                 if (now - lastVisibilityChange > 3000) {
                     lastVisibilityChange = now;
                     console.log('📱 App resumed - refreshing data...');
-                    loadAllData();
+                    // Guard: only reload if userData is fully populated
+                    if (userData && userData.uid) { loadAllData(); } else { console.log('📱 App resumed — userData not ready, skipping reload'); }
                     
                     // METHOD 1: Check URL params (from fcmOptions.link when app was closed)
                     const urlParams = new URLSearchParams(window.location.search);
@@ -2866,6 +2867,9 @@
             }
         }, 4000);
 
+        // ── Auth handler lock — prevents concurrent/duplicate execution ──
+        let authHandlerRunning = false;
+
         // ── Supabase Auth State Listener ──
         sb.auth.onAuthStateChange(async (event, session) => {
           try {
@@ -2874,9 +2878,29 @@
             console.log('=== AUTH STATE CHANGED ===', event);
             console.log('User:', user?.email, user?.id);
 
+            // TOKEN_REFRESHED: silently update token if already logged in, then stop
+            if (event === 'TOKEN_REFRESHED') {
+                console.log('[TUC] Token refreshed — skipping full re-init');
+                return;
+            }
+
+            // SIGNED_IN: if userData already populated (duplicate fire), skip re-init
+            if (event === 'SIGNED_IN' && userData && userData.uid) {
+                console.log('[TUC] Duplicate SIGNED_IN — userData already loaded, skipping');
+                return;
+            }
+
+            // Prevent concurrent handler executions
+            if (authHandlerRunning) {
+                console.log('[TUC] Auth handler already running — skipping duplicate event:', event);
+                return;
+            }
+            authHandlerRunning = true;
+
             // During signup, suppress this handler — completeSignup manages everything
             if (isSigningUp) {
                 console.log('[TUC] Signup in progress — skipping auth state handler');
+                authHandlerRunning = false;
                 return;
             }
             
@@ -3072,6 +3096,8 @@
           } catch (authErr) {
             console.error('[TUC] Auth state error:', authErr);
             showAuth();
+          } finally {
+            authHandlerRunning = false;
           }
         });
 
