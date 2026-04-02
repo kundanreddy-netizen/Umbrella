@@ -6,8 +6,13 @@
     <meta name="mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="default">
-    <meta name="apple-mobile-web-app-title" content="Umbrella">
-    <title>Umbrella</title>
+    <meta name="apple-mobile-web-app-title" content="The Umbrella Connect">
+    <meta name="theme-color" content="#667eea">
+    <meta name="description" content="HOA Community Management Platform">
+    <link rel="manifest" href="manifest.json">
+    <link rel="apple-touch-icon" sizes="192x192" href="logo-icon.png">
+    <link rel="icon" type="image/png" sizes="192x192" href="logo-icon.png">
+    <title>The Umbrella Connect</title>
     
     <!-- PERFORMANCE: Cache Busting - Force fresh download on reload -->
     <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate, max-age=0">
@@ -15,6 +20,30 @@
     <meta http-equiv="Expires" content="0">
     <meta name="cache-control" content="no-cache, no-store, must-revalidate">
     
+
+    <!-- ╔═══════════════════════════════════════════════════════╗
+         ║  Supabase auth redirect — must run before everything  ║
+         ╚═══════════════════════════════════════════════════════╝ -->
+    <script>
+    (function() {
+      const hash = window.location.hash;
+      if (!hash.includes('access_token')) return;
+      try {
+        const params  = new URLSearchParams(hash.replace('#',''));
+        const type    = params.get('type');
+        if (type !== 'invite' && type !== 'recovery') return;
+        const token   = params.get('access_token') || '';
+        const payload = JSON.parse(atob(token.split('.')[1]));
+        const role    = (payload.user_metadata || {}).role || '';
+        if (role === 'community_admin') {
+          window.location.replace('community-admin.html' + hash);
+        } else if (role === 'tuc_admin') {
+          window.location.replace('tuc-admin.html' + hash);
+        }
+      } catch(e) { /* Malformed token — ignore */ }
+    })();
+    </script>
+
     <!-- Supabase SDK -->
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 
@@ -649,6 +678,86 @@
             font-weight: 600;
         }
         .reply-btn:hover { color: #667eea; }
+        /* ── Stacked like avatars (Facebook-style) ── */
+        .like-avatars-row {
+            display: flex;
+            align-items: center;
+            gap: 0;
+            cursor: pointer;
+        }
+        .like-avatar-circle {
+            width: 22px;
+            height: 22px;
+            border-radius: 50%;
+            border: 2px solid white;
+            margin-left: -6px;
+            overflow: hidden;
+            flex-shrink: 0;
+            background: linear-gradient(135deg, #667eea, #764ba2);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 8px;
+            font-weight: 700;
+            color: white;
+        }
+        .like-avatar-circle:first-child { margin-left: 0; }
+        .like-avatar-circle img { width: 100%; height: 100%; object-fit: cover; border-radius: 50%; }
+        .like-count-label { font-size: 12px; color: #667eea; font-weight: 600; margin-left: 6px; }
+
+        /* ── Liked-By bottom sheet ── */
+        .liked-by-overlay {
+            display: none;
+            position: fixed;
+            inset: 0;
+            background: rgba(0,0,0,0.45);
+            z-index: 19000;
+            align-items: flex-end;
+            justify-content: center;
+        }
+        .liked-by-overlay.show { display: flex; }
+        .liked-by-sheet {
+            background: white;
+            border-radius: 24px 24px 0 0;
+            width: 100%;
+            max-width: 600px;
+            max-height: 60vh;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+            padding-bottom: env(safe-area-inset-bottom, 0px);
+        }
+        .liked-by-handle { width: 36px; height: 4px; background: #E0E0E0; border-radius: 2px; margin: 10px auto 0; flex-shrink: 0; }
+        .liked-by-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 14px 20px 10px;
+            font-size: 16px;
+            font-weight: 700;
+            color: #0D0D0D;
+            flex-shrink: 0;
+            border-bottom: 1px solid #F0F0F0;
+        }
+        .liked-by-close { background: #F2F2F2; border: none; width: 30px; height: 30px; border-radius: 50%; cursor: pointer; font-size: 16px; color: #555; display: flex; align-items: center; justify-content: center; }
+        .liked-by-list { overflow-y: auto; padding: 10px 20px 20px; flex: 1; }
+        .liked-by-row { display: flex; align-items: center; gap: 12px; padding: 10px 0; border-bottom: 1px solid #F8F8F8; }
+        .liked-by-row:last-child { border-bottom: none; }
+        .liked-by-name { font-size: 14px; font-weight: 600; color: #0D0D0D; }
+        .liked-by-unit { font-size: 12px; color: #AAA; margin-top: 1px; }
+
+        /* ── Reply / comment like button ── */
+        .reply-like-btn {
+            background: none; border: none;
+            font-size: 11px; color: #AAA;
+            cursor: pointer; padding: 3px 6px 3px 0;
+            display: inline-flex; align-items: center; gap: 4px;
+            font-weight: 600; transition: color 0.15s;
+        }
+        .reply-like-btn:hover { color: #667eea; }
+        .reply-like-btn.liked { color: #667eea; }
+        .reply-like-btn svg { flex-shrink: 0; }
+
         /* Fixed comment input bar at bottom of modal */
         .modal-comment-bar {
             background: white;
@@ -2793,7 +2902,7 @@
                 if ((userDoc !== null)) {
                     const userDataFromDb = userDoc;
                     
-                    console.log('=== RAW USER DATA FROM FIRESTORE ===');
+                    console.log('=== RAW USER DATA FROM SUPABASE ===');
                     console.log('Complete userData object:', userDataFromDb);
                     console.log('userData.name:', userDataFromDb.name);
                     console.log('userData.phone:', userDataFromDb.phone);
@@ -3493,9 +3602,10 @@
         // commentsSectionHtml now renders the full interactive post footer
         function commentsSectionHtml(comments, collection, docId, viewFnName, loadFnName, postData) {
             postData = postData || {};
-            const likes     = postData.likes    || [];
-            const viewCount = postData.viewCount || 0;
-            const hasLiked  = likes.includes(currentUser ? currentUser.id : '');
+            const likes     = postData.likes     || [];
+            const viewCount = postData.view_count || postData.viewCount || 0;
+            const uid       = currentUser ? currentUser.id : '';
+            const hasLiked  = likes.includes(uid);
             const coll = collection, did = docId;
             let html = '';
 
@@ -3515,43 +3625,117 @@
               '</button>' +
             '</div>';
 
-            // ── Views row ──
-            if (viewCount > 0) {
-                html += '<div class="post-views-row">' +
-                    '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#AAA" stroke-width="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg> ' +
-                    viewCount + ' view' + (viewCount !== 1 ? 's' : '') +
-                '</div>';
+            // ── Likes avatars + Views row ──
+            if (likes.length > 0 || viewCount > 0) {
+                html += '<div class="post-views-row" style="justify-content:space-between;">';
+                if (likes.length > 0) {
+                    const previewIds = likes.slice(0, 3);
+                    let avatarCircles = previewIds.map(u => {
+                        const pic = userPicCache[u] || null;
+                        if (pic) return '<div class="like-avatar-circle"><img src="' + pic + '" onerror="this.parentElement.style.background=\'linear-gradient(135deg,#667eea,#764ba2)\'"></div>';
+                        return '<div class="like-avatar-circle">👍</div>';
+                    }).join('');
+                    const moreCount = likes.length > 3 ? '+' + (likes.length - 3) : '';
+                    if (moreCount) avatarCircles += '<div class="like-avatar-circle" style="background:#eee;color:#667eea;font-size:9px;">' + moreCount + '</div>';
+                    html += '<div class="like-avatars-row" onclick="showLikedBy(\'' + coll + '\',\'' + did + '\')">'
+                         + avatarCircles
+                         + '<span class="like-count-label">' + likes.length + ' liked</span>'
+                         + '</div>';
+                } else { html += '<div></div>'; }
+                if (viewCount > 0) {
+                    html += '<div style="display:flex;align-items:center;gap:5px;"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#AAA" stroke-width="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg><span style="font-size:12px;color:#AAA;">' + viewCount + ' view' + (viewCount !== 1 ? 's' : '') + '</span></div>';
+                }
+                html += '</div>';
             }
 
             // ── Comments list ──
             html += '<div style="padding:0 20px;" id="comments-area-' + did + '">';
             if (comments.length > 0) {
                 html += '<div style="font-size:12px;font-weight:700;color:#AAA;letter-spacing:0.5px;margin:16px 0 12px;">COMMENTS · ' + comments.length + '</div>';
-                const sorted = [...comments].sort((a,b) => (a.timestamp ? a.timestamp.toMillis() : 0) - (b.timestamp ? b.timestamp.toMillis() : 0));
+                // Sort: Supabase timestamps are ISO strings — use getTime()
+                const sorted = [...comments].sort((a,b) =>
+                    new Date(a.timestamp || 0).getTime() - new Date(b.timestamp || 0).getTime()
+                );
                 sorted.forEach((c, idx) => {
-                    const cDate = c.timestamp ? timeAgo(new Date(c.timestamp)) : '';
-                    const replies = c.replies || [];
+                    const cDate     = c.timestamp ? timeAgo(new Date(c.timestamp)) : '';
+                    const replies   = c.replies || [];
+                    const cLikes    = c.likes || [];
+                    const cHasLiked = cLikes.includes(uid);
+                    // Support both field-name styles (migration safety)
+                    const cName = c.userName || c.user_name || 'Unknown';
+                    const cUid  = c.userId   || c.user_id  || null;
                     html += '<div style="display:flex;gap:10px;margin-bottom:6px;align-items:flex-start;">' +
-                        avatarHtml(c.userName, 36, c.userId) +
+                        avatarHtml(cName, 36, cUid) +
                         '<div style="flex:1;">' +
                           '<div style="background:#F5F5F5;border-radius:14px;padding:10px 14px;">' +
-                            '<span style="font-size:13px;font-weight:700;color:#0D0D0D;">' + (c.userName || 'Unknown') + '</span>' +
+                            '<span style="font-size:13px;font-weight:700;color:#0D0D0D;">' + cName + '</span>' +
                             '<span style="font-size:12px;color:#AAA;margin-left:8px;">' + cDate + '</span>' +
                             '<div style="font-size:14px;color:#1A1A1A;line-height:1.45;margin-top:4px;">' + renderCommentMessage(c.message || '') + '</div>' +
                           '</div>' +
-                          '<button class="reply-btn" onclick="showReplyInput(\'' + coll + '\',\'' + did + '\',' + idx + ',' + viewFnName + ',' + loadFnName + ')">↩ Reply' + (replies.length > 0 ? ' · ' + replies.length : '') + '</button>' +
+                          '<div style="display:flex;align-items:center;gap:12px;margin-top:3px;">' +
+                            '<button class="reply-like-btn ' + (cHasLiked ? 'liked' : '') + '" onclick="toggleCommentLike(\'' + coll + '\',\'' + did + '\',' + idx + ',' + viewFnName + ',' + loadFnName + ')">' +
+                              '<svg width="12" height="12" viewBox="0 0 24 24" fill="' + (cHasLiked ? '#667eea' : 'none') + '" stroke="' + (cHasLiked ? '#667eea' : 'currentColor') + '" stroke-width="2"><path d="M14 9V5a3 3 0 0 0-3-3l-4 10v11h11.28a2 2 0 0 0 2-1.7l1.38-9a2 2 0 0 0-2-2.3zM7 22H4a2 2 0 0 1-2-2v-7a2 2 0 0 1 2-2h3"></path></svg>' +
+                              (cLikes.length > 0 ? ' ' + cLikes.length : '') + ' Like' +
+                            '</button>' +
+                            '<button class="reply-btn" onclick="showReplyInput(\'' + coll + '\',\'' + did + '\',' + idx + ',' + viewFnName + ',' + loadFnName + ')">↩ Reply' + (replies.length > 0 ? ' · ' + replies.length : '') + '</button>' +
+                          '</div>' +
                         '</div>' +
                     '</div>';
                     if (replies.length > 0) {
                         html += '<div class="reply-thread">';
-                        replies.forEach(r => {
-                            const rDate = r.timestamp ? timeAgo(new Date(r.timestamp)) : '';
+                        replies.forEach((r, rIdx) => {
+                            const rDate     = r.timestamp ? timeAgo(new Date(r.timestamp)) : '';
+                            const rLikes    = r.likes || [];
+                            const rHasLiked = rLikes.includes(uid);
+                            const rReplies  = r.replies || [];
+                            const rInputId  = 'rreply-' + coll + '-' + did + '-' + idx + '-' + rIdx;
+                            const rName     = r.userName || r.user_name || '';
+                            const rUid      = r.userId   || r.user_id  || null;
+                            let rNestedHtml = '';
+                            if (rReplies.length > 0) {
+                                rNestedHtml = '<div style="margin-top:6px;padding-left:8px;border-left:2px solid #D8D4F5;">';
+                                rReplies.forEach(rr => {
+                                    const rrDate = rr.timestamp ? timeAgo(new Date(rr.timestamp)) : '';
+                                    const rrName = rr.userName || rr.user_name || '';
+                                    const rrUid  = rr.userId   || rr.user_id  || null;
+                                    rNestedHtml += '<div style="display:flex;gap:8px;margin-top:6px;align-items:flex-start;">' +
+                                        avatarHtml(rrName, 22, rrUid) +
+                                        '<div style="background:#EAE6FF;border-radius:10px;padding:6px 10px;flex:1;">' +
+                                          '<span style="font-size:11px;font-weight:700;color:#0D0D0D;">' + rrName + '</span>' +
+                                          '<span style="font-size:10px;color:#AAA;margin-left:6px;">' + rrDate + '</span>' +
+                                          '<div style="font-size:12px;color:#333;margin-top:2px;">' + renderCommentMessage(rr.message || '') + '</div>' +
+                                        '</div>' +
+                                        '</div>';
+                                });
+                                rNestedHtml += '</div>';
+                            }
                             html += '<div class="reply-item">' +
-                                avatarHtml(r.userName, 28, r.userId) +
-                                '<div style="flex:1;background:#F0EFFE;border-radius:12px;padding:8px 12px;">' +
-                                  '<span style="font-size:12px;font-weight:700;color:#0D0D0D;">' + (r.userName || '') + '</span>' +
-                                  '<span style="font-size:11px;color:#AAA;margin-left:6px;">' + rDate + '</span>' +
-                                  '<div style="font-size:13px;color:#333;line-height:1.4;margin-top:3px;">' + renderCommentMessage(r.message || '') + '</div>' +
+                                avatarHtml(rName, 28, rUid) +
+                                '<div style="flex:1;">' +
+                                  '<div style="background:#F0EFFE;border-radius:12px;padding:8px 12px;">' +
+                                    '<div style="display:flex;justify-content:space-between;align-items:flex-start;">' +
+                                      '<div>' +
+                                        '<span style="font-size:12px;font-weight:700;color:#0D0D0D;">' + rName + '</span>' +
+                                        '<span style="font-size:11px;color:#AAA;margin-left:6px;">' + rDate + '</span>' +
+                                      '</div>' +
+                                      '<button class="reply-like-btn ' + (rHasLiked ? 'liked' : '') + '" onclick="toggleReplyLike(\'' + coll + '\',\'' + did + '\',' + idx + ',' + rIdx + ',' + viewFnName + ',' + loadFnName + ')">' +
+                                        '<svg width="12" height="12" viewBox="0 0 24 24" fill="' + (rHasLiked ? '#667eea' : 'none') + '" stroke="' + (rHasLiked ? '#667eea' : 'currentColor') + '" stroke-width="2"><path d="M14 9V5a3 3 0 0 0-3-3l-4 10v11h11.28a2 2 0 0 0 2-1.7l1.38-9a2 2 0 0 0-2-2.3zM7 22H4a2 2 0 0 1-2-2v-7a2 2 0 0 1 2-2h3"></path></svg>' +
+                                        (rLikes.length > 0 ? ' ' + rLikes.length : '') +
+                                      '</button>' +
+                                    '</div>' +
+                                    '<div style="font-size:13px;color:#333;line-height:1.4;margin-top:3px;">' + renderCommentMessage(r.message || '') + '</div>' +
+                                  '</div>' +
+                                  '<div style="display:flex;align-items:center;gap:10px;margin-top:3px;">' +
+                                    '<button class="reply-btn" onclick="showReplyToReplyInput(\'' + rInputId + '\',\'' + (rName || 'reply') + '\')">' +
+                                      '↩ Reply' + (rReplies.length > 0 ? ' · ' + rReplies.length : '') +
+                                    '</button>' +
+                                  '</div>' +
+                                  rNestedHtml +
+                                  '<div id="' + rInputId + '" style="display:none;" class="reply-input-row">' +
+                                    avatarHtml(userData ? userData.displayName : '', 24, currentUser ? currentUser.id : null) +
+                                    '<input type="text" placeholder="Reply to ' + (rName || 'reply') + '..." id="' + rInputId + '-text">' +
+                                    '<button onclick="submitReplyToReply(\'' + coll + '\',\'' + did + '\',' + idx + ',' + rIdx + ',\'' + rInputId + '\',' + viewFnName + ',' + loadFnName + ')">Post</button>' +
+                                  '</div>' +
                                 '</div>' +
                             '</div>';
                         });
@@ -3559,7 +3743,7 @@
                     }
                     html += '<div id="reply-input-' + coll + '-' + did + '-' + idx + '" style="display:none;" class="reply-input-row">' +
                         avatarHtml(userData ? userData.displayName : '', 28, currentUser ? currentUser.id : null) +
-                        '<input type="text" placeholder="Reply to ' + (c.userName || 'comment') + '..." id="reply-text-' + idx + '">' +
+                        '<input type="text" placeholder="Reply to ' + (cName || 'comment') + '..." id="reply-text-' + idx + '">' +
                         '<button onclick="submitReply(\'' + coll + '\',\'' + did + '\',' + idx + ',' + viewFnName + ',' + loadFnName + ')">Post</button>' +
                     '</div>';
                 });
@@ -5618,12 +5802,12 @@
                 const data = doc;
                 trackView('security_alerts', alertId); // non-blocking
                 const dateStr = data.incident_date_time ? new Date(data.incident_date_time).toLocaleString() : 'Unknown';
-                const isOwner = data.posted_by === currentUser.id;
+                const isOwner = data.reported_by === currentUser.id;
                 const comments = data.comments || [];
                 const typeLabels = { suspicious_activity: '👀 Suspicious Activity', theft: '🚔 Theft', vandalism: '🔨 Vandalism', noise: '🔊 Noise Disturbance', safety_hazard: '⚠️ Safety Hazard', other: '📝 Other' };
                 const delAction = "if(confirm('Delete?')){sb.from('security_alerts').delete().eq('id', '" + alertId + "').then(()=>{closeMarketplaceModal();loadSecurityAlerts();});}";
                 
-                let html = postHeaderHtml(data.posted_by_name, data.unit_number, data.created_at, isOwner, delAction, data.posted_by);
+                let html = postHeaderHtml(data.reported_by_name, data.unit_number, data.created_at, isOwner, delAction, data.reported_by);
                 if (data.media_urls && data.media_urls.length > 0) html += modalMediaHtml(data.media_urls);
                 html += '<span class="post-badge post-badge-red">' + (typeLabels[data.type] || '🚨 Alert') + '</span>';
                 html += '<div class="post-title">' + (data.title || 'Security Alert') + '</div>';
@@ -5656,7 +5840,7 @@
                     : '<span style="background:#28a745;color:white;padding:3px 10px;border-radius:10px;font-size:12px;font-weight:600;">✅ FOUND</span>';
                 const delAction = "if(confirm('Delete?')){sb.from('lost_and_found').delete().eq('id', '" + itemId + "').then(()=>{closeMarketplaceModal();loadLostAndFound();});}";
                 
-                let html = postHeaderHtml(data.posted_byName, data.unit_number, data.created_at, isOwner, delAction, data.posted_by);
+                let html = postHeaderHtml(data.posted_by_name, data.unit_number, data.created_at, isOwner, delAction, data.posted_by);
                 if (data.media_urls && data.media_urls.length > 0) html += modalMediaHtml(data.media_urls);
                 html += typeBadge + ' ' + (categoryIcons[data.category] || '📦');
                 html += '<div class="post-title">' + (data.title || 'Item') + '</div>';
@@ -5791,7 +5975,7 @@
                                     <div style="font-weight:700;font-size:16px;color:#0D0D0D;">${data.posted_by_name || 'Resident'}</div>
                                     <div class="feed-meta">Unit ${data.unit_number || 'N/A'} · ${date}</div>
                                 </div>
-                                ${postMenuHtml(data.id, 'community_share', isOwner, userData.role === 'admin')}
+                                ${postMenuHtml(data.id, 'communityshare', isOwner, userData.role === 'admin')}
                             </div>
                             <div class="feed-body">
                                 <span style="background:${typeBg};color:${typeColor};padding:3px 10px;border-radius:10px;font-size:12px;font-weight:600;">${typeIcon} ${typeLabel}</span>
@@ -6470,8 +6654,8 @@
                 // Sort: upcoming events soonest→farthest, then past events at bottom (oldest last)
                 items.sort((a, b) => {
                     const now = Date.now();
-                    const aMs = a.event_date ? a.event_date.toMillis() : 0;
-                    const bMs = b.event_date ? b.event_date.toMillis() : 0;
+                    const aMs = a.event_date ? new Date(a.event_date).getTime() : 0;
+                    const bMs = b.event_date ? new Date(b.event_date).getTime() : 0;
                     const aPast = aMs < now;
                     const bPast = bMs < now;
                     // Both upcoming: soonest first
@@ -6790,13 +6974,13 @@
                 items.forEach(data => {
                     const dateStr = data.incident_date_time ? new Date(data.incident_date_time).toLocaleString() : 'Unknown';
                     const posted = data.created_at ? new Date(data.created_at).toLocaleDateString() : 'Recently';
-                    const isOwner = data.posted_by === currentUser.id;
+                    const isOwner = data.reported_by === currentUser.id;
                     const isAdm = userData.role === 'admin';
                     html += '<div class="card" onclick="viewSecurityAlert(\'' + data.id + '\')" style="cursor:pointer;">' +
                       '<div style="display:flex;align-items:center;gap:12px;">' +
-                        avatarHtml(data.posted_by_name, 52, data.posted_by) +
+                        avatarHtml(data.reported_by_name, 52, data.reported_by) +
                         '<div style="flex:1;min-width:0;">' +
-                          '<div style="font-weight:700;font-size:16px;color:#0D0D0D;">' + (data.posted_by_name || 'Resident') + '</div>' +
+                          '<div style="font-weight:700;font-size:16px;color:#0D0D0D;">' + (data.reported_by_name || 'Resident') + '</div>' +
                           '<div class="feed-meta">Unit ' + data.unit_number + ' · ' + posted + '</div>' +
                         '</div>' +
                         postMenuHtml(data.id, 'security', isOwner, isAdm) +
@@ -6890,9 +7074,9 @@
                     const isAdm = userData.role === 'admin';
                     html += '<div class="card" onclick="viewLostFoundItem(\'' + data.id + '\')" style="cursor:pointer;">' +
                       '<div style="display:flex;align-items:center;gap:12px;">' +
-                        avatarHtml(data.posted_byName, 52, data.posted_by) +
+                        avatarHtml(data.posted_by_name, 52, data.posted_by) +
                         '<div style="flex:1;min-width:0;">' +
-                          '<div style="font-weight:700;font-size:16px;color:#0D0D0D;">' + (data.posted_byName || 'Resident') + '</div>' +
+                          '<div style="font-weight:700;font-size:16px;color:#0D0D0D;">' + (data.posted_by_name || 'Resident') + '</div>' +
                           '<div class="feed-meta">Unit ' + (data.unit_number || 'N/A') + '</div>' +
                         '</div>' +
                         postMenuHtml(data.id, 'lostfound', isOwner, isAdm) +
@@ -7319,13 +7503,11 @@
             }
 
             // Supabase Edge Function for R2 upload URL
-            const result = await getUploadUrl({
-                fileName:    file.name,
-                contentType: file.type,
-                folder:      folder
+            const result = await sb.functions.invoke('get-upload-url', {
+                body: { fileName: file.name, contentType: file.type, folder: folder }
             });
             if (result.error) throw new Error(result.error.message || 'Edge function error');
-                const { presignedUrl, publicUrl, key } = result.data;
+            const { presignedUrl, publicUrl, key } = result.data;
 
             const uploadResponse = await fetch(presignedUrl, {
                 method: 'PUT',
@@ -7561,11 +7743,10 @@
 
             try {
                 // Supabase Edge Function for R2 upload URL
-                const result = await fn({
-                    fileName:    file.name,
-                    contentType: file.type,
-                    folder:      collection
+                const result = await sb.functions.invoke('get-upload-url', {
+                    body: { fileName: file.name, contentType: file.type, folder: collection }
                 });
+                if (result.error) throw new Error(result.error.message || 'Edge function error');
                 const { presignedUrl, publicUrl } = result.data;
 
                 await fetch(presignedUrl, {
@@ -8078,6 +8259,160 @@
         // ════════════════════════════════════════════════════════
         // SHARED UPLOAD — called after crop/trim confirmation
         // ════════════════════════════════════════════════════════
+
+        // ════════════════════════════════════════════════════
+        // LIKED-BY BOTTOM SHEET
+        // ════════════════════════════════════════════════════
+        async function showLikedBy(collection, docId) {
+            const overlay = document.getElementById('likedByOverlay');
+            const list    = document.getElementById('likedByList');
+            const title   = document.getElementById('likedByTitle');
+            list.innerHTML = '<div style="text-align:center;padding:24px;color:#AAA;font-size:14px;">Loading...</div>';
+            overlay.classList.add('show');
+            try {
+                const { data: snap, error } = await sb.from(collection).select('likes').eq('id', docId).maybeSingle();
+                if (error) throw error;
+                const likes = (snap && snap.likes) || [];
+                title.textContent = '👍 Liked by ' + likes.length + (likes.length === 1 ? ' person' : ' people');
+                if (likes.length === 0) {
+                    list.innerHTML = '<div style="text-align:center;padding:24px;color:#AAA;font-size:14px;">No likes yet</div>';
+                    return;
+                }
+                // Batch-fetch user names — Supabase 'in' filter
+                let html = '';
+                const batchSize = 30;
+                for (let i = 0; i < likes.length; i += batchSize) {
+                    const batch = likes.slice(i, i + batchSize);
+                    const { data: usersData } = await sb.from('users').select('id, name, unit_number, profile_pic_url').in('id', batch);
+                    (usersData || []).forEach(u => {
+                        const name = u.name || 'Resident';
+                        const unit = u.unit_number ? 'Unit ' + u.unit_number : '';
+                        const pic  = u.profile_pic_url || (userPicCache && userPicCache[u.id]) || null;
+                        html += '<div class="liked-by-row">' +
+                                    avatarHtml(name, 40, u.id, pic) +
+                                    '<div>' +
+                                        '<div class="liked-by-name">' + name + '</div>' +
+                                        (unit ? '<div class="liked-by-unit">' + unit + '</div>' : '') +
+                                    '</div>' +
+                                '</div>';
+                    });
+                }
+                list.innerHTML = html || '<div style="text-align:center;padding:24px;color:#AAA;">No users found</div>';
+            } catch(e) {
+                console.error('showLikedBy error:', e);
+                list.innerHTML = '<div style="text-align:center;padding:24px;color:#f87171;">Could not load likes</div>';
+            }
+        }
+
+        function closeLikedBy(e) {
+            if (e.target === document.getElementById('likedByOverlay')) {
+                closeLikedBySheet();
+            }
+        }
+
+        function closeLikedBySheet() {
+            document.getElementById('likedByOverlay').classList.remove('show');
+        }
+
+        // ════════════════════════════════════════════════════
+        // COMMENT LIKE: like/unlike a top-level comment
+        // ════════════════════════════════════════════════════
+        async function toggleCommentLike(collection, docId, commentIdx, viewFn, loadFn) {
+            if (!currentUser) return;
+            try {
+                const { data: snap, error } = await sb.from(collection).select('comments').eq('id', docId).single();
+                if (error) throw error;
+                const comments = snap.comments || [];
+                const uid = currentUser.id;
+                if (!comments[commentIdx]) return;
+                const likes    = comments[commentIdx].likes || [];
+                const hasLiked = likes.includes(uid);
+                comments[commentIdx].likes = hasLiked
+                    ? likes.filter(id => id !== uid)
+                    : [...likes, uid];
+                await sb.from(collection).update({ comments }).eq('id', docId);
+                if (viewFn) viewFn(docId);
+                if (loadFn) loadFn();
+            } catch(e) {
+                console.error('Comment like error:', e.message);
+            }
+        }
+
+        // ════════════════════════════════════════════════════
+        // REPLY LIKE: like/unlike a reply inside a comment
+        // ════════════════════════════════════════════════════
+        async function toggleReplyLike(collection, docId, commentIdx, replyIdx, viewFn, loadFn) {
+            if (!currentUser) return;
+            try {
+                const { data: snap, error } = await sb.from(collection).select('comments').eq('id', docId).single();
+                if (error) throw error;
+                const comments = snap.comments || [];
+                const uid = currentUser.id;
+                if (!comments[commentIdx] || !comments[commentIdx].replies) return;
+                const reply = comments[commentIdx].replies[replyIdx];
+                if (!reply) return;
+                const likes    = reply.likes || [];
+                const hasLiked = likes.includes(uid);
+                comments[commentIdx].replies[replyIdx].likes = hasLiked
+                    ? likes.filter(id => id !== uid)
+                    : [...likes, uid];
+                await sb.from(collection).update({ comments }).eq('id', docId);
+                if (viewFn) viewFn(docId);
+                if (loadFn) loadFn();
+            } catch(e) {
+                console.error('Reply like error:', e.message);
+            }
+        }
+
+        // ════════════════════════════════════════════════════
+        // REPLY-TO-REPLY: show input + submit
+        // ════════════════════════════════════════════════════
+        function showReplyToReplyInput(inputId, targetName) {
+            document.querySelectorAll('[id^="rreply-"]').forEach(el => {
+                if (el.id !== inputId) el.style.display = 'none';
+            });
+            const el = document.getElementById(inputId);
+            if (!el) return;
+            const isOpen = el.style.display === 'flex';
+            el.style.display = isOpen ? 'none' : 'flex';
+            if (!isOpen) {
+                const inp = document.getElementById(inputId + '-text');
+                if (inp) setTimeout(() => inp.focus(), 80);
+            }
+        }
+
+        async function submitReplyToReply(collection, docId, commentIdx, replyIdx, inputId, viewFn, loadFn) {
+            const inp  = document.getElementById(inputId + '-text');
+            const text = inp ? inp.value.trim() : '';
+            if (!text) return;
+            try {
+                const { data: snap, error } = await sb.from(collection).select('comments').eq('id', docId).single();
+                if (error) throw error;
+                const comments = snap.comments || [];
+                if (!comments[commentIdx] || !comments[commentIdx].replies) return;
+                const reply = comments[commentIdx].replies[replyIdx];
+                if (!reply) return;
+                if (!reply.replies) reply.replies = [];
+                reply.replies.push({
+                    userId:    currentUser.id,
+                    user_name: userData.displayName || 'Unknown',
+                    userUnit:  userData.unit_number  || 'N/A',
+                    message:   text,
+                    timestamp: new Date().toISOString()
+                });
+                comments[commentIdx].replies[replyIdx] = reply;
+                await sb.from(collection).update({ comments }).eq('id', docId);
+                if (inp) { inp.value = ''; }
+                const el = document.getElementById(inputId);
+                if (el) el.style.display = 'none';
+                if (viewFn) viewFn(docId);
+                if (loadFn) loadFn();
+            } catch(e) {
+                console.error('Reply-to-reply error:', e);
+                alert('Error posting reply: ' + e.message);
+            }
+        }
+
         async function uploadMediaFile(file, uploadId) {
             if (!_mediaState[uploadId]) _mediaState[uploadId] = { files: [], urls: [] };
             const state = _mediaState[uploadId];
@@ -8763,6 +9098,19 @@
         <div class="media-editor-actions">
             <button class="media-editor-btn media-editor-btn-cancel" onclick="cancelVideoTrim()">Cancel</button>
             <button class="media-editor-btn media-editor-btn-save"   onclick="confirmVideoTrim()">Use Video</button>
+        </div>
+    </div>
+
+
+    <!-- ══ Liked-By Bottom Sheet ══ -->
+    <div class="liked-by-overlay" id="likedByOverlay" onclick="closeLikedBy(event)">
+        <div class="liked-by-sheet">
+            <div class="liked-by-handle"></div>
+            <div class="liked-by-header">
+                <span id="likedByTitle">👍 Liked by</span>
+                <button class="liked-by-close" onclick="closeLikedBySheet()">✕</button>
+            </div>
+            <div class="liked-by-list" id="likedByList"></div>
         </div>
     </div>
 
