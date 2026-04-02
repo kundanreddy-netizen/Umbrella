@@ -2715,10 +2715,10 @@
                     created_by_name: userData.displayName || userData.name,
                     created_at: new Date().toISOString(),
                     sent: false
-                }]);
+                }]).select().single();
                 
                 console.log('✅ Notification document created!');
-                console.log('Document ID:', docRef.id);
+                if (docRef) console.log('Document ID:', docRef.id);
                 console.log('═══════════════════════════════════════');
             } catch (error) {
                 console.error('❌ ERROR CREATING NOTIFICATION:', error);
@@ -3666,7 +3666,7 @@
             try {
                 const { data: doc, error: docErr } = await sb.from('tickets').select('*').eq('id', ticketId).maybeSingle();
                 if (!doc) { alert('Ticket not found'); return; }
-                const data = item;
+                const data = doc;
                 window._editData = data; // store for preloadMediaState
 
                 // Only owner or admin can edit
@@ -3756,7 +3756,7 @@
             try {
                 const { data: doc, error: docErr } = await sb.from('marketplace').select('*').eq('id', itemId).maybeSingle();
                 if (!doc) { alert('Item not found'); return; }
-                const data = item;
+                const data = doc;
                 window._editData = data; // store for preloadMediaState
 
                 // Only owner or admin can edit
@@ -3883,7 +3883,7 @@
             try {
                 const { data: doc, error: docErr } = await sb.from('community_share').select('*').eq('id', itemId).maybeSingle();
                 if (!doc) { alert('Item not found'); return; }
-                const data = item;
+                const data = doc;
                 window._editData = data; // store for preloadMediaState
                 if (data.posted_by !== currentUser.id && userData.role !== 'admin') {
                     alert('You can only edit your own posts.'); return;
@@ -3962,7 +3962,7 @@
             try {
                 const { data: doc, error: docErr } = await sb.from('security_alerts').select('*').eq('id', alertId).maybeSingle();
                 if (!doc) { alert('Alert not found'); return; }
-                const data = item;
+                const data = doc;
                 window._editData = data; // store for preloadMediaState
                 if (data.posted_by !== currentUser.id && userData.role !== 'admin') {
                     alert('You can only edit your own alerts.'); return;
@@ -4043,7 +4043,7 @@
             try {
                 const { data: doc, error: docErr } = await sb.from('events').select('*').eq('id', eventId).maybeSingle();
                 if (!doc) { alert('Event not found'); return; }
-                const data = item;
+                const data = doc;
                 window._editData = data; // store for preloadMediaState
                 if (data.organizer_id !== currentUser.id && userData.role !== 'admin') {
                     alert('You can only edit your own events.'); return;
@@ -4133,7 +4133,7 @@
             try {
                 const { data: doc, error: docErr } = await sb.from('lost_and_found').select('*').eq('id', itemId).maybeSingle();
                 if (!doc) { alert('Item not found'); return; }
-                const data = item;
+                const data = doc;
                 window._editData = data; // store for preloadMediaState
                 if (data.posted_by !== currentUser.id && userData.role !== 'admin') {
                     alert('You can only edit your own posts.'); return;
@@ -4234,7 +4234,7 @@
             try {
                 const { data: doc, error: docErr } = await sb.from('visitors').select('*').eq('id', id).maybeSingle();
                 if (!doc) { alert('Visitor not found'); return; }
-                const data = item;
+                const data = doc;
                 const newName = prompt('Visitor Name:', data.visitor_name || '');
                 if (newName === null) return;
                 const newPhone = prompt('Visitor Phone:', data.visitor_phone || '');
@@ -5495,7 +5495,7 @@
             try {
                 const { data: doc, error: docErr } = await sb.from('marketplace').select('*').eq('id', itemId).maybeSingle();
                 if (!doc) { alert('Item not found'); return; }
-                const data = item;
+                const data = doc;
                 trackView('marketplace', itemId); // non-blocking
                 const isOwner = data.seller_id === currentUser.id;
                 const comments = data.comments || [];
@@ -5530,7 +5530,7 @@
             try {
                 const { data: doc, error: docErr } = await sb.from('announcements').select('*').eq('id', announcementId).maybeSingle();
                 if (!doc) { alert('Announcement not found'); return; }
-                const data = item;
+                const data = doc;
                 const isAdm = userData.role === 'admin';
                 const delAction = "if(confirm('Delete?')){sb.from('announcements').delete().eq('id', '" + announcementId + "').then(()=>{closeMarketplaceModal();loadAnnouncements();});}";
                 
@@ -5557,7 +5557,7 @@
             try {
                 const { data: doc, error: docErr } = await sb.from('tickets').select('*').eq('id', ticketId).maybeSingle();
                 if (!doc) { alert('Ticket not found'); return; }
-                const data = item;
+                const data = doc;
                 trackView('tickets', ticketId); // non-blocking
                 const isOwner = data.resident_id === currentUser.id;
                 const comments = data.comments || [];
@@ -5595,7 +5595,7 @@
             try {
                 const { data: doc, error: docErr } = await sb.from('security_alerts').select('*').eq('id', alertId).maybeSingle();
                 if (!doc) { alert('Alert not found'); return; }
-                const data = item;
+                const data = doc;
                 trackView('security_alerts', alertId); // non-blocking
                 const dateStr = data.incident_date_time ? new Date(data.incident_date_time).toLocaleString() : 'Unknown';
                 const isOwner = data.posted_by === currentUser.id;
@@ -5625,7 +5625,7 @@
             try {
                 const { data: doc, error: docErr } = await sb.from('lost_and_found').select('*').eq('id', itemId).maybeSingle();
                 if (!doc) { alert('Item not found'); return; }
-                const data = item;
+                const data = doc;
                 trackView('lost_and_found', itemId); // non-blocking
                 const dateStr = data.date ? new Date(data.date).toLocaleDateString() : 'Date unknown';
                 const isOwner = data.posted_by === currentUser.id;
@@ -5677,7 +5677,7 @@
 
             try {
                 const { data: doc, error: docErr } = await sb.from('marketplace').select('*').eq('id', itemId).maybeSingle();
-                const data = item;
+                const data = doc;
                 const comments = data.comments || [];
 
                 const newComment = {
@@ -5807,7 +5807,7 @@
             try {
                 const { data: doc, error: docErr } = await sb.from('community_share').select('*').eq('id', itemId).maybeSingle();
                 if (!doc) { alert('Item not found'); return; }
-                const data = item;
+                const data = doc;
                 trackView('community_share', itemId); // non-blocking
                 const isOwner = data.posted_by === currentUser.id;
                 const comments = data.comments || [];
@@ -5853,7 +5853,7 @@
 
             try {
                 const { data: doc, error: docErr } = await sb.from('community_share').select('*').eq('id', itemId).maybeSingle();
-                const data = item;
+                const data = doc;
                 const comments = data.comments || [];
 
                 const newComment = {
@@ -6069,7 +6069,7 @@
                 const { data: allEventsSnapshotData } = await sb.from('events').select('id,rsvps').eq('tenant_id', userCommunityId).eq('status', 'active');
                 let rsvpCount = 0;
                 (allEventsSnapshotData || []).forEach(ev => {
-                    const data = item;
+                    const data = doc;
                     if (data.rsvps && data.rsvps.some(r => r.userId === currentUser.id)) {
                         rsvpCount++;
                     }
@@ -6515,7 +6515,7 @@
 
             try {
                 const { data: doc, error: docErr } = await sb.from('events').select('*').eq('id', eventId).maybeSingle();
-                const data = item;
+                const data = doc;
                 let comments = data.comments || [];
 
                 const newComment = {
@@ -6544,7 +6544,7 @@
             try {
                 const { data: doc, error: docErr } = await sb.from('events').select('*').eq('id', eventId).maybeSingle();
                 if (!doc) { alert('Event not found'); return; }
-                const data = item;
+                const data = doc;
                 trackView('events', eventId); // non-blocking
                 const eventDate = data.event_date ? new Date(data.event_date) : null;
                 const dateStr = eventDate ? eventDate.toLocaleDateString() : 'TBD';
