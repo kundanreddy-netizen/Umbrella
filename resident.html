@@ -9,6 +9,12 @@
     <meta name="apple-mobile-web-app-title" content="Umbrella">
     <title>Umbrella</title>
     
+    <!-- PERFORMANCE: Cache Busting - Force fresh download on reload -->
+    <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate, max-age=0">
+    <meta http-equiv="Pragma" content="no-cache">
+    <meta http-equiv="Expires" content="0">
+    <meta name="cache-control" content="no-cache, no-store, must-revalidate">
+    
     <!-- Supabase SDK -->
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 
@@ -2300,6 +2306,20 @@
             auth: { persistSession: true, autoRefreshToken: true, detectSessionInUrl: true }
         });
         console.log('[TUC] Supabase client initialised.');
+
+        // PERFORMANCE: Unregister old service workers to clear cache
+        if ('serviceWorker' in navigator) {
+            navigator.serviceWorker.getRegistrations().then(registrations => {
+                registrations.forEach(registration => {
+                    // Only unregister old ones, keep the new one
+                    if (registration.scope.includes('firebase-messaging-sw')) {
+                        // Keep firebase SW
+                    } else {
+                        registration.unregister().catch(e => console.log('Old SW unregister:', e));
+                    }
+                });
+            }).catch(err => console.log('SW cleanup error:', err));
+        }
 
         // ╔══════════════════════════════════════════════════════╗
         // ║  FIREBASE — ONLY for FCM Push Notifications           ║
