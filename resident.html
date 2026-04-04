@@ -1556,8 +1556,10 @@
             <!-- Signup Form -->
             <div id="signupForm" class="hidden">
                 <div class="input-group">
-                    <label>Community Code *</label>
-                    <input type="text" id="signupCommunityCode" placeholder="Enter your community code">
+                    <label>Select Community *</label>
+                    <select id="signupCommunityCode" style="width:100%;padding:14px 16px;border:2px solid #e0e0e0;border-radius:12px;font-size:16px;background:white;">
+                        <option value="">Loading communities...</option>
+                    </select>
                 </div>
 
                 <div class="input-group">
@@ -2132,6 +2134,37 @@
             document.getElementById('signupForm').classList.remove('hidden');
             document.getElementById('forgotPasswordForm').classList.add('hidden');
             clearAuthError();
+            loadCommunitiesDropdown();
+        }
+
+        async function loadCommunitiesDropdown() {
+            const select = document.getElementById('signupCommunityCode');
+            select.innerHTML = '<option value="">Loading communities...</option>';
+            
+            try {
+                const { data: communities, error } = await sb
+                    .from('communities')
+                    .select('id, name, displayName')
+                    .eq('status', 'active')
+                    .order('name', { ascending: true });
+                
+                if (error) throw error;
+                
+                if (!communities || communities.length === 0) {
+                    select.innerHTML = '<option value="">No communities available</option>';
+                    return;
+                }
+                
+                let options = '<option value="">-- Select your community --</option>';
+                communities.forEach(c => {
+                    const displayName = c.displayName || c.name;
+                    options += `<option value="${c.id}">${displayName}</option>`;
+                });
+                select.innerHTML = options;
+            } catch (err) {
+                console.error('Error loading communities:', err);
+                select.innerHTML = '<option value="">Error loading communities</option>';
+            }
         }
 
         function showLogin() {
@@ -2176,14 +2209,14 @@
         }
 
         async function signup() {
-            const communityCode = document.getElementById('signupCommunityCode').value.trim();
+            const communityId = document.getElementById('signupCommunityCode').value;
             const name = document.getElementById('signupName').value.trim();
             const email = document.getElementById('signupEmail').value.trim();
             const phone = document.getElementById('signupPhone').value.trim();
             const unit = document.getElementById('signupUnit').value.trim();
             const password = document.getElementById('signupPassword').value;
 
-            if (!communityCode || !name || !email || !phone || !unit || !password) {
+            if (!communityId || !name || !email || !phone || !unit || !password) {
                 showAuthError('Please fill in all required fields');
                 return;
             }
@@ -2193,22 +2226,14 @@
                 return;
             }
 
-            // Verify community code
-            const { data: community, error: commErr } = await sb
-                .from('tenants')
-                .select('id, name')
-                .eq('slug', communityCode.toLowerCase())
-                .maybeSingle();
-            
-            if (commErr || !community) {
-                showAuthError('Invalid community code. Please check with your HOA administrator.');
-                return;
-            }
+            // Get community name for display
+            const communitySelect = document.getElementById('signupCommunityCode');
+            const communityName = communitySelect.options[communitySelect.selectedIndex].text;
 
             // Store signup data and show terms
             pendingSignupData = {
-                communityId: community.id,
-                communityName: community.name,
+                communityId: communityId,
+                communityName: communityName,
                 name, email, phone, unit, password
             };
             
