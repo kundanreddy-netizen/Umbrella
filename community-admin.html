@@ -606,12 +606,12 @@ async function handleLogin() {
       errEl.textContent = 'Access denied. This portal is for Community Admins only.';
       errEl.style.display = 'block'; return;
     }
-    if (!profile.tenant_id) {
+    if (!profile.communityId) {
       await sb.auth.signOut();
       errEl.textContent = 'No community assigned to your account. Contact TUC support.';
       errEl.style.display = 'block'; return;
     }
-    if (profile.is_active === false) {
+    if (profile.isActive === false) {
       await sb.auth.signOut();
       errEl.textContent = 'Your account has been deactivated. Contact TUC support.';
       errEl.style.display = 'block'; return;
@@ -689,7 +689,7 @@ async function handleAuthToken() {
 
         if (pErr || !profile) throw new Error('Profile not found after password set.');
         if (profile.role !== 'community_admin') throw new Error('Access denied for this portal.');
-        if (!profile.tenant_id) throw new Error('No community assigned. Contact TUC support.');
+        if (!profile.communityId) throw new Error('No community assigned. Contact TUC support.');
 
         showToast('Password set successfully! Welcome.', 'success');
         history.replaceState(null, '', window.location.pathname);
@@ -717,7 +717,7 @@ async function checkSession() {
     if (error || !session) return;
     const { data: profile } = await sb
       .from('profiles').select('*').eq('id', session.user.id).maybeSingle();
-    if (profile && profile.role === 'community_admin' && profile.tenant_id && profile.is_active !== false) {
+    if (profile && profile.role === 'community_admin' && profile.communityId && profile.isActive !== false) {
       enterApp(session.user, profile);
     }
   } catch(e) {
@@ -732,17 +732,17 @@ async function enterApp(user, profile) {
   console.log('[ADMIN] enterApp called');
   console.log('[ADMIN] user.email:', user.email);
   console.log('[ADMIN] profile:', profile);
-  console.log('[ADMIN] profile.tenant_id:', profile.tenant_id);
+  console.log('[ADMIN] profile.communityId:', profile.communityId);
 
   currentUser    = user;
   currentProfile = profile;
-  tenantId       = profile.tenant_id;
+  tenantId       = profile.communityId;
 
   console.log('[ADMIN] tenantId SET to:', tenantId);
 
   if (!tenantId) {
     console.error('[ADMIN] ❌ ERROR: tenantId is null/undefined!');
-    alert('Error: Admin profile missing tenant_id. Contact support.');
+    alert('Error: Admin profile missing communityId. Contact support.');
     return;
   }
 
@@ -756,7 +756,7 @@ async function enterApp(user, profile) {
   // Load community name
   try {
     const { data: tenant, error } = await sb
-      .from('tenants').select('name,city,state').eq('id', tenantId).single();
+      .from('communities').select('name,city,state').eq('id', tenantId).single();
     if (!error && tenant) {
       document.getElementById('communityTitle').textContent =
         esc(tenant.name) + ' — Admin Dashboard';
@@ -799,43 +799,43 @@ async function loadResidents() {
   try {
     // Query users table (signup creates users only)
     const { data: usersData, error: usersErr } = await sb.from('users')
-      .select('id, name, email, phone, unit_number, is_approved, tenant_id, created_at, role')
-      .eq('tenant_id', tenantId)
+      .select('id, name, email, phone, unitNumber, isApproved, communityId, createdAt, role')
+      .eq('communityId', tenantId)
       .eq('role', 'resident')
-      .order('created_at', { ascending: false });
+      .order('createdAt', { ascending: false });
     if (usersErr) throw usersErr;
 
     // Query residents table (for approved residents info)
     const { data: resData, error: resErr } = await sb.from('residents').select('*')
-      .eq('tenant_id', tenantId).order('created_at', { ascending: false });
+      .eq('communityId', tenantId).order('createdAt', { ascending: false });
     if (resErr) console.warn('[TUC] residents query:', resErr.message);
 
-    // Create map of approved residents by user_id
+    // Create map of approved residents by userId
     const approvedMap = {};
     (resData || []).forEach(r => {
-      if (r.user_id) approvedMap[r.user_id] = r;
+      if (r.userId) approvedMap[r.userId] = r;
     });
 
     // Map users to residents view
     allResidents = (usersData || []).map(u => ({
       id:          approvedMap[u.id]?.id || null,
-      user_id:     u.id,
+      userId:     u.id,
       name:        u.name,
       email:       u.email,
       phone:       u.phone,
-      unit_number: u.unit_number,
-      is_approved: u.is_approved,
-      status:      approvedMap[u.id]?.status || (u.is_approved ? 'approved' : 'pending'),
-      tenant_id:   u.tenant_id,
-      created_at:  u.created_at,
-      updated_at:  approvedMap[u.id]?.updated_at || null
+      unitNumber: u.unitNumber,
+      isApproved: u.isApproved,
+      status:      approvedMap[u.id]?.status || (u.isApproved ? 'approved' : 'pending'),
+      communityId:   u.communityId,
+      createdAt:  u.createdAt,
+      updatedAt:  approvedMap[u.id]?.updatedAt || null
     }));
   } catch(e) { console.error('[TUC] loadResidents:', e.message); allResidents = []; }
 }
 async function loadTickets() {
   try {
     const { data, error } = await sb.from('tickets').select('*')
-      .eq('tenant_id', tenantId).order('created_at', { ascending: false });
+      .eq('communityId', tenantId).order('createdAt', { ascending: false });
     if (error) throw error;
     allTickets = data || [];
   } catch(e) { console.error('[TUC] loadTickets:', e.message); allTickets = []; }
@@ -843,7 +843,7 @@ async function loadTickets() {
 async function loadServices() {
   try {
     const { data, error } = await sb.from('service_contacts').select('*')
-      .eq('tenant_id', tenantId).order('name');
+      .eq('communityId', tenantId).order('name');
     if (error) throw error;
     allServices = data || [];
   } catch(e) { console.error('[TUC] loadServices:', e.message); allServices = []; }
@@ -851,7 +851,7 @@ async function loadServices() {
 async function loadAnnouncements() {
   try {
     const { data, error } = await sb.from('announcements').select('*')
-      .eq('tenant_id', tenantId).order('created_at', { ascending: false });
+      .eq('communityId', tenantId).order('createdAt', { ascending: false });
     if (error) throw error;
     allAnnouncements = data || [];
   } catch(e) { console.error('[TUC] loadAnnouncements:', e.message); allAnnouncements = []; }
@@ -861,9 +861,9 @@ async function loadAnnouncements() {
 // STATS
 // ═══════════════════════════════════════════════════════
 function renderStats() {
-  const pending = allResidents.filter(r => !r.is_approved && r.status !== 'rejected').length;
+  const pending = allResidents.filter(r => !r.isApproved && r.status !== 'rejected').length;
   document.getElementById('statPending').textContent   = pending;
-  document.getElementById('statResidents').textContent = allResidents.filter(r => r.is_approved).length;
+  document.getElementById('statResidents').textContent = allResidents.filter(r => r.isApproved).length;
   document.getElementById('statTickets').textContent   = allTickets.filter(t => ['open','in-progress'].includes(t.status)).length;
   document.getElementById('statServices').textContent  = allServices.length;
   const badge = document.getElementById('badgeApprovals');
@@ -875,7 +875,7 @@ function renderStats() {
 // APPROVALS
 // ═══════════════════════════════════════════════════════
 function renderApprovals() {
-  const pending = allResidents.filter(r => !r.is_approved && r.status !== 'rejected');
+  const pending = allResidents.filter(r => !r.isApproved && r.status !== 'rejected');
   const el = document.getElementById('approvalsList');
   if (!el) return;
   if (!pending.length) {
@@ -887,8 +887,8 @@ function renderApprovals() {
       <div class="card-header">
         <div>
           <div class="card-title">${esc(r.name)}</div>
-          <div class="card-meta">📧 ${esc(r.email||'—')} &nbsp;|&nbsp; 📱 ${esc(r.phone||'—')} &nbsp;|&nbsp; 🏠 Unit ${esc(r.unit_number||'—')}</div>
-          <div class="card-meta">Registered: ${fmtDate(r.created_at)}</div>
+          <div class="card-meta">📧 ${esc(r.email||'—')} &nbsp;|&nbsp; 📱 ${esc(r.phone||'—')} &nbsp;|&nbsp; 🏠 Unit ${esc(r.unitNumber||'—')}</div>
+          <div class="card-meta">Registered: ${fmtDate(r.createdAt)}</div>
         </div>
         <div class="card-actions">
           <button class="btn btn-success btn-sm" data-approve="${r.id}">✅ Approve</button>
@@ -900,13 +900,13 @@ function renderApprovals() {
 
 async function approveResident(id) {
   if (!id) return;
-  const r = allResidents.find(x => x.id === id || x.user_id === id);
+  const r = allResidents.find(x => x.id === id || x.userId === id);
   if (!r) return;
   if (!confirm(`Approve ${r.name}?\n\nThey will be able to log in immediately.`)) return;
   
   try {
     const now = new Date().toISOString();
-    const userId = r.user_id || r.id;
+    const userId = r.userId || r.id;
     
     console.log('[APPROVAL] Starting approval workflow...');
     console.log('[APPROVAL] Resident:', { name: r.name, email: r.email, userId });
@@ -914,7 +914,7 @@ async function approveResident(id) {
     // ── STEP 1: Update users table ──
     console.log('[APPROVAL] Step 1: Updating users table...');
     const { error: userErr } = await sb.from('users')
-      .update({ is_approved: true, updated_at: now })
+      .update({ isApproved: true, updatedAt: now })
       .eq('id', userId);
     
     if (userErr) {
@@ -929,13 +929,13 @@ async function approveResident(id) {
     if (r._from_users_only || !r.id) {
       // No residents row yet — create one
       const { error: insErr } = await sb.from('residents').insert([{
-        tenant_id: tenantId,
-        user_id: userId,
+        communityId: tenantId,
+        userId: userId,
         name: r.name,
         email: r.email,
         phone: r.phone,
-        unit_number: r.unit_number,
-        is_approved: true,
+        unitNumber: r.unitNumber,
+        isApproved: true,
         status: 'approved'
       }]);
       if (insErr) {
@@ -947,7 +947,7 @@ async function approveResident(id) {
       }
     } else {
       const { error: resErr } = await sb.from('residents')
-        .update({ is_approved: true, status: 'approved', updated_at: now })
+        .update({ isApproved: true, status: 'approved', updatedAt: now })
         .eq('id', r.id);
       if (resErr) {
         console.warn('[APPROVAL] Residents update warning:', resErr.message);
@@ -961,9 +961,9 @@ async function approveResident(id) {
     const { error: profErr } = await sb.from('profiles')
       .update({ 
         role: 'resident',              // ← CRITICAL: Enforce correct role
-        tenant_id: tenantId,           // ← Ensure correct tenant
-        is_active: true,               // ← Enable the account
-        updated_at: now
+        communityId: tenantId,           // ← Ensure correct tenant
+        isActive: true,               // ← Enable the account
+        updatedAt: now
       })
       .eq('id', userId);
     
@@ -975,33 +975,33 @@ async function approveResident(id) {
     // ── STEP 4: Verify approval succeeded ──
     console.log('[APPROVAL] Step 4: Verifying approval...');
     const { data: userVerify } = await sb.from('users')
-      .select('id, email, is_approved')
+      .select('id, email, isApproved')
       .eq('id', userId)
       .maybeSingle();
     
     const { data: profVerify } = await sb.from('profiles')
-      .select('id, role, is_active, tenant_id')
+      .select('id, role, isActive, communityId')
       .eq('id', userId)
       .maybeSingle();
     
     console.log('[APPROVAL] Verification results:', {
-      user_approved: userVerify?.is_approved,
+      user_approved: userVerify?.isApproved,
       profile_role: profVerify?.role,
-      profile_active: profVerify?.is_active,
-      profile_tenant: profVerify?.tenant_id
+      profile_active: profVerify?.isActive,
+      profile_tenant: profVerify?.communityId
     });
     
     // Sanity checks
-    if (!userVerify?.is_approved) {
-      throw new Error('Verification failed: users.is_approved not true');
+    if (!userVerify?.isApproved) {
+      throw new Error('Verification failed: users.isApproved not true');
     }
     
     if (profVerify?.role !== 'resident') {
       throw new Error('Verification failed: profiles.role is ' + profVerify?.role);
     }
     
-    if (!profVerify?.is_active) {
-      throw new Error('Verification failed: profiles.is_active not true');
+    if (!profVerify?.isActive) {
+      throw new Error('Verification failed: profiles.isActive not true');
     }
     
     console.log('[APPROVAL] Step 4 ✅ All verifications passed');
@@ -1011,14 +1011,14 @@ async function approveResident(id) {
     try {
       await sb.from('audit_log').insert([{
         action: 'approve',
-        user_id: userId,
+        userId: userId,
         user_email: r.email,
-        tenant_id: tenantId,
+        communityId: tenantId,
         success: true,
         data_after: {
-          users_approved: userVerify?.is_approved,
+          users_approved: userVerify?.isApproved,
           profile_role: profVerify?.role,
-          profile_active: profVerify?.is_active,
+          profile_active: profVerify?.isActive,
           residents_created: residentCreated
         }
       }]);
@@ -1100,12 +1100,12 @@ async function rejectResident(id) {
     const now = new Date().toISOString();
     // 1. Update residents table
     const { error: resErr } = await sb.from('residents')
-      .update({ is_approved: false, status: 'rejected', updated_at: now }).eq('id', id);
+      .update({ isApproved: false, status: 'rejected', updatedAt: now }).eq('id', id);
     if (resErr) throw resErr;
     // 2. Lock out from resident app
-    if (r.user_id) {
+    if (r.userId) {
       const { error: userErr } = await sb.from('users')
-        .update({ is_approved: false, updated_at: now }).eq('id', r.user_id);
+        .update({ isApproved: false, updatedAt: now }).eq('id', r.userId);
       if (userErr) console.warn('[TUC] users update:', userErr.message);
     }
     showToast(`${r.name} rejected.`, 'info');
@@ -1120,12 +1120,12 @@ function renderResidents() {
   const q = (document.getElementById('residentSearch')?.value || '').toLowerCase().trim();
   const list = allResidents.filter(r => {
     const mf = residentFilter === 'all'
-      || (residentFilter === 'approved' && r.is_approved)
-      || (residentFilter === 'pending'  && !r.is_approved && r.status !== 'rejected')
+      || (residentFilter === 'approved' && r.isApproved)
+      || (residentFilter === 'pending'  && !r.isApproved && r.status !== 'rejected')
       || (residentFilter === 'rejected' && r.status === 'rejected');
     const mq = !q
       || r.name.toLowerCase().includes(q)
-      || (r.unit_number||'').toLowerCase().includes(q)
+      || (r.unitNumber||'').toLowerCase().includes(q)
       || (r.email||'').toLowerCase().includes(q)
       || (r.phone||'').includes(q);
     return mf && mq;
@@ -1140,14 +1140,14 @@ function renderResidents() {
     <div class="card">
       <div class="card-header">
         <div>
-          <div class="card-title">${esc(r.name)} ${statusBadge(r.is_approved ? 'approved' : (r.status||'pending'))}</div>
-          <div class="card-meta">🏠 Unit ${esc(r.unit_number||'—')} &nbsp;|&nbsp; 📧 ${esc(r.email||'—')} &nbsp;|&nbsp; 📱 ${esc(r.phone||'—')}</div>
-          <div class="card-meta">Joined: ${fmtDate(r.created_at)}</div>
+          <div class="card-title">${esc(r.name)} ${statusBadge(r.isApproved ? 'approved' : (r.status||'pending'))}</div>
+          <div class="card-meta">🏠 Unit ${esc(r.unitNumber||'—')} &nbsp;|&nbsp; 📧 ${esc(r.email||'—')} &nbsp;|&nbsp; 📱 ${esc(r.phone||'—')}</div>
+          <div class="card-meta">Joined: ${fmtDate(r.createdAt)}</div>
         </div>
         <div class="card-actions">
-          ${!r.is_approved && r.status !== 'rejected'
+          ${!r.isApproved && r.status !== 'rejected'
             ? `<button class="btn btn-success btn-sm" data-approve="${r.id}">✅ Approve</button>` : ''}
-          ${r.is_approved
+          ${r.isApproved
             ? `<button class="btn btn-warning btn-sm" data-revoke="${r.id}">⏸ Suspend</button>` : ''}
           <button class="btn btn-danger btn-sm" data-delete-resident="${r.id}" data-res-name="${esc(r.name)}">🗑</button>
         </div>
@@ -1163,12 +1163,12 @@ async function revokeResident(id) {
     const now = new Date().toISOString();
     // 1. Update residents table
     const { error: resErr } = await sb.from('residents')
-      .update({ is_approved: false, status: 'pending', updated_at: now }).eq('id', id);
+      .update({ isApproved: false, status: 'pending', updatedAt: now }).eq('id', id);
     if (resErr) throw resErr;
     // 2. Revoke login access in users table
-    if (r.user_id) {
+    if (r.userId) {
       const { error: userErr } = await sb.from('users')
-        .update({ is_approved: false, updated_at: now }).eq('id', r.user_id);
+        .update({ isApproved: false, updatedAt: now }).eq('id', r.userId);
       if (userErr) console.warn('[TUC] users update:', userErr.message);
     }
     showToast(`${r.name} suspended.`, 'warning');
@@ -1184,7 +1184,7 @@ async function deleteResident(id, name) {
     // including auth.users — requires security definer to delete from auth schema
     const { error } = await sb.rpc('delete_resident_completely', {
       p_resident_id: id,
-      p_tenant_id:   tenantId
+      p_communityId:   tenantId
     });
     if (error) throw error;
     showToast(`${name} permanently deleted.`, 'info');
@@ -1206,7 +1206,7 @@ function renderTickets() {
       || (t.title||'').toLowerCase().includes(q)
       || (t.category||'').toLowerCase().includes(q)
       || (t.resident_name||'').toLowerCase().includes(q)
-      || (t.unit_number||'').toLowerCase().includes(q);
+      || (t.unitNumber||'').toLowerCase().includes(q);
     return mf && mq;
   });
   const el = document.getElementById('ticketsList');
@@ -1227,11 +1227,11 @@ function renderTickets() {
           </div>
           <div class="card-meta">
             👤 ${esc(t.resident_name||'Unknown')} &nbsp;|&nbsp;
-            🏠 Unit ${esc(t.unit_number||'—')} &nbsp;|&nbsp;
+            🏠 Unit ${esc(t.unitNumber||'—')} &nbsp;|&nbsp;
             📁 ${esc(t.category||'General')}
           </div>
           <div class="card-meta">
-            Submitted: ${fmtDate(t.created_at)} &nbsp;|&nbsp;
+            Submitted: ${fmtDate(t.createdAt)} &nbsp;|&nbsp;
             💬 ${(t.comments||[]).length} comment${(t.comments||[]).length!==1?'s':''}
           </div>
         </div>
@@ -1256,7 +1256,7 @@ function openTicketModal(id) {
     </div>
     <div style="font-size:13px;color:var(--text-muted);margin-bottom:8px;">
       <strong>Reporter:</strong> ${esc(t.resident_name||'Unknown')} ·
-      Unit ${esc(t.unit_number||'—')} · ${fmtDate(t.created_at)}
+      Unit ${esc(t.unitNumber||'—')} · ${fmtDate(t.createdAt)}
     </div>
     <div style="font-size:14px;line-height:1.6;background:var(--bg);padding:12px;border-radius:8px;margin-bottom:16px;white-space:pre-wrap;">${esc(t.description||'No description provided.')}</div>
 
@@ -1327,7 +1327,7 @@ async function updateTicketStatus(id, status) {
   if (!validStatuses.includes(status)) { showToast('Invalid status.', 'error'); return; }
   try {
     const { error } = await sb.from('tickets')
-      .update({ status, updated_at: new Date().toISOString() }).eq('id', id);
+      .update({ status, updatedAt: new Date().toISOString() }).eq('id', id);
     if (error) throw error;
     showToast(`Ticket marked "${status}".`, 'success');
     closeModal('ticketModal');
@@ -1361,7 +1361,7 @@ async function addTicketComment(id) {
 
   try {
     const { error } = await sb.from('tickets')
-      .update({ comments: updatedComments, updated_at: new Date().toISOString() }).eq('id', id);
+      .update({ comments: updatedComments, updatedAt: new Date().toISOString() }).eq('id', id);
     if (error) throw error;
     if (input) input.value = '';
     await loadTickets();
@@ -1450,7 +1450,7 @@ async function saveService() {
   if (!valid) return;
 
   const payload = {
-    tenant_id:   tenantId,
+    communityId:   tenantId,
     name,
     category:    document.getElementById('svcCategory')?.value || 'Other',
     phone:       phone || null,
@@ -1499,7 +1499,7 @@ function renderAnnouncements() {
           <div class="card-title">${esc(a.title)}</div>
           <div class="card-meta" style="margin-top:6px;line-height:1.6;white-space:pre-wrap;">${esc(a.content)}</div>
           <div class="card-meta" style="margin-top:6px;">
-            📅 ${fmtDateTime(a.created_at)} &nbsp;|&nbsp; By ${esc(a.created_by_name||'Admin')}
+            📅 ${fmtDateTime(a.createdAt)} &nbsp;|&nbsp; By ${esc(a.created_by_name||'Admin')}
           </div>
         </div>
         <div class="card-actions">
@@ -1554,9 +1554,9 @@ async function saveAnnouncement() {
 
   try {
     const payload = id
-      ? { title, content, updated_at: new Date().toISOString() }
+      ? { title, content, updatedAt: new Date().toISOString() }
       : {
-          tenant_id:        tenantId,
+          communityId:        tenantId,
           title,
           content,
           created_by:       currentUser.id,
@@ -1633,14 +1633,14 @@ async function runTests() {
   // ── 2. SUPABASE CONNECTION ──
   section('Supabase Connection');
   try {
-    const { error } = await sb.from('tenants').select('id').limit(1);
+    const { error } = await sb.from('communities').select('id').limit(1);
     if (error) throw error;
     line('pass', 'Database connection successful');
   } catch(e) { line('fail', 'DB connection failed: ' + e.message); }
 
   // ── 3. REQUIRED TABLES ──
   section('Required Tables');
-  const tables = ['tenants','profiles','residents','tickets','service_contacts','announcements'];
+  const tables = ['communities','profiles','residents','tickets','service_contacts','announcements'];
   for (const t of tables) {
     try {
       const { error } = await sb.from(t).select('id').limit(1);
@@ -1660,10 +1660,10 @@ async function runTests() {
         line('pass', `Role: ${currentProfile.role}`);
         if (currentProfile.role === 'community_admin') line('pass', 'Role is community_admin ✓');
         else line('fail', `Expected community_admin, got: ${currentProfile.role}`);
-        if (currentProfile.tenant_id) line('pass', `Tenant ID assigned: ${currentProfile.tenant_id}`);
-        else line('fail', 'No tenant_id on profile');
-        if (currentProfile.is_active !== false) line('pass', 'Account is active');
-        else line('warn', 'Account is_active = false');
+        if (currentProfile.communityId) line('pass', `Tenant ID assigned: ${currentProfile.communityId}`);
+        else line('fail', 'No communityId on profile');
+        if (currentProfile.isActive !== false) line('pass', 'Account is active');
+        else line('warn', 'Account isActive = false');
       } else {
         line('warn', 'Profile not loaded — not yet logged in');
       }
@@ -1678,25 +1678,25 @@ async function runTests() {
     line('warn', 'Not logged in — skipping RLS tests. Log in first then re-run tests.');
   } else {
     try {
-      const { data, error } = await sb.from('residents').select('tenant_id').limit(50);
+      const { data, error } = await sb.from('residents').select('communityId').limit(50);
       if (error) throw error;
-      const leaked = (data||[]).filter(r => r.tenant_id !== tenantId);
+      const leaked = (data||[]).filter(r => r.communityId !== tenantId);
       if (leaked.length === 0) line('pass', 'Residents RLS: only own tenant data returned');
       else line('fail', `RLS BREACH: ${leaked.length} residents from other tenants visible!`);
     } catch(e) { line('fail', 'RLS residents check failed: ' + e.message); }
 
     try {
-      const { data, error } = await sb.from('tickets').select('tenant_id').limit(50);
+      const { data, error } = await sb.from('tickets').select('communityId').limit(50);
       if (error) throw error;
-      const leaked = (data||[]).filter(t => t.tenant_id !== tenantId);
+      const leaked = (data||[]).filter(t => t.communityId !== tenantId);
       if (leaked.length === 0) line('pass', 'Tickets RLS: only own tenant data returned');
       else line('fail', `RLS BREACH: ${leaked.length} tickets from other tenants visible!`);
     } catch(e) { line('fail', 'RLS tickets check failed: ' + e.message); }
 
     try {
-      const { data, error } = await sb.from('announcements').select('tenant_id').limit(50);
+      const { data, error } = await sb.from('announcements').select('communityId').limit(50);
       if (error) throw error;
-      const leaked = (data||[]).filter(a => a.tenant_id !== tenantId);
+      const leaked = (data||[]).filter(a => a.communityId !== tenantId);
       if (leaked.length === 0) line('pass', 'Announcements RLS: only own tenant data returned');
       else line('fail', `RLS BREACH: ${leaked.length} announcements from other tenants visible!`);
     } catch(e) { line('fail', 'RLS announcements check failed: ' + e.message); }
@@ -1745,8 +1745,8 @@ async function runTests() {
   else line('fail', 'TUC admin check missing from handleLogin!');
   if (loginFnStr.includes('community_admin')) line('pass', 'community_admin role check present');
   else line('fail', 'community_admin role check missing!');
-  if (loginFnStr.includes('tenant_id')) line('pass', 'tenant_id null check present');
-  else line('fail', 'tenant_id null check missing — users without community could log in!');
+  if (loginFnStr.includes('communityId')) line('pass', 'communityId null check present');
+  else line('fail', 'communityId null check missing — users without community could log in!');
 
   // ── 10. WRITE OPERATIONS (only if logged in) ──
   section('Write Operations (CRUD)');
@@ -1756,7 +1756,7 @@ async function runTests() {
     // Test service contact CRUD
     try {
       const testPayload = {
-        tenant_id: tenantId, name: '__TEST_SVC__', category: 'Other',
+        communityId: tenantId, name: '__TEST_SVC__', category: 'Other',
         phone: '555-0000', email: 'test@test.com', description: 'Auto test'
       };
       const { data: inserted, error: iErr } = await sb
@@ -1778,7 +1778,7 @@ async function runTests() {
     // Test announcement CRUD
     try {
       const { data: ann, error: aErr } = await sb.from('announcements').insert([{
-        tenant_id: tenantId, title: '__TEST_ANN__', content: 'Test content',
+        communityId: tenantId, title: '__TEST_ANN__', content: 'Test content',
         created_by: currentUser.id, created_by_name: 'Test'
       }]).select().single();
       if (aErr) throw aErr;

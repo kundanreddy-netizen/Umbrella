@@ -2462,7 +2462,7 @@
         async function loadCommunityName() {
             if (!userCommunityId) return;
             try {
-                const { data: tenant } = await sb.from('tenants').select('name').eq('id', userCommunityId).maybeSingle();
+                const { data: tenant } = await sb.from('communities').select('name').eq('id', userCommunityId).maybeSingle();
                 if (tenant && tenant.name) {
                     document.getElementById('communityName').textContent = tenant.name;
                 }

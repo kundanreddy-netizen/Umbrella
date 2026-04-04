@@ -535,8 +535,8 @@ tbody tr:hover td{background:#FAFBFF;}
           <div class="table-wrap" style="padding:24px;">
             <h3 style="font-size:15px;font-weight:700;margin-bottom:8px;">Step 2 — Run the Schema SQL</h3>
             <p style="font-size:13.5px;color:var(--text-muted);line-height:1.6;margin-bottom:14px;">Go to <strong>SQL Editor → New query</strong> in Supabase and run:</p>
-            <pre class="sql-code" id="setupSqlBlock">-- 1. TENANTS (communities)
-create table if not exists public.tenants (
+            <pre class="sql-code" id="setupSqlBlock">-- 1. COMMUNITIES
+create table if not exists public.communities (
   id uuid default gen_random_uuid() primary key,
   name text not null,
   slug text unique not null,
@@ -545,13 +545,13 @@ create table if not exists public.tenants (
   state text,
   zip text,
   status text default 'active' check (status in ('active','inactive','suspended')),
-  admin_email text,
-  admin_name text,
-  unit_count int default 0,
-  resident_count int default 0,
+  adminEmail text,
+  adminName text,
+  unitCount int default 0,
+  residentCount int default 0,
   notes text,
-  created_at timestamptz default now(),
-  updated_at timestamptz default now()
+  createdAt timestamptz default now(),
+  updatedAt timestamptz default now()
 );
 
 -- 2. PROFILES (extends Supabase auth.users)
@@ -560,17 +560,17 @@ create table if not exists public.profiles (
   email text,
   name text,
   role text default 'resident' check (role in ('tuc_admin','community_admin','resident')),
-  tenant_id uuid references public.tenants(id) on delete set null,
-  is_active boolean default true,
-  created_at timestamptz default now()
+  communityId uuid references public.communities(id) on delete set null,
+  isActive boolean default true,
+  createdAt timestamptz default now()
 );
 
 -- 3. Enable RLS
-alter table public.tenants enable row level security;
+alter table public.communities enable row level security;
 alter table public.profiles enable row level security;
 
 -- 4. RLS Policies
-create policy "TUC admins manage tenants" on public.tenants
+create policy "TUC admins manage communities" on public.communities
   for all using (
     exists (select 1 from public.profiles where id = auth.uid() and role = 'tuc_admin')
   );
@@ -581,15 +581,15 @@ create policy "TUC admins manage profiles" on public.profiles
 create policy "Users read own profile" on public.profiles
   for select using (auth.uid() = id);
 
--- 5. updated_at trigger
-create or replace function public.handle_updated_at()
+-- 5. updatedAt trigger
+create or replace function public.handle_updatedAt()
 returns trigger as $$
-begin new.updated_at = now(); return new; end;
+begin new.updatedAt = now(); return new; end;
 $$ language plpgsql;
 
-create trigger on_tenant_updated
-  before update on public.tenants
-  for each row execute procedure public.handle_updated_at();
+create trigger on_community_updated
+  before update on public.communities
+  for each row execute procedure public.handle_updatedAt();
 
 -- 6. Auto-create profile on signup
 create or replace function public.handle_new_user()
@@ -616,7 +616,7 @@ create trigger on_auth_user_created
           <div class="table-wrap" style="padding:24px;">
             <h3 style="font-size:15px;font-weight:700;margin-bottom:8px;">Step 3 — Make yourself TUC Admin</h3>
             <p style="font-size:13.5px;color:var(--text-muted);line-height:1.6;margin-bottom:12px;">Sign into this portal once (it creates your profile), then run this in SQL Editor:</p>
-            <pre class="sql-code">update public.profiles set role = 'tuc_admin' where email = 'your@email.com';</pre>
+            <pre class="sql-code">update public.profiles set role = 'tuc_admin' where email = '<a href="/cdn-cgi/l/email-protection" class="__cf_email__" data-cfemail="651c0a1017250008040c094b060a08">[email&#160;protected]</a>';</pre>
           </div>
         </div>
       </div>
@@ -756,7 +756,7 @@ create trigger on_auth_user_created
 
 <div id="toast-container"></div>
 
-<script>
+<script data-cfasync="false" src="/cdn-cgi/scripts/5c5dd728/cloudflare-static/email-decode.min.js"></script><script>
 // ╔══════════════════════════════════════════════╗
 // ║  CONFIG — paste your Supabase credentials    ║
 // ╚══════════════════════════════════════════════╝
@@ -890,7 +890,7 @@ async function loadAllData() {
 
 async function loadCommunities() {
   if (!sb) return;
-  const { data, error } = await sb.from('tenants').select('*').order('created_at',{ascending:false});
+  const { data, error } = await sb.from('communities').select('*').order('createdAt',{ascending:false});
   if (error) { showToast('Error loading communities: '+error.message,'error'); return; }
   allCommunities = data || [];
   const badge = document.getElementById('navBadgeCommunities');
@@ -900,7 +900,7 @@ async function loadCommunities() {
 
 async function loadAdmins() {
   if (!sb) return;
-  const { data } = await sb.from('profiles').select('*, tenants(name)').eq('role','community_admin').order('created_at',{ascending:false});
+  const { data } = await sb.from('profiles').select('*, communities(name)').eq('role','community_admin').order('createdAt',{ascending:false});
   allAdmins = data || [];
 }
 
@@ -908,8 +908,8 @@ async function loadAdmins() {
 function renderOverview() {
   document.getElementById('statTotal').textContent    = allCommunities.length;
   document.getElementById('statActive').textContent   = allCommunities.filter(c=>c.status==='active').length;
-  document.getElementById('statUnits').textContent    = allCommunities.reduce((s,c)=>s+(c.unit_count||0),0);
-  document.getElementById('statResidents').textContent= allCommunities.reduce((s,c)=>s+(c.resident_count||0),0);
+  document.getElementById('statUnits').textContent    = allCommunities.reduce((s,c)=>s+(c.unitCount||0),0);
+  document.getElementById('statResidents').textContent= allCommunities.reduce((s,c)=>s+(c.residentCount||0),0);
 
   const tbody = document.getElementById('recentCommunitiesBody');
   if (!allCommunities.length) {
@@ -920,9 +920,9 @@ function renderOverview() {
     <tr style="cursor:pointer" data-open-detail="${c.id}">
       <td><div class="cell-primary">${esc(c.name)}</div><div class="cell-secondary">${esc(c.slug)}</div></td>
       <td>${statusBadge(c.status)}</td>
-      <td>${c.unit_count||0}</td>
-      <td>${esc(c.admin_email||'—')}</td>
-      <td>${fmtDate(c.created_at)}</td>
+      <td>${c.unitCount||0}</td>
+      <td>${esc(c.adminEmail||'—')}</td>
+      <td>${fmtDate(c.createdAt)}</td>
     </tr>`).join('');
 }
 
@@ -945,10 +945,10 @@ function renderCommunitiesTable() {
       <td style="cursor:pointer" data-open-detail="${c.id}"><div class="cell-primary">${esc(c.name)}</div><div class="cell-secondary">${esc(c.slug)}</div></td>
       <td style="cursor:pointer" data-open-detail="${c.id}">${esc([c.city,c.state].filter(Boolean).join(', '))||'—'}</td>
       <td style="cursor:pointer" data-open-detail="${c.id}">${statusBadge(c.status)}</td>
-      <td style="cursor:pointer" data-open-detail="${c.id}">${c.unit_count||0}</td>
-      <td style="cursor:pointer" data-open-detail="${c.id}">${c.resident_count||0}</td>
-      <td style="cursor:pointer" data-open-detail="${c.id}">${esc(c.admin_name||c.admin_email||'—')}</td>
-      <td style="cursor:pointer" data-open-detail="${c.id}">${fmtDate(c.created_at)}</td>
+      <td style="cursor:pointer" data-open-detail="${c.id}">${c.unitCount||0}</td>
+      <td style="cursor:pointer" data-open-detail="${c.id}">${c.residentCount||0}</td>
+      <td style="cursor:pointer" data-open-detail="${c.id}">${esc(c.adminName||c.adminEmail||'—')}</td>
+      <td style="cursor:pointer" data-open-detail="${c.id}">${fmtDate(c.createdAt)}</td>
       <td>
         <div class="action-menu">
           <button class="action-menu-btn" data-toggle-menu="${c.id}">⋯</button>
@@ -974,10 +974,10 @@ function renderAdminsTable() {
   tbody.innerHTML = list.map(a => `
     <tr>
       <td><div class="cell-primary">${esc(a.name||'—')}</div></td>
-      <td>${esc(a.tenants?.name||'—')}</td>
+      <td>${esc(a.communities?.name||'—')}</td>
       <td>${esc(a.email||'—')}</td>
-      <td>${a.is_active ? '<span class="badge badge-active">Active</span>' : '<span class="badge badge-inactive">Inactive</span>'}</td>
-      <td>${fmtDate(a.created_at)}</td>
+      <td>${a.isActive ? '<span class="badge badge-active">Active</span>' : '<span class="badge badge-inactive">Inactive</span>'}</td>
+      <td>${fmtDate(a.createdAt)}</td>
     </tr>`).join('');
 }
 
@@ -1007,9 +1007,9 @@ function openEdit(id) {
   document.getElementById('cCity').value    = c.city||'';
   document.getElementById('cState').value   = c.state||'';
   document.getElementById('cZip').value     = c.zip||'';
-  document.getElementById('cUnits').value   = c.unit_count||'';
-  document.getElementById('cAdminName').value  = c.admin_name||'';
-  document.getElementById('cAdminEmail').value = c.admin_email||'';
+  document.getElementById('cUnits').value   = c.unitCount||'';
+  document.getElementById('cAdminName').value  = c.adminName||'';
+  document.getElementById('cAdminEmail').value = c.adminEmail||'';
   document.getElementById('cStatus').value  = c.status||'active';
   document.getElementById('cNotes').value   = c.notes||'';
   openModal('communityModal');
@@ -1027,9 +1027,9 @@ async function saveCommunity() {
     city:         document.getElementById('cCity').value.trim(),
     state:        document.getElementById('cState').value.trim(),
     zip:          document.getElementById('cZip').value.trim(),
-    unit_count:   parseInt(document.getElementById('cUnits').value)||0,
-    admin_name:   document.getElementById('cAdminName').value.trim(),
-    admin_email:  document.getElementById('cAdminEmail').value.trim(),
+    unitCount:   parseInt(document.getElementById('cUnits').value)||0,
+    adminName:   document.getElementById('cAdminName').value.trim(),
+    adminEmail:  document.getElementById('cAdminEmail').value.trim(),
     status:       document.getElementById('cStatus').value,
     notes:        document.getElementById('cNotes').value.trim(),
   };
@@ -1038,8 +1038,8 @@ async function saveCommunity() {
   btn.textContent = 'Saving…'; btn.disabled = true;
 
   const { error } = id
-    ? await sb.from('tenants').update(payload).eq('id',id)
-    : await sb.from('tenants').insert([payload]);
+    ? await sb.from('communities').update(payload).eq('id',id)
+    : await sb.from('communities').insert([payload]);
 
   btn.textContent = id ? 'Update Community' : 'Save Community';
   btn.disabled = false;
@@ -1056,7 +1056,7 @@ async function saveCommunity() {
 async function deleteCommunity(id, name) {
   closeAllMenus();
   if (!confirm(`Delete "${name}"?\n\nThis cannot be undone.`)) return;
-  const { error } = await sb.from('tenants').delete().eq('id',id);
+  const { error } = await sb.from('communities').delete().eq('id',id);
   if (error) { showToast('Error: '+error.message,'error'); return; }
   showToast(`${name} deleted.`,'info');
   await loadCommunities();
@@ -1080,9 +1080,9 @@ async function openDetail(id) {
       </div>
     </div>
     <div class="detail-stats">
-      <div class="detail-stat"><div class="num">${c.unit_count||0}</div><div class="lbl">Total Units</div></div>
-      <div class="detail-stat"><div class="num">${c.resident_count||0}</div><div class="lbl">Residents</div></div>
-      <div class="detail-stat"><div class="num">${fmtDate(c.created_at)}</div><div class="lbl">Joined</div></div>
+      <div class="detail-stat"><div class="num">${c.unitCount||0}</div><div class="lbl">Total Units</div></div>
+      <div class="detail-stat"><div class="num">${c.residentCount||0}</div><div class="lbl">Residents</div></div>
+      <div class="detail-stat"><div class="num">${fmtDate(c.createdAt)}</div><div class="lbl">Joined</div></div>
     </div>
     <div class="detail-grid">
       <div class="detail-item"><label>Address</label><span>${esc([c.address,c.city,c.state,c.zip].filter(Boolean).join(', '))||'—'}</span></div>
@@ -1124,10 +1124,10 @@ async function loadCommunityAdmins(tenantId) {
 
   const { data, error } = await sb
     .from('profiles')
-    .select('id, name, email, is_active, created_at')
-    .eq('tenant_id', tenantId)
+    .select('id, name, email, isActive, createdAt')
+    .eq('communityId', tenantId)
     .eq('role', 'community_admin')
-    .order('created_at', { ascending: true });
+    .order('createdAt', { ascending: true });
 
   if (error) {
     container.innerHTML = `<p style="font-size:13px;color:var(--danger);">Error loading admins: ${error.message}</p>`;
@@ -1137,28 +1137,28 @@ async function loadCommunityAdmins(tenantId) {
   const profileAdmins = data || [];
 
   // Check if primary admin is already in profiles list
-  const primaryEmail = community?.admin_email?.toLowerCase();
+  const primaryEmail = community?.adminEmail?.toLowerCase();
   const primaryAlreadyInProfiles = primaryEmail &&
     profileAdmins.some(a => a.email?.toLowerCase() === primaryEmail);
 
   // Build HTML — primary admin first (if not already in profiles)
   let html = '';
 
-  if (community?.admin_email && !primaryAlreadyInProfiles) {
+  if (community?.adminEmail && !primaryAlreadyInProfiles) {
     html += `
       <div class="admin-row" style="border-left:3px solid var(--brand-mid);">
         <div class="admin-row-info">
-          <strong>${esc(community.admin_name || community.admin_email)}
+          <strong>${esc(community.adminName || community.adminEmail)}
             <span style="font-size:11px;font-weight:600;background:var(--brand-pale);color:var(--brand-mid);padding:2px 8px;border-radius:10px;margin-left:6px;">Primary</span>
           </strong>
-          <span>${esc(community.admin_email)} · 
+          <span>${esc(community.adminEmail)} · 
             <span style="color:var(--warning);font-weight:600;">Invite not sent yet</span>
           </span>
         </div>
         <button class="btn btn-primary btn-sm" 
           data-invite-primary="${tenantId}"
-          data-invite-name="${esc(community.admin_name||'')}"
-          data-invite-email="${esc(community.admin_email)}">
+          data-invite-name="${esc(community.adminName||'')}"
+          data-invite-email="${esc(community.adminEmail)}">
           📧 Send Invite
         </button>
       </div>`;
@@ -1171,7 +1171,7 @@ async function loadCommunityAdmins(tenantId) {
         <strong>${esc(a.name||'—')}
           ${primaryEmail === a.email?.toLowerCase() ? '<span style="font-size:11px;font-weight:600;background:var(--brand-pale);color:var(--brand-mid);padding:2px 8px;border-radius:10px;margin-left:6px;">Primary</span>' : ''}
         </strong>
-        <span>${esc(a.email||'—')} · ${a.is_active
+        <span>${esc(a.email||'—')} · ${a.isActive
           ? '<span style="color:var(--success);font-weight:600;">Active</span>'
           : '<span style="color:var(--text-muted);">Inactive</span>'}</span>
       </div>
@@ -1206,7 +1206,7 @@ async function loadCommunityAdmins(tenantId) {
 
 async function removeAdmin(adminId, name, tenantId) {
   if (!confirm(`Remove "${name}" as admin of this community?\n\nThey will lose access to the Community Admin portal.`)) return;
-  const { error } = await sb.from('profiles').update({ role: 'resident', tenant_id: null }).eq('id', adminId);
+  const { error } = await sb.from('profiles').update({ role: 'resident', communityId: null }).eq('id', adminId);
   if (error) { showToast('Error: ' + error.message, 'error'); return; }
   showToast(`${name} removed as admin.`, 'info');
   await loadCommunityAdmins(tenantId);
@@ -1239,7 +1239,7 @@ async function sendInvite() {
         'Authorization': `Bearer ${session.access_token}`,
         'apikey': SUPABASE_ANON
       },
-      body: JSON.stringify({ name, email, tenant_id: tenantId, tenant_name: community?.name || '' })
+      body: JSON.stringify({ name, email, communityId: tenantId, communityName: community?.name || '' })
     });
 
     const result = await res.json();
@@ -1371,14 +1371,4 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // Edit
     const editEl = e.target.closest('[data-edit]');
-    if (editEl) { openEdit(editEl.dataset.edit); return; }
-
-    // Delete
-    const delEl = e.target.closest('[data-delete]');
-    if (delEl) { deleteCommunity(delEl.dataset.delete, delEl.dataset.name); return; }
-  });
-
-});
-</script>
-</body>
-</html>
+    if (editEl) { openEdi
