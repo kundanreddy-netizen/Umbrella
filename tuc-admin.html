@@ -903,11 +903,11 @@
                         <form onsubmit="handleUpdatePassword(event)" style="max-width: 400px;">
                             <div class="form-group">
                                 <label class="form-label" for="settingsNewPassword">New Password</label>
-                                <input type="password" class="form-input" id="settingsNewPassword" placeholder="Minimum 6 characters" required minlength="6">
+                                <input type="password" class="form-input" id="settingsNewPassword" autocomplete="new-password" placeholder="Minimum 6 characters" required minlength="6">
                             </div>
                             <div class="form-group">
                                 <label class="form-label" for="settingsConfirmPassword">Confirm Password</label>
-                                <input type="password" class="form-input" id="settingsConfirmPassword" placeholder="Repeat password" required minlength="6">
+                                <input type="password" class="form-input" id="settingsConfirmPassword" autocomplete="new-password" placeholder="Repeat password" required minlength="6">
                             </div>
                             <button type="submit" class="btn btn-primary">Update Password</button>
                         </form>
@@ -1015,7 +1015,7 @@ const SUPABASE_URL = 'https://alqwckmrosuxoitxhmyk.supabase.co';
 const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImFscXdja21yb3N1eG9pdHhobXlrIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzQ0ODY0OTcsImV4cCI6MjA5MDA2MjQ5N30.qtLV1hlbgMeAbPu34kniQ-UJU4OiudCfEHwpadNa4c8';
 
 // Initialize Supabase client
-const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
 // ═══════════════════════════════════════════════════════════════
 // STATE
@@ -1065,7 +1065,7 @@ async function handleAuthCallback() {
         }
         
         // Set the session
-        const { data, error } = await supabase.auth.setSession({
+        const { data, error } = await sb.auth.setSession({
             access_token: accessToken,
             refresh_token: refreshToken
         });
@@ -1094,7 +1094,7 @@ async function handleAuthCallback() {
         
         if (profile.role !== 'tuc_admin') {
             showError('Access denied. This portal is for TUC Admins only.');
-            await supabase.auth.signOut();
+            await sb.auth.signOut();
             return true;
         }
         
@@ -1121,7 +1121,7 @@ async function handleAuthCallback() {
 
 async function checkSession() {
     try {
-        const { data: { session }, error } = await supabase.auth.getSession();
+        const { data: { session }, error } = await sb.auth.getSession();
         
         if (error) {
             console.error('[TUC Admin] Session check error:', error);
@@ -1144,14 +1144,14 @@ async function checkSession() {
         
         if (profileError || !profile) {
             console.error('[TUC Admin] Profile not found');
-            await supabase.auth.signOut();
+            await sb.auth.signOut();
             return;
         }
         
         if (profile.role !== 'tuc_admin') {
             console.error('[TUC Admin] Not a TUC admin');
             showError('Access denied. TUC Admins only.');
-            await supabase.auth.signOut();
+            await sb.auth.signOut();
             return;
         }
         
@@ -1182,7 +1182,7 @@ async function handleLogin(event) {
     
     try {
         // Sign in with Supabase Auth
-        const { data, error } = await supabase.auth.signInWithPassword({
+        const { data, error } = await sb.auth.signInWithPassword({
             email: email,
             password: password
         });
@@ -1203,7 +1203,7 @@ async function handleLogin(event) {
         }
         
         if (profile.role !== 'tuc_admin') {
-            await supabase.auth.signOut();
+            await sb.auth.signOut();
             throw new Error('Access denied. This portal is for TUC Admins only.');
         }
         
@@ -1234,7 +1234,7 @@ async function handleForgotPassword(event) {
     
     try {
         // Send magic link
-        const { error } = await supabase.auth.signInWithOtp({
+        const { error } = await sb.auth.signInWithOtp({
             email: email,
             options: {
                 emailRedirectTo: window.location.origin + window.location.pathname
@@ -1281,7 +1281,7 @@ async function handleSetPassword(event) {
     
     try {
         // Update password
-        const { error } = await supabase.auth.updateUser({
+        const { error } = await sb.auth.updateUser({
             password: password
         });
         
@@ -1323,7 +1323,7 @@ async function handleUpdatePassword(event) {
     }
     
     try {
-        const { error } = await supabase.auth.updateUser({
+        const { error } = await sb.auth.updateUser({
             password: password
         });
         
@@ -1349,7 +1349,7 @@ async function handleSignOut() {
     }
     
     try {
-        await supabase.auth.signOut();
+        await sb.auth.signOut();
     } catch (error) {
         console.error('[TUC Admin] Sign out error:', error);
     }
@@ -1679,7 +1679,7 @@ async function inviteAdmin(event) {
             showToast('Admin role assigned to existing user!', 'success');
         } else {
             // Send magic link for new user
-            const { error: otpError } = await supabase.auth.signInWithOtp({
+            const { error: otpError } = await sb.auth.signInWithOtp({
                 email: email,
                 options: {
                     emailRedirectTo: window.location.origin + '/community-admin.html',
