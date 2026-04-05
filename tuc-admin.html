@@ -1363,12 +1363,4 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     // Open detail
-    const detailEl = e.target.closest('[data-open-detail]');
-    if (detailEl && !e.target.closest('.action-menu')) {
-      openDetail(detailEl.dataset.openDetail);
-      return;
-    }
-
-    // Edit
-    const editEl = e.target.closest('[data-edit]');
-    if (editEl) { openEdi
+    const detailEl = e.target.closest('[data-open-
