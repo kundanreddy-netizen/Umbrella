@@ -1207,16 +1207,7 @@ async function loadCommunityAdmins(tenantId) {
 async function removeAdmin(adminId, name, tenantId) {
   if (!confirm(`Remove "${name}" as admin of this community?\n\nThey will lose access to the Community Admin portal.`)) return;
   const { error } = await sb.from('profiles').update({ role: 'resident', communityId: null }).eq('id', adminId);
-  if (error) { showToast('Error: ' + error.message, 'error'); return; }
-  showToast(`${name} removed as admin.`, 'info');
-  await loadCommunityAdmins(tenantId);
-  await loadAdmins();
-  renderAdminsTable();
-}
-
-// ── Invite Admin via Edge Function ──
-async function sendInvite() {
-  const tenantId = document.getElementById('inviteTenantId').value;
+  if (error) { showToast('Error: ' + error.message, 'error'); return; tenantId = document.getElementById('inviteTenantId').value;
   const name     = document.getElementById('inviteName').value.trim();
   const email    = document.getElementById('inviteEmail').value.trim();
   const status   = document.getElementById('inviteStatus');
@@ -1363,4 +1354,22 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     // Open detail
-    const detailEl = e.target.closest('[data-open-
+    const detailEl = e.target.closest('[data-open-detail]');
+    if (detailEl && !e.target.closest('.action-menu')) {
+      openDetail(detailEl.dataset.openDetail);
+      return;
+    }
+
+    // Edit
+    const editEl = e.target.closest('[data-edit]');
+    if (editEl) { openEdit(editEl.dataset.edit); return; }
+
+    // Delete
+    const delEl = e.target.closest('[data-delete]');
+    if (delEl) { deleteCommunity(delEl.dataset.delete, delEl.dataset.name); return; }
+  });
+
+});
+</script>
+</body>
+</html>
