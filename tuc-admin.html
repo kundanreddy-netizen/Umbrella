@@ -1207,10 +1207,7 @@ async function loadCommunityAdmins(tenantId) {
 async function removeAdmin(adminId, name, tenantId) {
   if (!confirm(`Remove "${name}" as admin of this community?\n\nThey will lose access to the Community Admin portal.`)) return;
   const { error } = await sb.from('profiles').update({ role: 'resident', communityId: null }).eq('id', adminId);
-  if (error) { showToast('Error: ' + error.message, 'error'); return; tenantId = document.getElementById('inviteTenantId').value;
-  const name     = document.getElementById('inviteName').value.trim();
-  const email    = document.getElementById('inviteEmail').value.trim();
-  const status   = document.getElementById('inviteStatus');
+  if (error) { showToast('Error: ' + error.message, 'error'); returnocument.getElementById('inviteStatus');
   const btn      = document.getElementById('sendInviteBtn');
 
   if (!name || !email) { showToast('Name and email are required.', 'error'); return; }
