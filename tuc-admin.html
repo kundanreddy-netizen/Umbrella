@@ -233,7 +233,7 @@
             <div class="header-user">
                 <div class="user-info">
                     <strong id="userName">Admin</strong>
-                    <span id="userEmail">admin@example.com</span>
+                    <span id="userEmail"><a href="/cdn-cgi/l/email-protection" class="__cf_email__" data-cfemail="96f7f2fbfff8d6f3eef7fbe6faf3b8f5f9fb">[email&#160;protected]</a></span>
                 </div>
                 <div class="user-avatar" id="userAvatar">A</div>
             </div>
@@ -411,7 +411,7 @@
 
 <div class="toast-container" id="toastContainer"></div>
 
-<script>
+<script data-cfasync="false" src="/cdn-cgi/scripts/5c5dd728/cloudflare-static/email-decode.min.js"></script><script>
 // Configuration
 var SUPABASE_URL = 'https://alqwckmrosuxoitxhmyk.supabase.co';
 var SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImFscXdja21yb3N1eG9pdHhobXlrIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzQ0ODY0OTcsImV4cCI6MjA5MDA2MjQ5N30.qtLV1hlbgMeAbPu34kniQ-UJU4OiudCfEHwpadNa4c8';
@@ -705,7 +705,7 @@ function loadDashboardData() {
 }
 
 function loadCommunities() {
-    return sb.from('communities').select('*').order('createdAt', { ascending: false })
+    return sb.from('communities').select('*').order('createdat', { ascending: false })
         .then(function(result) {
             allCommunities = result.data || [];
             console.log('[TUC] Loaded', allCommunities.length, 'communities');
@@ -713,7 +713,7 @@ function loadCommunities() {
 }
 
 function loadAdmins() {
-    return sb.from('profiles').select('*, communities(name)').eq('role', 'community_admin').order('createdAt', { ascending: false })
+    return sb.from('profiles').select('*, communities(name)').eq('role', 'community_admin').order('createdat', { ascending: false })
         .then(function(result) {
             allAdmins = result.data || [];
             console.log('[TUC] Loaded', allAdmins.length, 'admins');
@@ -724,7 +724,7 @@ function loadAdmins() {
 function renderStats() {
     document.getElementById('statCommunities').textContent = allCommunities.length;
     document.getElementById('statAdmins').textContent = allAdmins.length;
-    var residents = allCommunities.reduce(function(sum, c) { return sum + (c.residentCount || 0); }, 0);
+    var residents = allCommunities.reduce(function(sum, c) { return sum + (c.residentcount || 0); }, 0);
     document.getElementById('statResidents').textContent = residents;
 }
 
@@ -736,8 +736,8 @@ function renderRecentCommunities() {
     }
     tbody.innerHTML = allCommunities.slice(0, 5).map(function(c) {
         var loc = c.city ? c.city + ', ' + (c.state || '') : '';
-        var admins = allAdmins.filter(function(a) { return a.communityId === c.id; }).length;
-        return '<tr><td><strong>' + esc(c.name) + '</strong>' + (loc ? '<br><small style="color:var(--text-muted)">' + esc(loc) + '</small>' : '') + '</td><td><span class="badge badge-success">' + (c.status || 'active') + '</span></td><td>' + admins + '</td><td>' + fmtDate(c.createdAt) + '</td></tr>';
+        var admins = allAdmins.filter(function(a) { return a.communityid === c.id; }).length;
+        return '<tr><td><strong>' + esc(c.name) + '</strong>' + (loc ? '<br><small style="color:var(--text-muted)">' + esc(loc) + '</small>' : '') + '</td><td><span class="badge badge-success">' + (c.status || 'active') + '</span></td><td>' + admins + '</td><td>' + fmtDate(c.createdat) + '</td></tr>';
     }).join('');
 }
 
@@ -749,7 +749,7 @@ function renderCommunitiesTable() {
     }
     tbody.innerHTML = allCommunities.map(function(c) {
         var loc = c.city ? c.city + ', ' + (c.state || '') : '—';
-        return '<tr><td><strong>' + esc(c.name) + '</strong></td><td>' + esc(loc) + '</td><td><span class="badge badge-success">' + (c.status || 'active') + '</span></td><td>' + (c.unitCount || 0) + '</td><td><button class="btn btn-secondary btn-sm" onclick="openInviteAdminForCommunity(\'' + c.id + '\')">+ Admin</button></td></tr>';
+        return '<tr><td><strong>' + esc(c.name) + '</strong></td><td>' + esc(loc) + '</td><td><span class="badge badge-success">' + (c.status || 'active') + '</span></td><td>' + (c.unitcount || 0) + '</td><td><button class="btn btn-secondary btn-sm" onclick="openInviteAdminForCommunity(\'' + c.id + '\')">+ Admin</button></td></tr>';
     }).join('');
 }
 
@@ -801,10 +801,10 @@ function createCommunity(event) {
         state: document.getElementById('communityState').value.trim(),
         address: document.getElementById('communityAddress').value.trim(),
         zip: document.getElementById('communityZip').value.trim(),
-        unitCount: parseInt(document.getElementById('communityUnits').value) || 0,
+        unitcount: parseInt(document.getElementById('communityUnits').value) || 0,
         status: 'active',
-        createdAt: new Date().toISOString(),
-        updatedAt: new Date().toISOString()
+        createdat: new Date().toISOString(),
+        updatedat: new Date().toISOString()
     }]).select().single().then(function(result) {
         if (result.error) {
             showToast('Error: ' + result.error.message, 'error');
@@ -858,10 +858,10 @@ function inviteAdmin(event) {
             // Update existing
             return sb.from('profiles').update({
                 role: 'community_admin',
-                communityId: selectedCommunityId,
+                communityid: selectedCommunityId,
                 name: name,
-                isActive: true,
-                updatedAt: new Date().toISOString()
+                isactive: true,
+                updatedat: new Date().toISOString()
             }).eq('id', result.data.id).then(function(updateResult) {
                 btn.disabled = false;
                 btn.textContent = 'Send Invite';
@@ -879,7 +879,7 @@ function inviteAdmin(event) {
                 email: email,
                 options: {
                     emailRedirectTo: window.location.origin + '/community-admin.html',
-                    data: { name: name, role: 'community_admin', communityId: selectedCommunityId }
+                    data: { name: name, role: 'community_admin', communityid: selectedCommunityId }
                 }
             }).then(function(otpResult) {
                 btn.disabled = false;
@@ -900,8 +900,8 @@ function removeAdmin(id, name) {
 
     sb.from('profiles').update({
         role: 'resident',
-        communityId: null,
-        updatedAt: new Date().toISOString()
+        communityid: null,
+        updatedat: new Date().toISOString()
     }).eq('id', id).then(function(result) {
         if (result.error) {
             showToast('Error: ' + result.error.message, 'error');
@@ -966,14 +966,4 @@ function showToast(msg, type) {
 
 function esc(str) {
     if (!str) return '';
-    return String(str).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
-}
-
-function fmtDate(d) {
-    if (!d) return '—';
-    try { return new Date(d).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }); }
-    catch(e) { return '—'; }
-}
-</script>
-</body>
-</html>
+    return String(str).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot
