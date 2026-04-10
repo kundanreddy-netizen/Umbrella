@@ -7430,25 +7430,22 @@
                 const blob   = await new Promise(res => canvas.toBlob(res, 'image/jpeg', 0.88));
                 const file   = new File([blob], 'profile.jpg', { type: 'image/jpeg' });
 
-                let cfResult;
-                try {
-                    // Supabase Edge Function for R2 upload URL
-                    cfResult = await sb.functions.invoke('get-upload-url', { body: { fileName: 'profile.jpg', contentType: 'image/jpeg', folder: 'profiles' } });
-                } catch (cfErr) {
-                    throw new Error('Could not get upload URL: ' + (cfErr.message || cfErr.code));
-                }
-                if (cfResult.error) throw new Error(cfResult.error.message || 'Edge function error');
-                const { presignedUrl, publicUrl, key } = cfResult.data;
-
-                let uploadResp;
-                try {
-                    uploadResp = await fetch(presignedUrl, {
-                        method: 'PUT', headers: { 'Content-Type': 'image/jpeg' }, body: file
+                // Generate unique filename for profile pic
+                const uniqueName = `${currentUser.id}/profiles/${Date.now()}_profile.jpg`;
+                
+                // Upload to Supabase Storage
+                const { data: uploadData, error: uploadError } = await sb.storage
+                    .from('uploads')
+                    .upload(uniqueName, file, {
+                        cacheControl: '3600',
+                        upsert: true  // Allow overwriting profile pics
                     });
-                } catch (fetchErr) {
-                    throw new Error('CORS blocked — add R2 CORS policy for kundanreddy-netizen.github.io');
-                }
-                if (!uploadResp.ok) throw new Error('Upload failed: ' + uploadResp.status);
+                
+                if (uploadError) throw uploadError;
+                
+                // Get public URL
+                const { data: urlData } = sb.storage.from('uploads').getPublicUrl(uniqueName);
+                const publicUrl = urlData.publicUrl;
 
                 // Save to users doc
                 await sb.from('users').update({
@@ -8435,14 +8432,28 @@
             try {
                 const zone = document.querySelector(`[id="${uploadId}-previews"]`)?.closest('.media-upload-zone');
                 const folder = (zone && zone.dataset.folder) || 'media';
-                // Supabase Edge Function for R2 upload URL
-                const result = await sb.functions.invoke('get-upload-url', { body: { fileName: file.name, contentType: file.type, folder } });
-                if (result.error) throw new Error(result.error.message || 'Edge function error');
-                const { presignedUrl, publicUrl, key } = result.data;
-                await fetch(presignedUrl, { method:'PUT', headers:{'Content-Type':file.type}, body:file });
+                
+                // Generate unique filename
+                const ext = file.name.split('.').pop() || 'jpg';
+                const uniqueName = `${currentUser.id}/${folder}/${Date.now()}_${Math.random().toString(36).slice(2,8)}.${ext}`;
+                
+                // Upload to Supabase Storage
+                const { data: uploadData, error: uploadError } = await sb.storage
+                    .from('uploads')
+                    .upload(uniqueName, file, {
+                        cacheControl: '3600',
+                        upsert: false
+                    });
+                
+                if (uploadError) throw uploadError;
+                
+                // Get public URL
+                const { data: urlData } = sb.storage.from('uploads').getPublicUrl(uniqueName);
+                const publicUrl = urlData.publicUrl;
+                
                 const isVideo = file.type.startsWith('video/');
                 state.files.push(file);
-                state.urls.push({ url: publicUrl, key, type: isVideo ? 'video' : 'image' });
+                state.urls.push({ url: publicUrl, key: uniqueName, type: isVideo ? 'video' : 'image' });
                 renderMediaPreviews(uploadId);
                 if (progress) progress.textContent = '';
             } catch (e) {
