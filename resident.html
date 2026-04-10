@@ -3338,7 +3338,7 @@
                     role: 'resident',
                     isapproved: false,
                     termsaccepted: true,
-                    termsaccepted_at: new Date().toISOString(),
+                    termsacceptedat: new Date().toISOString(),
                     createdat: new Date().toISOString()
                 }]).select().single();
                 if (userInsertErr) throw new Error('Users INSERT failed: ' + userInsertErr.message + ' | Details: ' + (userInsertErr.details || '') + ' | Hint: ' + (userInsertErr.hint || ''));
@@ -3416,7 +3416,7 @@
                     await sb.from('audit_log').insert([{
                         action: 'signup',
                         userid: user.id,
-                        user_email: email,
+                        useremail: email,
                         communityid: communityid,
                         success: true,
                         data_after: {
@@ -3460,9 +3460,9 @@
                 console.log('[SIGNUP] Step 7: Recording terms acceptance...');
                 await sb.from('terms_acceptances').insert([{
                     userid: user.id,
-                    user_email: email,
-                    user_name: name,
-                    user_agent: navigator.userAgent,
+                    useremail: email,
+                    username: name,
+                    useragent: navigator.userAgent,
                     termsversion: '1.0',
                     context: 'signup'
                 }]);
@@ -3686,7 +3686,7 @@
                     const cLikes    = c.likes || [];
                     const cHasLiked = cLikes.includes(uid);
                     // Support both field-name styles (migration safety)
-                    const cName = c.userName || c.user_name || 'Unknown';
+                    const cName = c.userName || c.username || 'Unknown';
                     const cUid  = c.userId   || c.userid  || null;
                     html += '<div style="display:flex;gap:10px;margin-bottom:6px;align-items:flex-start;">' +
                         avatarHtml(cName, 36, cUid) +
@@ -3713,14 +3713,14 @@
                             const rHasLiked = rLikes.includes(uid);
                             const rReplies  = r.replies || [];
                             const rInputId  = 'rreply-' + coll + '-' + did + '-' + idx + '-' + rIdx;
-                            const rName     = r.userName || r.user_name || '';
+                            const rName     = r.userName || r.username || '';
                             const rUid      = r.userId   || r.userid  || null;
                             let rNestedHtml = '';
                             if (rReplies.length > 0) {
                                 rNestedHtml = '<div style="margin-top:6px;padding-left:8px;border-left:2px solid #D8D4F5;">';
                                 rReplies.forEach(rr => {
                                     const rrDate = rr.timestamp ? timeAgo(new Date(rr.timestamp)) : '';
-                                    const rrName = rr.userName || rr.user_name || '';
+                                    const rrName = rr.userName || rr.username || '';
                                     const rrUid  = rr.userId   || rr.userid  || null;
                                     rNestedHtml += '<div style="display:flex;gap:8px;margin-top:6px;align-items:flex-start;">' +
                                         avatarHtml(rrName, 22, rrUid) +
@@ -3809,7 +3809,7 @@
                 comments.push({
                     commentId: commentId,
                     userId:    currentUser.id,
-                    user_name:  userData.displayName || 'Unknown',
+                    username:  userData.displayName || 'Unknown',
                     userUnit:  userData.unitnumber  || 'N/A',
                     message:   text,
                     replies:   [],
@@ -5910,7 +5910,7 @@
 
                 const newComment = {
                     userid: currentUser.id,
-                    user_name: userData.displayName || 'Unknown',
+                    username: userData.displayName || 'Unknown',
                     userUnit: userData.unitnumber || 'N/A',
                     message: commentText,
                     timestamp: new Date().toISOString()
@@ -6086,7 +6086,7 @@
 
                 const newComment = {
                     userid: currentUser.id,
-                    user_name: userData.displayName || 'Unknown',
+                    username: userData.displayName || 'Unknown',
                     userUnit: userData.unitnumber || 'N/A',
                     message: commentText,
                     timestamp: new Date().toISOString()
@@ -6246,7 +6246,7 @@
                 const createdDate = userDataFromDb.createdat ? new Date(userDataFromDb.createdat).toLocaleDateString() : 'Unknown';
                 document.getElementById('profileMemberSince').textContent = createdDate;
                 
-                const termsDate = userDataFromDb.termsaccepted_at ? new Date(userDataFromDb.termsaccepted_at).toLocaleDateString() : 'Not accepted';
+                const termsDate = userDataFromDb.termsacceptedat ? new Date(userDataFromDb.termsacceptedat).toLocaleDateString() : 'Not accepted';
                 document.getElementById('profileTermsAccepted').textContent = termsDate;
                 
                 // Update privacy settings
@@ -6749,7 +6749,7 @@
 
                 const newComment = {
                     userid: currentUser.id,
-                    user_name: userData.displayName || 'Unknown',
+                    username: userData.displayName || 'Unknown',
                     userUnit: userData.unitnumber || 'N/A',
                     message: commentText,
                     timestamp: new Date().toISOString()
@@ -6809,7 +6809,7 @@
                 if (hasRSVPd) {
                     rsvps = rsvps.filter(r => r.userId !== currentUser.id);
                 } else {
-                    rsvps.push({ userid: currentUser.id, user_name: userData.displayName || 'Unknown', userUnit: userData.unitnumber || 'N/A', rsvpedAt: new Date().toISOString() });
+                    rsvps.push({ userid: currentUser.id, username: userData.displayName || 'Unknown', userUnit: userData.unitnumber || 'N/A', rsvpedAt: new Date().toISOString() });
                 }
                 await sb.from('events').update({ rsvps: rsvps }).eq('id', eventId);
                 viewEvent(eventId);
@@ -7208,10 +7208,10 @@
                     
                     const acceptanceData = {
                         userid: currentUser.id,
-                        user_email: currentUser.email,
-                        user_name: userData ? userData.displayName : 'Unknown',
-                        accepted_at: new Date().toISOString(),
-                        user_agent: navigator.userAgent,
+                        useremail: currentUser.email,
+                        username: userData ? userData.displayName : 'Unknown',
+                        acceptedat: new Date().toISOString(),
+                        useragent: navigator.userAgent,
                         termsversion: '1.0',
                         context: 'existing'
                     };
@@ -7219,7 +7219,7 @@
                     await sb.from('terms_acceptances').insert([acceptanceData]);
                     await sb.from('users').update({
                         termsaccepted: true,
-                        termsaccepted_at: new Date().toISOString(),
+                        termsacceptedat: new Date().toISOString(),
                         termsversion: '1.0'
                     }).eq('id', currentUser.id);
 
@@ -7268,12 +7268,12 @@
                 const userDataFromDb = userDoc;
                 console.log('📄 User data:', {
                     termsaccepted: userDataFromDb.termsaccepted,
-                    termsaccepted_at: userDataFromDb.termsaccepted_at,
+                    termsacceptedat: userDataFromDb.termsacceptedat,
                     termsversion: userDataFromDb.termsversion
                 });
                 
                 // Check if terms were accepted
-                if (userDataFromDb.termsaccepted === true && userDataFromDb.termsaccepted_at) {
+                if (userDataFromDb.termsaccepted === true && userDataFromDb.termsacceptedat) {
                     console.log('✅ Terms already accepted!');
                     return true;
                 }
@@ -7726,7 +7726,7 @@
                 const replies = comments[commentIdx].replies || [];
                 replies.push({
                     userId:    currentUser.id,
-                    user_name:  userData.displayName || 'Unknown',
+                    username:  userData.displayName || 'Unknown',
                     userUnit:  userData.unitnumber  || 'N/A',
                     message:   text,
                     timestamp: new Date().toISOString()
@@ -8420,7 +8420,7 @@
                 if (!reply.replies) reply.replies = [];
                 reply.replies.push({
                     userId:    currentUser.id,
-                    user_name: userData.displayName || 'Unknown',
+                    username: userData.displayName || 'Unknown',
                     userUnit:  userData.unitnumber  || 'N/A',
                     message:   text,
                     timestamp: new Date().toISOString()
