@@ -704,7 +704,7 @@ function renderApprovals() {
 }
 
 function approveResident(id) {
-    sb.from('users').update({ isapproved: true, approvedat: new Date().toISOString() }).eq('id', id).then(function(r) {
+    sb.from('users').update({ isapproved: true, updatedat: new Date().toISOString() }).eq('id', id).then(function(r) {
         if (r.error) { showToast('Error: ' + r.error.message, 'error'); return; }
         showToast('Resident approved!', 'success');
         loadResidents().then(function() { renderStats(); renderApprovals(); renderResidents(); });
@@ -712,10 +712,10 @@ function approveResident(id) {
 }
 
 function rejectResident(id) {
-    if (!confirm('Reject this resident? Their account will be deactivated.')) return;
-    sb.from('users').update({ isapproved: false, isactive: false }).eq('id', id).then(function(r) {
+    if (!confirm('Reject this resident? Their account will be deleted.')) return;
+    sb.from('users').delete().eq('id', id).then(function(r) {
         if (r.error) { showToast('Error: ' + r.error.message, 'error'); return; }
-        showToast('Resident rejected', 'info');
+        showToast('Resident rejected and removed', 'info');
         loadResidents().then(function() { renderStats(); renderApprovals(); renderResidents(); });
     });
 }
