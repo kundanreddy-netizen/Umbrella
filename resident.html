@@ -3151,6 +3151,25 @@
             document.getElementById('signupForm').classList.add('hidden');
             document.getElementById('forgotPasswordForm').classList.add('hidden');
             clearAuthError();
+            hidePendingApprovalMessage();
+        }
+
+        function showPendingApprovalMessage() {
+            var msgDiv = document.getElementById('pendingApprovalMsg');
+            if (!msgDiv) {
+                msgDiv = document.createElement('div');
+                msgDiv.id = 'pendingApprovalMsg';
+                msgDiv.style.cssText = 'background: #FEF3C7; border: 2px solid #F59E0B; border-radius: 12px; padding: 16px; margin-bottom: 20px; text-align: center;';
+                msgDiv.innerHTML = '<div style="font-size: 24px; margin-bottom: 8px;">⏳</div><div style="font-weight: 600; color: #92400E; margin-bottom: 4px;">Registration Successful!</div><div style="font-size: 14px; color: #B45309;">Waiting for community admin to approve your account. You will be notified once approved.</div>';
+                var loginForm = document.getElementById('loginForm');
+                loginForm.insertBefore(msgDiv, loginForm.firstChild);
+            }
+            msgDiv.style.display = 'block';
+        }
+
+        function hidePendingApprovalMessage() {
+            var msgDiv = document.getElementById('pendingApprovalMsg');
+            if (msgDiv) msgDiv.style.display = 'none';
         }
 
         function showForgotPassword() {
@@ -3489,8 +3508,8 @@
                 document.getElementById('authScreen').style.display = 'block';
                 document.getElementById('mainApp').style.display = 'none';
                 
-                alert('✅ Account created successfully!\n\nYour registration is now pending admin approval.\nYou will receive an email once approved.\n\nYou can login after approval.');
                 showLogin();
+                showPendingApprovalMessage();
 
             } catch (error) {
                 console.error('❌ Signup error:', error);
