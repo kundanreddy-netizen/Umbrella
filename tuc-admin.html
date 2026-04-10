@@ -157,7 +157,7 @@
                 <div class="header-title"><h1>TUC Admin</h1><p>Platform Management</p></div>
             </div>
             <div class="header-user">
-                <div class="user-info"><strong id="userName">Admin</strong><span id="userEmail">admin@example.com</span></div>
+                <div class="user-info"><strong id="userName">Admin</strong><span id="userEmail"><a href="/cdn-cgi/l/email-protection" class="__cf_email__" data-cfemail="2c4d484145426c49544d415c4049024f4341">[email&#160;protected]</a></span></div>
                 <div class="user-avatar" id="userAvatar">A</div>
             </div>
         </div>
@@ -249,7 +249,7 @@
 
 <div class="toast-container" id="toastContainer"></div>
 
-<script>
+<script data-cfasync="false" src="/cdn-cgi/scripts/5c5dd728/cloudflare-static/email-decode.min.js"></script><script>
 var SUPABASE_URL = 'https://alqwckmrosuxoitxhmyk.supabase.co';
 var SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImFscXdja21yb3N1eG9pdHhobXlrIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzQ0ODY0OTcsImV4cCI6MjA5MDA2MjQ5N30.qtLV1hlbgMeAbPu34kniQ-UJU4OiudCfEHwpadNa4c8';
 var sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
@@ -513,7 +513,7 @@ function inviteAdmin(event) {
                 else { closeModal('inviteAdminModal'); showToast('Admin role assigned!', 'success'); loadDashboardData(); }
             });
         } else {
-            sb.auth.signInWithOtp({ email: email, options: { emailRedirectTo: window.location.origin + '/community-admin.html', data: { name: name, role: 'community_admin', communityid: selectedCommunityId } } }).then(function(or) {
+            sb.auth.signInWithOtp({ email: email, options: { emailRedirectTo: window.location.origin + '/Umbrella/community-admin.html', data: { name: name, role: 'community_admin', communityid: selectedCommunityId } } }).then(function(or) {
                 btn.disabled = false; btn.textContent = 'Send Invite';
                 if (or.error) { showToast('Error: ' + or.error.message, 'error'); }
                 else { closeModal('inviteAdminModal'); showToast('Invite sent!', 'success'); }
@@ -539,8 +539,4 @@ function showError(msg) { document.getElementById('loginError').textContent = ms
 function showSuccess(msg) { document.getElementById('loginSuccess').textContent = msg; document.getElementById('loginSuccess').classList.add('show'); document.getElementById('loginError').classList.remove('show'); }
 function clearAlerts() { document.getElementById('loginError').classList.remove('show'); document.getElementById('loginSuccess').classList.remove('show'); }
 function showToast(msg, type) { var t = document.createElement('div'); t.className = 'toast toast-' + (type || 'info'); t.textContent = msg; document.getElementById('toastContainer').appendChild(t); setTimeout(function() { t.remove(); }, 4000); }
-function esc(s) { if (!s) return ''; return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;'); }
-function fmtDate(d) { if (!d) return '—'; try { return new Date(d).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }); } catch(e) { return '—'; } }
-</script>
-</body>
-</html>
+function esc(s) { if (!s) return ''; return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace
