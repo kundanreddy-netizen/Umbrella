@@ -3465,8 +3465,7 @@
                     email: email,
                     phone: phone,
                     unitnumber: unit,
-                    isapproved: false,
-                    status: 'pending'
+                    isapproved: false
                 }]).select().single();
                 if (resInsertErr) {
                     console.error('[SIGNUP] ❌ Residents INSERT failed:', resInsertErr.message, resInsertErr.details, resInsertErr.hint, resInsertErr.code);

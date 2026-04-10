@@ -632,7 +632,7 @@ function loadAllData() {
 }
 
 function loadResidents() {
-    return sb.from('residents').select('*').eq('communityid', communityId).order('createdat', { ascending: false }).then(function(r) {
+    return sb.from('users').select('*').eq('communityid', communityId).eq('role', 'resident').order('createdat', { ascending: false }).then(function(r) {
         allResidents = r.data || [];
     });
 }
@@ -704,7 +704,7 @@ function renderApprovals() {
 }
 
 function approveResident(id) {
-    sb.from('residents').update({ isapproved: true, approvedat: new Date().toISOString() }).eq('id', id).then(function(r) {
+    sb.from('users').update({ isapproved: true, approvedat: new Date().toISOString() }).eq('id', id).then(function(r) {
         if (r.error) { showToast('Error: ' + r.error.message, 'error'); return; }
         showToast('Resident approved!', 'success');
         loadResidents().then(function() { renderStats(); renderApprovals(); renderResidents(); });
@@ -712,8 +712,8 @@ function approveResident(id) {
 }
 
 function rejectResident(id) {
-    if (!confirm('Reject this resident? They will be removed.')) return;
-    sb.from('residents').delete().eq('id', id).then(function(r) {
+    if (!confirm('Reject this resident? Their account will be deactivated.')) return;
+    sb.from('users').update({ isapproved: false, isactive: false }).eq('id', id).then(function(r) {
         if (r.error) { showToast('Error: ' + r.error.message, 'error'); return; }
         showToast('Resident rejected', 'info');
         loadResidents().then(function() { renderStats(); renderApprovals(); renderResidents(); });
