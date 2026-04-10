@@ -1,0 +1,542 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>TUC Admin Portal</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <style>
+        *{margin:0;padding:0;box-sizing:border-box}
+        :root{--primary:#4F46E5;--primary-dark:#3730A3;--primary-light:#818CF8;--bg:#F9FAFB;--white:#FFF;--text:#111827;--muted:#6B7280;--border:#E5E7EB;--success:#10B981;--danger:#EF4444;--radius:12px;--shadow:0 1px 3px rgba(0,0,0,0.1)}
+        body{font-family:'Inter',sans-serif;background:var(--bg);color:var(--text);min-height:100vh}
+        .login-container{min-height:100vh;display:flex;align-items:center;justify-content:center;padding:20px;background:linear-gradient(135deg,var(--primary-dark),var(--primary))}
+        .login-card{background:var(--white);border-radius:16px;padding:40px;width:100%;max-width:420px;box-shadow:0 10px 40px rgba(0,0,0,0.1)}
+        .login-logo{text-align:center;margin-bottom:32px}
+        .login-logo-icon{width:60px;height:60px;background:linear-gradient(135deg,var(--primary),var(--primary-light));border-radius:16px;display:inline-flex;align-items:center;justify-content:center;font-size:28px;margin-bottom:16px}
+        .login-logo h1{font-size:24px;font-weight:800}
+        .login-logo p{font-size:14px;color:var(--muted);margin-top:4px}
+        .form-group{margin-bottom:20px}
+        .form-label{display:block;font-size:14px;font-weight:600;margin-bottom:8px}
+        .form-input{width:100%;padding:12px 16px;border:2px solid var(--border);border-radius:var(--radius);font-size:15px;font-family:inherit;outline:none}
+        .form-input:focus{border-color:var(--primary)}
+        .form-row{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+        .btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;padding:12px 24px;border:none;border-radius:var(--radius);font-size:15px;font-weight:600;font-family:inherit;cursor:pointer}
+        .btn-primary{background:var(--primary);color:white;width:100%}
+        .btn-primary:hover{background:var(--primary-dark)}
+        .btn-primary:disabled{opacity:0.6;cursor:not-allowed}
+        .btn-secondary{background:var(--bg);color:var(--text);border:2px solid var(--border)}
+        .btn-danger{background:#FEE2E2;color:#991B1B}
+        .btn-sm{padding:8px 16px;font-size:13px}
+        .alert{padding:12px 16px;border-radius:var(--radius);font-size:14px;margin-bottom:20px;display:none}
+        .alert-error{background:#FEE2E2;color:#991B1B}
+        .alert-success{background:#D1FAE5;color:#065F46}
+        .alert.show{display:block}
+        .login-footer{text-align:center;margin-top:24px}
+        .login-footer a{color:var(--primary);text-decoration:none;font-size:14px;font-weight:500}
+        .app-container{display:none;min-height:100vh}
+        .app-container.show{display:block}
+        .header{background:var(--white);border-bottom:1px solid var(--border);padding:16px 24px;position:sticky;top:0;z-index:100}
+        .header-inner{max-width:1200px;margin:0 auto;display:flex;justify-content:space-between;align-items:center}
+        .header-brand{display:flex;align-items:center;gap:12px}
+        .header-logo{width:40px;height:40px;background:linear-gradient(135deg,var(--primary),var(--primary-light));border-radius:10px;display:flex;align-items:center;justify-content:center;font-size:20px}
+        .header-title h1{font-size:18px;font-weight:700}
+        .header-title p{font-size:12px;color:var(--muted)}
+        .header-user{display:flex;align-items:center;gap:16px}
+        .user-info{text-align:right}
+        .user-info strong{font-size:14px;display:block}
+        .user-info span{font-size:12px;color:var(--muted)}
+        .user-avatar{width:40px;height:40px;background:var(--primary);color:white;border-radius:50%;display:flex;align-items:center;justify-content:center;font-weight:700}
+        .main-content{max-width:1200px;margin:0 auto;padding:32px 24px}
+        .stats-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:20px;margin-bottom:32px}
+        .stat-card{background:var(--white);border-radius:var(--radius);padding:24px;box-shadow:var(--shadow)}
+        .stat-card h3{font-size:32px;font-weight:800;color:var(--primary)}
+        .stat-card p{font-size:14px;color:var(--muted);margin-top:4px}
+        .section{background:var(--white);border-radius:var(--radius);box-shadow:var(--shadow);margin-bottom:24px;overflow:hidden}
+        .section-header{padding:20px 24px;border-bottom:1px solid var(--border);display:flex;justify-content:space-between;align-items:center}
+        .section-header h2{font-size:18px;font-weight:700}
+        .section-body{padding:24px}
+        table{width:100%;border-collapse:collapse}
+        th,td{padding:14px 16px;text-align:left;border-bottom:1px solid var(--border)}
+        th{font-size:12px;font-weight:600;color:var(--muted);text-transform:uppercase;background:var(--bg)}
+        td{font-size:14px}
+        tr:hover td{background:var(--bg)}
+        .badge{display:inline-block;padding:4px 12px;border-radius:20px;font-size:12px;font-weight:600}
+        .badge-success{background:#D1FAE5;color:#065F46}
+        .badge-warning{background:#FEF3C7;color:#92400E}
+        .empty-state{text-align:center;padding:48px 24px;color:var(--muted)}
+        .empty-state-icon{font-size:48px;margin-bottom:16px}
+        .modal-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,0.5);z-index:1000;align-items:center;justify-content:center;padding:20px}
+        .modal-overlay.show{display:flex}
+        .modal{background:var(--white);border-radius:16px;width:100%;max-width:500px;max-height:90vh;overflow-y:auto}
+        .modal-header{padding:20px 24px;border-bottom:1px solid var(--border);display:flex;justify-content:space-between;align-items:center}
+        .modal-header h3{font-size:18px;font-weight:700}
+        .modal-close{background:none;border:none;font-size:24px;color:var(--muted);cursor:pointer}
+        .modal-body{padding:24px}
+        .modal-footer{padding:16px 24px;border-top:1px solid var(--border);display:flex;justify-content:flex-end;gap:12px}
+        .tabs{display:flex;gap:4px;padding:0 24px;border-bottom:1px solid var(--border);background:var(--bg);overflow-x:auto}
+        .tab-btn{padding:16px 20px;border:none;background:none;font-size:14px;font-weight:500;color:var(--muted);cursor:pointer;border-bottom:2px solid transparent;margin-bottom:-1px;white-space:nowrap}
+        .tab-btn:hover{color:var(--text)}
+        .tab-btn.active{color:var(--primary);border-bottom-color:var(--primary);font-weight:600}
+        .tab-content{display:none}
+        .tab-content.active{display:block}
+        .settings-item{padding:24px 0;border-bottom:1px solid var(--border)}
+        .settings-item:first-child{padding-top:0}
+        .settings-item:last-child{border-bottom:none;padding-bottom:0}
+        .settings-item h4{font-size:16px;font-weight:600;margin-bottom:8px}
+        .settings-item p{font-size:14px;color:var(--muted);margin-bottom:16px}
+        .community-select-item{padding:14px 16px;border:2px solid var(--border);border-radius:var(--radius);margin-bottom:10px;cursor:pointer}
+        .community-select-item:hover{border-color:var(--primary-light);background:var(--bg)}
+        .community-select-item.selected{border-color:var(--primary);background:rgba(79,70,229,0.05)}
+        .community-select-item h4{font-size:15px;font-weight:600;margin-bottom:2px}
+        .community-select-item p{font-size:13px;color:var(--muted);margin:0}
+        .spinner{display:inline-block;width:18px;height:18px;border:2px solid rgba(255,255,255,0.3);border-top-color:white;border-radius:50%;animation:spin 0.8s linear infinite}
+        @keyframes spin{to{transform:rotate(360deg)}}
+        .toast-container{position:fixed;bottom:24px;right:24px;z-index:2000;display:flex;flex-direction:column;gap:8px}
+        .toast{padding:14px 20px;border-radius:var(--radius);font-size:14px;font-weight:500;color:white;box-shadow:0 10px 40px rgba(0,0,0,0.1);animation:slideIn 0.3s ease}
+        .toast-success{background:var(--success)}
+        .toast-error{background:var(--danger)}
+        .toast-info{background:var(--primary)}
+        @keyframes slideIn{from{opacity:0;transform:translateX(100px)}to{opacity:1;transform:translateX(0)}}
+        .hidden{display:none!important}
+        @media(max-width:768px){.header-user .user-info{display:none}.stats-grid{grid-template-columns:1fr 1fr}.form-row{grid-template-columns:1fr}}
+    </style>
+</head>
+<body>
+
+<div class="login-container" id="loginScreen">
+    <div class="login-card">
+        <div class="login-logo">
+            <div class="login-logo-icon">🏢</div>
+            <h1>TUC Admin</h1>
+            <p>The Umbrella Connect Platform</p>
+        </div>
+        <div class="alert alert-error" id="loginError"></div>
+        <div class="alert alert-success" id="loginSuccess"></div>
+        <form id="loginForm" onsubmit="handleLogin(event)">
+            <div class="form-group">
+                <label class="form-label">Email</label>
+                <input type="email" class="form-input" id="loginEmail" placeholder="admin@example.com" autocomplete="email" required>
+            </div>
+            <div class="form-group">
+                <label class="form-label">Password</label>
+                <input type="password" class="form-input" id="loginPassword" placeholder="••••••••" autocomplete="current-password" required>
+            </div>
+            <button type="submit" class="btn btn-primary" id="loginBtn">Sign In</button>
+            <div class="login-footer"><a href="#" onclick="showForgotPassword(event)">Forgot Password?</a></div>
+        </form>
+        <form id="forgotPasswordForm" class="hidden" onsubmit="handleForgotPassword(event)">
+            <p style="font-size:14px;color:var(--muted);margin-bottom:20px">Enter your email for a magic link.</p>
+            <div class="form-group">
+                <label class="form-label">Email</label>
+                <input type="email" class="form-input" id="resetEmail" placeholder="admin@example.com" required>
+            </div>
+            <button type="submit" class="btn btn-primary" id="resetBtn">Send Magic Link</button>
+            <div class="login-footer"><a href="#" onclick="showLoginForm(event)">← Back to Login</a></div>
+        </form>
+        <form id="setPasswordForm" class="hidden" onsubmit="handleSetPassword(event)">
+            <p style="font-size:14px;color:var(--muted);margin-bottom:20px">Set your new password.</p>
+            <div class="form-group">
+                <label class="form-label">New Password</label>
+                <input type="password" class="form-input" id="newPassword" placeholder="Min 6 characters" autocomplete="new-password" required minlength="6">
+            </div>
+            <div class="form-group">
+                <label class="form-label">Confirm Password</label>
+                <input type="password" class="form-input" id="confirmPassword" placeholder="Repeat password" autocomplete="new-password" required minlength="6">
+            </div>
+            <button type="submit" class="btn btn-primary">Set Password</button>
+        </form>
+    </div>
+</div>
+
+<div class="app-container" id="appContainer">
+    <header class="header">
+        <div class="header-inner">
+            <div class="header-brand">
+                <div class="header-logo">🏢</div>
+                <div class="header-title"><h1>TUC Admin</h1><p>Platform Management</p></div>
+            </div>
+            <div class="header-user">
+                <div class="user-info"><strong id="userName">Admin</strong><span id="userEmail"><a href="/cdn-cgi/l/email-protection" class="__cf_email__" data-cfemail="2c4d484145426c49544d415c4049024f4341">[email&#160;protected]</a></span></div>
+                <div class="user-avatar" id="userAvatar">A</div>
+            </div>
+        </div>
+    </header>
+    <div class="tabs">
+        <button class="tab-btn active" data-tab="dashboard" onclick="switchTab('dashboard')">Dashboard</button>
+        <button class="tab-btn" data-tab="communities" onclick="switchTab('communities')">Communities</button>
+        <button class="tab-btn" data-tab="admins" onclick="switchTab('admins')">Admins</button>
+        <button class="tab-btn" data-tab="settings" onclick="switchTab('settings')">Settings</button>
+    </div>
+    <main class="main-content">
+        <div class="tab-content active" id="tab-dashboard">
+            <div class="stats-grid">
+                <div class="stat-card"><h3 id="statCommunities">0</h3><p>Communities</p></div>
+                <div class="stat-card"><h3 id="statAdmins">0</h3><p>Community Admins</p></div>
+                <div class="stat-card"><h3 id="statResidents">0</h3><p>Total Residents</p></div>
+            </div>
+            <div class="section">
+                <div class="section-header"><h2>Recent Communities</h2><button class="btn btn-primary btn-sm" onclick="openCreateCommunityModal()">+ Add Community</button></div>
+                <div class="section-body"><table><thead><tr><th>Name</th><th>Status</th><th>Admins</th><th>Created</th></tr></thead><tbody id="recentCommunitiesTable"></tbody></table></div>
+            </div>
+        </div>
+        <div class="tab-content" id="tab-communities">
+            <div class="section">
+                <div class="section-header"><h2>All Communities</h2><button class="btn btn-primary btn-sm" onclick="openCreateCommunityModal()">+ Add Community</button></div>
+                <div class="section-body"><table><thead><tr><th>Name</th><th>Location</th><th>Status</th><th>Units</th><th>Actions</th></tr></thead><tbody id="communitiesTable"></tbody></table></div>
+            </div>
+        </div>
+        <div class="tab-content" id="tab-admins">
+            <div class="section">
+                <div class="section-header"><h2>Community Admins</h2><button class="btn btn-primary btn-sm" onclick="openInviteAdminModal()">+ Invite Admin</button></div>
+                <div class="section-body"><table><thead><tr><th>Name</th><th>Email</th><th>Community</th><th>Status</th><th>Actions</th></tr></thead><tbody id="adminsTable"></tbody></table></div>
+            </div>
+        </div>
+        <div class="tab-content" id="tab-settings">
+            <div class="section">
+                <div class="section-header"><h2>Account Settings</h2></div>
+                <div class="section-body">
+                    <div class="settings-item">
+                        <h4>Update Password</h4><p>Change your account password</p>
+                        <form onsubmit="handleUpdatePassword(event)" style="max-width:400px">
+                            <div class="form-group"><label class="form-label">New Password</label><input type="password" class="form-input" id="settingsNewPassword" autocomplete="new-password" placeholder="Min 6 characters" required minlength="6"></div>
+                            <div class="form-group"><label class="form-label">Confirm Password</label><input type="password" class="form-input" id="settingsConfirmPassword" autocomplete="new-password" placeholder="Repeat password" required minlength="6"></div>
+                            <button type="submit" class="btn btn-primary">Update Password</button>
+                        </form>
+                    </div>
+                    <div class="settings-item"><h4>Sign Out</h4><p>Sign out of your account</p><button class="btn btn-danger" onclick="handleSignOut()">Sign Out</button></div>
+                </div>
+            </div>
+        </div>
+    </main>
+</div>
+
+<div class="modal-overlay" id="createCommunityModal" onclick="if(event.target===this)closeModal('createCommunityModal')">
+    <div class="modal">
+        <div class="modal-header"><h3>Create Community</h3><button class="modal-close" onclick="closeModal('createCommunityModal')">&times;</button></div>
+        <form onsubmit="createCommunity(event)">
+            <div class="modal-body">
+                <div class="form-group"><label class="form-label">Community Name *</label><input type="text" class="form-input" id="communityName" placeholder="e.g., Sunset Heights HOA" required></div>
+                <div class="form-row">
+                    <div class="form-group"><label class="form-label">City</label><input type="text" class="form-input" id="communityCity" placeholder="City"></div>
+                    <div class="form-group"><label class="form-label">State</label><input type="text" class="form-input" id="communityState" placeholder="State"></div>
+                </div>
+                <div class="form-group"><label class="form-label">Address</label><input type="text" class="form-input" id="communityAddress" placeholder="Street address"></div>
+                <div class="form-row">
+                    <div class="form-group"><label class="form-label">ZIP Code</label><input type="text" class="form-input" id="communityZip" placeholder="ZIP"></div>
+                    <div class="form-group"><label class="form-label">Unit Count</label><input type="number" class="form-input" id="communityUnits" placeholder="0" min="0"></div>
+                </div>
+            </div>
+            <div class="modal-footer"><button type="button" class="btn btn-secondary" onclick="closeModal('createCommunityModal')">Cancel</button><button type="submit" class="btn btn-primary">Create Community</button></div>
+        </form>
+    </div>
+</div>
+
+<div class="modal-overlay" id="inviteAdminModal" onclick="if(event.target===this)closeModal('inviteAdminModal')">
+    <div class="modal">
+        <div class="modal-header"><h3>Invite Community Admin</h3><button class="modal-close" onclick="closeModal('inviteAdminModal')">&times;</button></div>
+        <form onsubmit="inviteAdmin(event)">
+            <div class="modal-body">
+                <div class="form-group"><label class="form-label">Select Community *</label><div id="communitySelectList" style="max-height:200px;overflow-y:auto"></div></div>
+                <div class="form-group"><label class="form-label">Admin Name *</label><input type="text" class="form-input" id="adminName" placeholder="Full name" required></div>
+                <div class="form-group"><label class="form-label">Admin Email *</label><input type="email" class="form-input" id="adminEmail" placeholder="admin@example.com" required></div>
+                <p style="font-size:13px;color:var(--muted);margin-top:8px">📧 A magic link will be sent to set up their account.</p>
+            </div>
+            <div class="modal-footer"><button type="button" class="btn btn-secondary" onclick="closeModal('inviteAdminModal')">Cancel</button><button type="submit" class="btn btn-primary" id="inviteAdminBtn">Send Invite</button></div>
+        </form>
+    </div>
+</div>
+
+<div class="toast-container" id="toastContainer"></div>
+
+<script data-cfasync="false" src="/cdn-cgi/scripts/5c5dd728/cloudflare-static/email-decode.min.js"></script><script>
+var SUPABASE_URL = 'https://alqwckmrosuxoitxhmyk.supabase.co';
+var SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImFscXdja21yb3N1eG9pdHhobXlrIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzQ0ODY0OTcsImV4cCI6MjA5MDA2MjQ5N30.qtLV1hlbgMeAbPu34kniQ-UJU4OiudCfEHwpadNa4c8';
+var sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+var currentUser = null;
+var currentProfile = null;
+var allCommunities = [];
+var allAdmins = [];
+var selectedCommunityId = null;
+
+document.addEventListener('DOMContentLoaded', function() {
+    handleAuthCallback().then(function(handled) {
+        if (!handled) checkSession();
+    });
+});
+
+function handleAuthCallback() {
+    return new Promise(function(resolve) {
+        var hash = window.location.hash;
+        if (!hash || hash.indexOf('access_token') === -1) { resolve(false); return; }
+        var params = new URLSearchParams(hash.substring(1));
+        var accessToken = params.get('access_token');
+        var refreshToken = params.get('refresh_token');
+        var type = params.get('type');
+        if (!accessToken) { resolve(false); return; }
+        sb.auth.setSession({ access_token: accessToken, refresh_token: refreshToken }).then(function(result) {
+            if (result.error) { showError('Auth error: ' + result.error.message); resolve(true); return; }
+            history.replaceState(null, '', window.location.pathname);
+            sb.from('profiles').select('*').eq('id', result.data.user.id).single().then(function(pr) {
+                if (pr.error || !pr.data) { showError('Profile not found'); resolve(true); return; }
+                if (pr.data.role !== 'tuc_admin') { showError('Access denied'); sb.auth.signOut(); resolve(true); return; }
+                currentUser = result.data.user;
+                currentProfile = pr.data;
+                if (type === 'magiclink' || type === 'recovery') { showSetPasswordForm(); } else { enterApp(); }
+                resolve(true);
+            });
+        });
+    });
+}
+
+function checkSession() {
+    sb.auth.getSession().then(function(result) {
+        if (result.error || !result.data.session) return;
+        sb.from('profiles').select('*').eq('id', result.data.session.user.id).single().then(function(pr) {
+            if (pr.error || !pr.data) { sb.auth.signOut(); return; }
+            if (pr.data.role !== 'tuc_admin') { showError('Access denied'); sb.auth.signOut(); return; }
+            currentUser = result.data.session.user;
+            currentProfile = pr.data;
+            enterApp();
+        });
+    });
+}
+
+function handleLogin(event) {
+    event.preventDefault();
+    var email = document.getElementById('loginEmail').value.trim();
+    var password = document.getElementById('loginPassword').value;
+    var btn = document.getElementById('loginBtn');
+    clearAlerts();
+    btn.disabled = true;
+    btn.innerHTML = '<span class="spinner"></span> Signing in...';
+    sb.auth.signInWithPassword({ email: email, password: password }).then(function(result) {
+        if (result.error) { showError(result.error.message); btn.disabled = false; btn.textContent = 'Sign In'; return; }
+        sb.from('profiles').select('*').eq('id', result.data.user.id).single().then(function(pr) {
+            btn.disabled = false; btn.textContent = 'Sign In';
+            if (pr.error || !pr.data) { showError('Profile not found'); return; }
+            if (pr.data.role !== 'tuc_admin') { showError('Access denied'); sb.auth.signOut(); return; }
+            currentUser = result.data.user;
+            currentProfile = pr.data;
+            enterApp();
+        });
+    }).catch(function(err) { showError(err.message); btn.disabled = false; btn.textContent = 'Sign In'; });
+}
+
+function handleForgotPassword(event) {
+    event.preventDefault();
+    var email = document.getElementById('resetEmail').value.trim();
+    var btn = document.getElementById('resetBtn');
+    clearAlerts();
+    btn.disabled = true;
+    btn.innerHTML = '<span class="spinner"></span> Sending...';
+    sb.auth.signInWithOtp({ email: email, options: { emailRedirectTo: window.location.origin + window.location.pathname } }).then(function(result) {
+        btn.disabled = false; btn.textContent = 'Send Magic Link';
+        if (result.error) { showError(result.error.message); } else { showSuccess('Magic link sent! Check your email.'); }
+    });
+}
+
+function handleSetPassword(event) {
+    event.preventDefault();
+    var password = document.getElementById('newPassword').value;
+    var confirm = document.getElementById('confirmPassword').value;
+    clearAlerts();
+    if (password.length < 6) { showError('Password must be at least 6 characters'); return; }
+    if (password !== confirm) { showError('Passwords do not match'); return; }
+    sb.auth.updateUser({ password: password }).then(function(result) {
+        if (result.error) { showError(result.error.message); } else { showToast('Password set!', 'success'); setTimeout(enterApp, 1000); }
+    });
+}
+
+function handleUpdatePassword(event) {
+    event.preventDefault();
+    var password = document.getElementById('settingsNewPassword').value;
+    var confirm = document.getElementById('settingsConfirmPassword').value;
+    if (password.length < 6) { showToast('Password must be at least 6 characters', 'error'); return; }
+    if (password !== confirm) { showToast('Passwords do not match', 'error'); return; }
+    sb.auth.updateUser({ password: password }).then(function(result) {
+        if (result.error) { showToast('Error: ' + result.error.message, 'error'); } 
+        else { document.getElementById('settingsNewPassword').value = ''; document.getElementById('settingsConfirmPassword').value = ''; showToast('Password updated!', 'success'); }
+    });
+}
+
+function handleSignOut() {
+    if (!confirm('Sign out?')) return;
+    sb.auth.signOut().then(function() {
+        currentUser = null; currentProfile = null;
+        document.getElementById('appContainer').classList.remove('show');
+        document.getElementById('loginScreen').style.display = 'flex';
+        showLoginForm();
+    });
+}
+
+function enterApp() {
+    document.getElementById('loginScreen').style.display = 'none';
+    document.getElementById('appContainer').classList.add('show');
+    var name = currentProfile.name || currentUser.email.split('@')[0];
+    document.getElementById('userName').textContent = name;
+    document.getElementById('userEmail').textContent = currentUser.email;
+    document.getElementById('userAvatar').textContent = name.charAt(0).toUpperCase();
+    loadDashboardData();
+}
+
+function switchTab(tabName) {
+    document.querySelectorAll('.tab-btn').forEach(function(btn) { btn.classList.toggle('active', btn.dataset.tab === tabName); });
+    document.querySelectorAll('.tab-content').forEach(function(c) { c.classList.toggle('active', c.id === 'tab-' + tabName); });
+}
+
+function loadDashboardData() {
+    Promise.all([loadCommunities(), loadAdmins()]).then(function() {
+        renderStats(); renderRecentCommunities(); renderCommunitiesTable(); renderAdminsTable();
+    });
+}
+
+function loadCommunities() {
+    return sb.from('communities').select('*').order('createdat', { ascending: false }).then(function(r) { allCommunities = r.data || []; });
+}
+
+function loadAdmins() {
+    return sb.from('profiles').select('*, communities(name)').eq('role', 'community_admin').order('createdat', { ascending: false }).then(function(r) { allAdmins = r.data || []; });
+}
+
+function renderStats() {
+    document.getElementById('statCommunities').textContent = allCommunities.length;
+    document.getElementById('statAdmins').textContent = allAdmins.length;
+    var residents = allCommunities.reduce(function(sum, c) { return sum + (c.residentcount || 0); }, 0);
+    document.getElementById('statResidents').textContent = residents;
+}
+
+function renderRecentCommunities() {
+    var tbody = document.getElementById('recentCommunitiesTable');
+    if (allCommunities.length === 0) { tbody.innerHTML = '<tr><td colspan="4"><div class="empty-state"><div class="empty-state-icon">🏘️</div><p>No communities yet</p></div></td></tr>'; return; }
+    tbody.innerHTML = allCommunities.slice(0, 5).map(function(c) {
+        var loc = c.city ? c.city + ', ' + (c.state || '') : '';
+        var admins = allAdmins.filter(function(a) { return a.communityid === c.id; }).length;
+        return '<tr><td><strong>' + esc(c.name) + '</strong>' + (loc ? '<br><small style="color:var(--muted)">' + esc(loc) + '</small>' : '') + '</td><td><span class="badge badge-success">' + (c.status || 'active') + '</span></td><td>' + admins + '</td><td>' + fmtDate(c.createdat) + '</td></tr>';
+    }).join('');
+}
+
+function renderCommunitiesTable() {
+    var tbody = document.getElementById('communitiesTable');
+    if (allCommunities.length === 0) { tbody.innerHTML = '<tr><td colspan="5"><div class="empty-state"><div class="empty-state-icon">🏘️</div><p>No communities</p></div></td></tr>'; return; }
+    tbody.innerHTML = allCommunities.map(function(c) {
+        var loc = c.city ? c.city + ', ' + (c.state || '') : '—';
+        return '<tr><td><strong>' + esc(c.name) + '</strong></td><td>' + esc(loc) + '</td><td><span class="badge badge-success">' + (c.status || 'active') + '</span></td><td>' + (c.unitcount || 0) + '</td><td><button class="btn btn-secondary btn-sm" onclick="openInviteAdminForCommunity(\'' + c.id + '\')">+ Admin</button></td></tr>';
+    }).join('');
+}
+
+function renderAdminsTable() {
+    var tbody = document.getElementById('adminsTable');
+    if (allAdmins.length === 0) { tbody.innerHTML = '<tr><td colspan="5"><div class="empty-state"><div class="empty-state-icon">👤</div><p>No admins</p></div></td></tr>'; return; }
+    tbody.innerHTML = allAdmins.map(function(a) {
+        var community = a.communities ? a.communities.name : '—';
+        return '<tr><td><strong>' + esc(a.name || '—') + '</strong></td><td>' + esc(a.email || '—') + '</td><td>' + esc(community) + '</td><td><span class="badge badge-success">Active</span></td><td><button class="btn btn-danger btn-sm" onclick="removeAdmin(\'' + a.id + '\',\'' + esc(a.name || a.email) + '\')">Remove</button></td></tr>';
+    }).join('');
+}
+
+function renderCommunitySelectList() {
+    var container = document.getElementById('communitySelectList');
+    if (allCommunities.length === 0) { container.innerHTML = '<p style="color:var(--muted);padding:16px;text-align:center">No communities. Create one first.</p>'; return; }
+    container.innerHTML = allCommunities.map(function(c) {
+        var sel = selectedCommunityId === c.id ? 'selected' : '';
+        var loc = c.city ? c.city + ', ' + (c.state || '') : 'No location';
+        return '<div class="community-select-item ' + sel + '" onclick="selectCommunity(\'' + c.id + '\')"><h4>' + esc(c.name) + '</h4><p>' + esc(loc) + '</p></div>';
+    }).join('');
+}
+
+function openCreateCommunityModal() {
+    document.getElementById('communityName').value = '';
+    document.getElementById('communityCity').value = '';
+    document.getElementById('communityState').value = '';
+    document.getElementById('communityAddress').value = '';
+    document.getElementById('communityZip').value = '';
+    document.getElementById('communityUnits').value = '';
+    openModal('createCommunityModal');
+}
+
+function createCommunity(event) {
+    event.preventDefault();
+    var name = document.getElementById('communityName').value.trim();
+    var slug = name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '');
+    var now = new Date().toISOString();
+    sb.from('communities').insert([{
+        name: name,
+        slug: slug,
+        city: document.getElementById('communityCity').value.trim(),
+        state: document.getElementById('communityState').value.trim(),
+        address: document.getElementById('communityAddress').value.trim(),
+        zip: document.getElementById('communityZip').value.trim(),
+        unitcount: parseInt(document.getElementById('communityUnits').value) || 0,
+        status: 'active',
+        createdat: now,
+        updatedat: now
+    }]).select().single().then(function(result) {
+        if (result.error) { showToast('Error: ' + result.error.message, 'error'); }
+        else { closeModal('createCommunityModal'); showToast('Community created!', 'success'); loadDashboardData(); }
+    });
+}
+
+function openInviteAdminModal() {
+    selectedCommunityId = null;
+    document.getElementById('adminName').value = '';
+    document.getElementById('adminEmail').value = '';
+    renderCommunitySelectList();
+    openModal('inviteAdminModal');
+}
+
+function openInviteAdminForCommunity(id) {
+    selectedCommunityId = id;
+    document.getElementById('adminName').value = '';
+    document.getElementById('adminEmail').value = '';
+    renderCommunitySelectList();
+    openModal('inviteAdminModal');
+}
+
+function selectCommunity(id) {
+    selectedCommunityId = id;
+    renderCommunitySelectList();
+}
+
+function inviteAdmin(event) {
+    event.preventDefault();
+    var name = document.getElementById('adminName').value.trim();
+    var email = document.getElementById('adminEmail').value.trim().toLowerCase();
+    var btn = document.getElementById('inviteAdminBtn');
+    if (!selectedCommunityId) { showToast('Select a community', 'error'); return; }
+    btn.disabled = true;
+    btn.innerHTML = '<span class="spinner"></span> Sending...';
+    sb.from('profiles').select('*').eq('email', email).maybeSingle().then(function(result) {
+        if (result.data) {
+            sb.from('profiles').update({ role: 'community_admin', communityid: selectedCommunityId, name: name, isactive: true, updatedat: new Date().toISOString() }).eq('id', result.data.id).then(function(ur) {
+                btn.disabled = false; btn.textContent = 'Send Invite';
+                if (ur.error) { showToast('Error: ' + ur.error.message, 'error'); }
+                else { closeModal('inviteAdminModal'); showToast('Admin role assigned!', 'success'); loadDashboardData(); }
+            });
+        } else {
+            sb.auth.signInWithOtp({ email: email, options: { emailRedirectTo: window.location.origin + '/Umbrella/community-admin.html', data: { name: name, role: 'community_admin', communityid: selectedCommunityId } } }).then(function(or) {
+                btn.disabled = false; btn.textContent = 'Send Invite';
+                if (or.error) { showToast('Error: ' + or.error.message, 'error'); }
+                else { closeModal('inviteAdminModal'); showToast('Invite sent!', 'success'); }
+            });
+        }
+    });
+}
+
+function removeAdmin(id, name) {
+    if (!confirm('Remove ' + name + ' as admin?')) return;
+    sb.from('profiles').update({ role: 'resident', communityid: null, updatedat: new Date().toISOString() }).eq('id', id).then(function(result) {
+        if (result.error) { showToast('Error: ' + result.error.message, 'error'); }
+        else { showToast('Admin removed', 'success'); loadDashboardData(); }
+    });
+}
+
+function showLoginForm(event) { if (event) event.preventDefault(); document.getElementById('loginForm').classList.remove('hidden'); document.getElementById('forgotPasswordForm').classList.add('hidden'); document.getElementById('setPasswordForm').classList.add('hidden'); clearAlerts(); }
+function showForgotPassword(event) { if (event) event.preventDefault(); document.getElementById('loginForm').classList.add('hidden'); document.getElementById('forgotPasswordForm').classList.remove('hidden'); document.getElementById('setPasswordForm').classList.add('hidden'); clearAlerts(); }
+function showSetPasswordForm() { document.getElementById('loginForm').classList.add('hidden'); document.getElementById('forgotPasswordForm').classList.add('hidden'); document.getElementById('setPasswordForm').classList.remove('hidden'); clearAlerts(); }
+function openModal(id) { document.getElementById(id).classList.add('show'); }
+function closeModal(id) { document.getElementById(id).classList.remove('show'); }
+function showError(msg) { document.getElementById('loginError').textContent = msg; document.getElementById('loginError').classList.add('show'); document.getElementById('loginSuccess').classList.remove('show'); }
+function showSuccess(msg) { document.getElementById('loginSuccess').textContent = msg; document.getElementById('loginSuccess').classList.add('show'); document.getElementById('loginError').classList.remove('show'); }
+function clearAlerts() { document.getElementById('loginError').classList.remove('show'); document.getElementById('loginSuccess').classList.remove('show'); }
+function showToast(msg, type) { var t = document.createElement('div'); t.className = 'toast toast-' + (type || 'info'); t.textContent = msg; document.getElementById('toastContainer').appendChild(t); setTimeout(function() { t.remove(); }, 4000); }
+function esc(s) { if (!s) return ''; return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace
