@@ -539,4 +539,8 @@ function showError(msg) { document.getElementById('loginError').textContent = ms
 function showSuccess(msg) { document.getElementById('loginSuccess').textContent = msg; document.getElementById('loginSuccess').classList.add('show'); document.getElementById('loginError').classList.remove('show'); }
 function clearAlerts() { document.getElementById('loginError').classList.remove('show'); document.getElementById('loginSuccess').classList.remove('show'); }
 function showToast(msg, type) { var t = document.createElement('div'); t.className = 'toast toast-' + (type || 'info'); t.textContent = msg; document.getElementById('toastContainer').appendChild(t); setTimeout(function() { t.remove(); }, 4000); }
-function esc(s) { if (!s) return ''; return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace
+function esc(s) { if (!s) return ''; return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;'); }
+function fmtDate(d) { if (!d) return '—'; try { return new Date(d).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }); } catch(e) { return '—'; } }
+</script>
+</body>
+</html>
