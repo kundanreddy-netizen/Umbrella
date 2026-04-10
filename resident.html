@@ -2519,8 +2519,8 @@
                         toast.innerHTML = '<strong>' + title + '</strong>' + (body ? '<br><span style="font-size:13px;opacity:0.9">' + body + '</span>' : '') + '<br><span style="font-size:11px;opacity:0.7;margin-top:4px;display:inline-block;">Tap to view</span>';
                         
                         // Click toast to open the correct post
-                        const postId   = payload.data?.post_id   || '';
-                        const postType = payload.data?.post_type || 'announcement';
+                        const postId   = payload.data?.postid   || '';
+                        const postType = payload.data?.posttype || 'announcement';
                         toast.addEventListener('click', () => {
                             toast.remove();
                             if (postId) {
@@ -2575,8 +2575,8 @@
                     }
 
                     // New: postId + postType deep link
-                    const urlPostId   = urlParams.get('post_id');
-                    const urlPostType = urlParams.get('post_type');
+                    const urlPostId   = urlParams.get('postid');
+                    const urlPostType = urlParams.get('posttype');
                     if (urlPostId && urlPostType) {
                         console.log('[visibilitychange] Deep link: post', urlPostType, urlPostId);
                         setTimeout(() => { openPostById(urlPostType, urlPostId); }, 1200);
@@ -2597,9 +2597,9 @@
                             
                             // Only open if notification is less than 2 minutes old
                             if (now - pending.timestamp < 120000) {
-                                if (pending.post_id && pending.post_type) {
-                                    console.log('[Cache] Post notification:', pending.post_type, pending.post_id);
-                                    setTimeout(() => { openPostById(pending.post_type, pending.post_id); }, 1200);
+                                if (pending.postid && pending.posttype) {
+                                    console.log('[Cache] Post notification:', pending.posttype, pending.postid);
+                                    setTimeout(() => { openPostById(pending.posttype, pending.postid); }, 1200);
                                 } else if (pending.announcementId) {
                                     console.log('[Cache] Announcement notification:', pending.announcementId);
                                     setTimeout(() => { viewAnnouncement(pending.announcementId); }, 1200);
@@ -2732,8 +2732,8 @@
             // Legacy: announcementId param (admin announcements)
             const announcementId = urlParams.get('announcementId');
             // New: postId + postType params (all resident features)
-            const postId   = urlParams.get('post_id');
-            const postType = urlParams.get('post_type');
+            const postId   = urlParams.get('postid');
+            const postType = urlParams.get('posttype');
 
             if (announcementId) {
                 console.log('[DeepLink] Opening announcement:', announcementId);
@@ -2837,10 +2837,10 @@
                     data: data,
                     // Flatten postId/postType to top-level so Cloud Function
                     // can pass them as FCM data fields (FCM only sends strings)
-                    post_id:   data.post_id   || '',
-                    post_type: data.post_type || type,
-                    created_by: currentUser.id,
-                    created_by_name: userData.displayName || userData.name,
+                    postid:   data.postid   || '',
+                    posttype: data.posttype || type,
+                    createdby: currentUser.id,
+                    createdbyname: userData.displayName || userData.name,
                     createdat: new Date().toISOString(),
                     sent: false
                 }]).select().single();
@@ -3010,10 +3010,10 @@
                                     setTimeout(() => { viewAnnouncement(event.data.announcementId); }, 500);
                                 }
                                 // New: any post type deep link
-                                if (event.data?.type === 'OPEN_POST' && event.data?.post_id) {
-                                    console.log('[SW] Opening post:', event.data.post_type, event.data.post_id);
+                                if (event.data?.type === 'OPEN_POST' && event.data?.postid) {
+                                    console.log('[SW] Opening post:', event.data.posttype, event.data.postid);
                                     setTimeout(() => {
-                                        openPostById(event.data.post_type || 'announcement', event.data.post_id);
+                                        openPostById(event.data.posttype || 'announcement', event.data.postid);
                                     }, 500);
                                 }
                             });
@@ -4006,7 +4006,7 @@
                 window._editData = data; // store for preloadMediaState
 
                 // Only owner or admin can edit
-                if (data.seller_id !== currentUser.id && userData.role !== 'admin') {
+                if (data.sellerid !== currentUser.id && userData.role !== 'admin') {
                     alert('You can only edit your own listings.');
                     return;
                 }
@@ -4131,10 +4131,10 @@
                 if (!doc) { alert('Item not found'); return; }
                 const data = doc;
                 window._editData = data; // store for preloadMediaState
-                if (data.posted_by !== currentUser.id && userData.role !== 'admin') {
+                if (data.ownerid !== currentUser.id && userData.role !== 'admin') {
                     alert('You can only edit your own posts.'); return;
                 }
-                const savedContact = data.postedbyphone || data.postedbyemail || '';
+                const savedContact = data.contact || '';
                 const modalHtml = `
                     <h3 style="margin-bottom:16px;font-size:17px;font-weight:700;">✏️ Edit Community Share</h3>
                     <div class="input-group">
@@ -4186,10 +4186,10 @@
             const avail   = document.getElementById('editCsAvail').value;
             const contact = document.getElementById('editCsContact').value.trim();
             if (!title || !desc || !contact) { alert('Please fill in Title, Description and Contact.'); return; }
-            const isEmail = contact.includes('@');
             try {
                 await sb.from('community_share').update({
                     type, title, description: desc,
+                    contact: contact,
                     availableuntil: avail ? (new Date(avail).toISOString()) : null,
                                         
                     mediaurls: getMediaUrls('edit-cs'),
@@ -4210,7 +4210,7 @@
                 if (!doc) { alert('Alert not found'); return; }
                 const data = doc;
                 window._editData = data; // store for preloadMediaState
-                if (data.posted_by !== currentUser.id && userData.role !== 'admin') {
+                if (data.reportedby !== currentUser.id && userData.role !== 'admin') {
                     alert('You can only edit your own alerts.'); return;
                 }
                 const dtVal = data.incidentdatetime
@@ -4291,13 +4291,13 @@
                 if (!doc) { alert('Event not found'); return; }
                 const data = doc;
                 window._editData = data; // store for preloadMediaState
-                if (data.organizer_id !== currentUser.id && userData.role !== 'admin') {
+                if (data.organizerid !== currentUser.id && userData.role !== 'admin') {
                     alert('You can only edit your own events.'); return;
                 }
                 const eventDt = data.eventdate ? new Date(data.eventdate) : null;
                 const dateVal = eventDt ? eventDt.toISOString().split('T')[0] : '';
                 const timeVal = eventDt ? eventDt.toTimeString().slice(0,5) : '';
-                const savedContact = data.organizerPhone || data.organizerEmail || '';
+                const savedContact = data.contact || data.contact || '';
                 const modalHtml = `
                     <h3 style="margin-bottom:16px;font-size:17px;font-weight:700;">✏️ Edit Event</h3>
                     <div class="input-group">
@@ -4354,15 +4354,13 @@
             const loc     = document.getElementById('editEvLoc').value.trim();
             const contact = document.getElementById('editEvContact').value.trim();
             if (!title || !desc || !date || !loc || !contact) { alert('Please fill in all required fields.'); return; }
-            const isEmail = contact.includes('@');
             const combined = new Date(date + 'T' + (time || '00:00'));
             try {
                 await sb.from('events').update({
                     title, description: desc,
                     eventdate: (combined).toISOString(),
                     location: loc,
-                    organizeremail: isEmail ? contact : '',
-                    organizerphone: isEmail ? '' : contact,
+                    contact: contact,
                     mediaurls: getMediaUrls('edit-ev'),
                     updatedat: new Date().toISOString()
                 }).eq('id', eventId);
@@ -4381,11 +4379,11 @@
                 if (!doc) { alert('Item not found'); return; }
                 const data = doc;
                 window._editData = data; // store for preloadMediaState
-                if (data.posted_by !== currentUser.id && userData.role !== 'admin') {
+                if (data.postedby !== currentUser.id && userData.role !== 'admin') {
                     alert('You can only edit your own posts.'); return;
                 }
                 const dateVal = data.date ? new Date(data.date).toISOString().split('T')[0] : '';
-                const savedContact = data.postedbyphone || data.postedbyemail || data.contact || '';
+                const savedContact = data.contact || '';
                 const catOpts = [
                     ['pet','🐕 Pet'],['keys','🔑 Keys'],['wallet','👛 Wallet/Purse'],
                     ['phone','📱 Phone/Electronics'],['package','📦 Package/Mail'],
@@ -4490,7 +4488,7 @@
                 const newPurpose = prompt('Purpose:', data.purpose || '');
                 if (newPurpose === null) return;
                 await sb.from('visitors').update({
-                    visitorname: newName, visitorPhone: newPhone, vehicleNumber: newVehicle, purpose: newPurpose,
+                    visitorname: newName, visitorphone: newPhone, vehiclenumber: newVehicle, purpose: newPurpose,
                     updatedat: new Date().toISOString()
                 }).eq('id', id);
                 alert('✅ Visitor updated');
@@ -4756,7 +4754,8 @@
             const container = document.getElementById('directoryList');
             
             try {
-                const { data: snapshotData, error: snapshotError } = await sb.from('residents').select('*').eq('communityid', userCommunityId);
+                // Query users table for approved residents in this community
+                const { data: snapshotData, error: snapshotError } = await sb.from('users').select('*').eq('communityid', userCommunityId).eq('role', 'resident').eq('isapproved', true);
 
                 if ((!snapshotData || snapshotData.length === 0)) {
                     allDirectoryResidents = [];
@@ -4771,54 +4770,26 @@
 
                 // Sort by unit number
                 const residents = [];
-                const userIdsToFetch = [];
                 (snapshotData || []).forEach(d => {
-                    residents.push(d);
-                    // If resident doc already has pic URL — great, cache it
-                    if (d.userid && d.profilepicurl) {
-                        userPicCache[d.userid] = d.profilepicurl;
-                    } else if (d.userid) {
-                        // No pic in residents doc — need to fetch from users doc
-                        userIdsToFetch.push({ residentIndex: residents.length - 1, userId: d.userid });
+                    // Map users table columns to expected format
+                    residents.push({
+                        id: d.id,
+                        userid: d.id,
+                        name: d.name,
+                        email: d.email,
+                        phone: d.phone,
+                        unitnumber: d.unitnumber,
+                        profilepicurl: d.profilepicurl,
+                        isapproved: d.isapproved,
+                        privacysettings: d.privacysettings || { showEmail: true, showPhone: true, showInDirectory: true }
+                    });
+                    if (d.id && d.profilepicurl) {
+                        userPicCache[d.id] = d.profilepicurl;
                     }
                 });
-
-                // Batch-fetch users docs for any residents missing profilePicUrl
-                // Firestore 'in' query supports up to 30 items per batch
-                if (userIdsToFetch.length > 0) {
-                    const batchSize = 30;
-                    for (let i = 0; i < userIdsToFetch.length; i += batchSize) {
-                        const batch = userIdsToFetch.slice(i, i + batchSize);
-                        const userIds = batch.map(b => b.userId);
-                        const { data: usersSnapData } = await sb.from('users').select('*').in('id', userIds);
-                        (usersSnapData || []).forEach(userDoc => {
-                            const picUrl = userDoc.profilepicurl;
-                            if (picUrl) {
-                                // Update cache
-                                userPicCache[userDoc.id] = picUrl;
-                                // Update the resident object so renderDirectoryResidents sees it
-                                const match = batch.find(b => b.userId === userDoc.id);
-                                if (match !== undefined) {
-                                    residents[match.residentIndex].profilepicurl = picUrl;
-                                }
-                                // Also backfill the residents doc so next load is faster
-                                const resDoc = residents.find(r => r.userid === userDoc.id);
-                                if (resDoc) {
-                                    sb.from('residents').update({ profilepicurl: picUrl }).eq('id', resDoc.id).then(() => {}).catch(() => {});
-                                }
-                            }
-                        });
-                    }
-                }
                 
-                // FILTER 1: Only show APPROVED residents
-                const approvedResidents = residents.filter(r => {
-                    // Only show if explicitly approved OR if isapproved field doesn't exist (legacy users)
-                    return r.isapproved === true || r.isapproved === undefined;
-                });
-                
-                // FILTER 2: Filter residents who want to be shown in directory
-                const visibleResidents = approvedResidents.filter(r => {
+                // Filter residents who want to be shown in directory
+                const visibleResidents = residents.filter(r => {
                     if (!r.privacysettings) return true;
                     if (r.privacysettings.showInDirectory === undefined) return true;
                     return r.privacysettings.showInDirectory === true;
@@ -5057,7 +5028,7 @@
                     const isOwner = data.residentid === currentUser.id;
                     
                     html += `
-                        <div class="card" onclick="viewVisitorQR('${data.id}', '${data.visitorname || 'Visitor'}', '${data.qrcode_data || ''}', '${date}')">
+                        <div class="card" onclick="viewVisitorQR('${data.id}', '${data.visitorname || 'Visitor'}', '${data.qrcode || ''}', '${date}')">
                             <div class="card-header">
                                 <div style="flex:1;">
                                     <div class="card-title">${data.visitorname || 'Visitor'}</div>
@@ -5065,15 +5036,15 @@
                                 </div>
                                 ${postMenuHtml(data.id, 'visitor', isOwner, userData.role === 'admin')}
                             </div>
-                            ${!isOwner ? `<div style="font-size: 12px; color: #999; margin-top: 5px;">👤 ${data.residentname || 'Unknown'} • Unit ${data.unitnumber || 'N/A'}</div>` : ''}
+                            ${!isOwner ? `<div style="font-size: 12px; color: #999; margin-top: 5px;">👤 ${data.residentname || 'Unknown'} • Unit ${data.residentunit || 'N/A'}</div>` : ''}
                             <div class="card-content">
                                 ${data.visitorphone ? `<div><strong>Phone:</strong> ${data.visitorphone}</div>` : ''}
                                 ${data.vehiclenumber ? `<div><strong>Vehicle:</strong> ${data.vehiclenumber}</div>` : ''}
                                 ${data.purpose ? `<div><strong>Purpose:</strong> ${data.purpose}</div>` : ''}
-                                ${data.qrcode_data ? `<div style="margin-top:10px;"><strong>Pass Code:</strong> <code style="background:#f0f0f0;padding:4px 8px;border-radius:4px;font-size:13px;">${data.qrcode_data}</code></div>` : ''}
+                                ${data.qrcode ? `<div style="margin-top:10px;"><strong>Pass Code:</strong> <code style="background:#f0f0f0;padding:4px 8px;border-radius:4px;font-size:13px;">${data.qrcode}</code></div>` : ''}
                             </div>
                             <span class="badge badge-${data.status || 'pending'}">${data.status || 'pending'}</span>
-                            ${data.qrcode_data ? '<div style="margin-top:10px;color:#667eea;font-size:12px;font-weight:600;">📱 Tap to view QR code</div>' : ''}
+                            ${data.qrcode ? '<div style="margin-top:10px;color:#667eea;font-size:12px;font-weight:600;">📱 Tap to view QR code</div>' : ''}
                         </div>
                     `;
                 });
@@ -5127,7 +5098,7 @@
                 let html = '';
                 tickets.forEach(data => {
                     const date = data.createdat ? new Date(data.createdat).toLocaleDateString() : 'Recent';
-                    const isOwner = data.residentid === currentUser.id || data.created_by === currentUser.id;
+                    const isOwner = data.residentid === currentUser.id || data.createdby === currentUser.id;
                     
                     // Closed/resolved tickets are faded to show completion
                     const isClosed = data.status === 'closed' || data.status === 'resolved';
@@ -5246,16 +5217,16 @@
             let html = '';
             items.forEach(data => {
                 const date = data.createdat ? new Date(data.createdat).toLocaleDateString() : 'Recent';
-                const isOwner = data.seller_id === currentUser.id;
+                const isOwner = data.sellerid === currentUser.id;
                 const commentCount = data.comments ? data.comments.length : 0;
                 
                 html += `
                     <div class="card" onclick="viewMarketplaceItem('${data.id}')" style="cursor:pointer;">
                         <div style="display:flex;align-items:center;gap:12px;">
-                            ${avatarHtml(data.sellername, 52, data.seller_id)}
+                            ${avatarHtml(data.sellername, 52, data.sellerid)}
                             <div style="flex:1;min-width:0;">
                                 <div style="font-weight:700;font-size:16px;color:#0D0D0D;">${data.sellername || 'Resident'}</div>
-                                <div class="feed-meta">Unit ${data.unitnumber || 'N/A'} · ${date}</div>
+                                <div class="feed-meta">Unit ${data.sellerunit || 'N/A'} · ${date}</div>
                             </div>
                             ${postMenuHtml(data.id, 'marketplace', isOwner, userData.role === 'admin')}
                         </div>
@@ -5584,14 +5555,14 @@
                     communityid: userCommunityId, // MULTI-TENANT: Add community ID
                     residentid: currentUser.id,
                     residentname: userData.displayName,
-                    unitnumber: userData.unitnumber,
+                    residentunit: userData.unitnumber,
                     visitorname: name,
                     visitorphone: phone,
                     vehiclenumber: vehicle,
                     visitdate: date,
                     purpose: purpose,
                     status: 'approved', // Auto-approve for now
-                    qrcode_data: qrCode,
+                    qrcode: qrCode,
                     createdat: new Date().toISOString()
                 }]);
 
@@ -5680,11 +5651,11 @@
                 
                 const itemData = {
                     communityid: userCommunityId,
-                    seller_id: currentUser.id,
+                    sellerid: currentUser.id,
                     sellername: userData.displayName || 'Unknown',
                     selleremail: isEmail ? contact : (userData.email || ''),
                     sellerphone: isEmail ? '' : contact,
-                    unitnumber: userData.unitnumber || 'N/A',
+                    sellerunit: userData.unitnumber || 'N/A',
                     title: title,
                     price: parseFloat(price),
                     category: category,
@@ -5743,13 +5714,13 @@
                 if (!doc) { alert('Item not found'); return; }
                 const data = doc;
                 trackView('marketplace', itemId); // non-blocking
-                const isOwner = data.seller_id === currentUser.id;
+                const isOwner = data.sellerid === currentUser.id;
                 const comments = data.comments || [];
                 const delAction = "if(confirm('Delete?')){deleteMarketplaceItem('" + itemId + "');closeMarketplaceModal();}";
                 
                 // Scroll area + sticky comment bar (two-child flex column)
                 let scrollHtml = '<div style="flex:1;overflow-y:auto;padding:16px 20px 8px;">';
-                scrollHtml += postHeaderHtml(data.sellername, data.unitnumber, data.createdat, isOwner, delAction, data.seller_id);
+                scrollHtml += postHeaderHtml(data.sellername, data.sellerunit, data.createdat, isOwner, delAction, data.sellerid);
                 if (data.mediaurls && data.mediaurls.length > 0) scrollHtml += modalMediaHtml(data.mediaurls);
                 scrollHtml += '<div class="post-title">' + (data.title || 'Item') + '</div>';
                 scrollHtml += '<div class="post-price">$' + (data.price || '0') + '</div>';
@@ -5819,8 +5790,8 @@
                 html += '<div class="post-body">' + (data.description || 'No description') + '</div>';
                 
                 // Admin response section (kept)
-                if (data.adminResponse) {
-                    html += '<div style="padding:12px;background:#e8f5e9;border-radius:8px;border-left:3px solid #4CAF50;margin-bottom:12px;"><div style="font-weight:600;font-size:13px;color:#2E7D32;margin-bottom:4px;">💬 Admin Response:</div><div style="font-size:13px;line-height:1.5;">' + data.adminResponse + '</div></div>';
+                if (data.adminresponse) {
+                    html += '<div style="padding:12px;background:#e8f5e9;border-radius:8px;border-left:3px solid #4CAF50;margin-bottom:12px;"><div style="font-weight:600;font-size:13px;color:#2E7D32;margin-bottom:4px;">💬 Admin Response:</div><div style="font-size:13px;line-height:1.5;">' + data.adminresponse + '</div></div>';
                 } else {
                     html += '<div style="padding:10px;background:#fff3e0;border-radius:8px;border-left:3px solid #FF9800;margin-bottom:12px;font-size:13px;color:#E65100;">⏳ Awaiting admin response</div>';
                 }
@@ -5849,7 +5820,7 @@
                 const typeLabels = { suspicious_activity: '👀 Suspicious Activity', theft: '🚔 Theft', vandalism: '🔨 Vandalism', noise: '🔊 Noise Disturbance', safety_hazard: '⚠️ Safety Hazard', other: '📝 Other' };
                 const delAction = "if(confirm('Delete?')){sb.from('security_alerts').delete().eq('id', '" + alertId + "').then(()=>{closeMarketplaceModal();loadSecurityAlerts();});}";
                 
-                let html = postHeaderHtml(data.reportedby_name, data.unitnumber, data.createdat, isOwner, delAction, data.reportedby);
+                let html = postHeaderHtml(data.reportername, data.reporterunit, data.createdat, isOwner, delAction, data.reportedby);
                 if (data.mediaurls && data.mediaurls.length > 0) html += modalMediaHtml(data.mediaurls);
                 html += '<span class="post-badge post-badge-red">' + (typeLabels[data.type] || '🚨 Alert') + '</span>';
                 html += '<div class="post-title">' + (data.title || 'Security Alert') + '</div>';
@@ -5874,7 +5845,7 @@
                 const data = doc;
                 trackView('lost_and_found', itemId); // non-blocking
                 const dateStr = data.date ? new Date(data.date).toLocaleDateString() : 'Date unknown';
-                const isOwner = data.posted_by === currentUser.id;
+                const isOwner = data.postedby === currentUser.id;
                 const comments = data.comments || [];
                 const categoryIcons = { pet: '🐕', keys: '🔑', wallet: '👛', phone: '📱', 'package': '📦', clothing: '👕', jewelry: '💍', other: '📦' };
                 const typeBadge = data.type === 'lost'
@@ -5882,7 +5853,7 @@
                     : '<span style="background:#28a745;color:white;padding:3px 10px;border-radius:10px;font-size:12px;font-weight:600;">✅ FOUND</span>';
                 const delAction = "if(confirm('Delete?')){sb.from('lost_and_found').delete().eq('id', '" + itemId + "').then(()=>{closeMarketplaceModal();loadLostAndFound();});}";
                 
-                let html = postHeaderHtml(data.postedbyname, data.unitnumber, data.createdat, isOwner, delAction, data.posted_by);
+                let html = postHeaderHtml(data.postedbyname, data.unitnumber, data.createdat, isOwner, delAction, data.postedby);
                 if (data.mediaurls && data.mediaurls.length > 0) html += modalMediaHtml(data.mediaurls);
                 html += typeBadge + ' ' + (categoryIcons[data.category] || '📦');
                 html += '<div class="post-title">' + (data.title || 'Item') + '</div>';
@@ -6007,15 +5978,15 @@
                     const typeLabel = data.type === 'need' ? 'Need to Borrow' : 'Available to Lend';
                     const typeBg = data.type === 'need' ? '#fff3e0' : '#e8f5e9';
                     const typeColor = data.type === 'need' ? '#e65100' : '#2e7d32';
-                    const isOwner = data.posted_by === currentUser.id;
+                    const isOwner = data.ownerid === currentUser.id;
                     
                     html += `
                         <div class="card" onclick="viewCommunityShareItem('${data.id}')" style="cursor:pointer;">
                             <div style="display:flex;align-items:center;gap:12px;">
-                                ${avatarHtml(data.postedbyname, 52, data.posted_by)}
+                                ${avatarHtml(data.ownername, 52, data.ownerid)}
                                 <div style="flex:1;min-width:0;">
-                                    <div style="font-weight:700;font-size:16px;color:#0D0D0D;">${data.postedbyname || 'Resident'}</div>
-                                    <div class="feed-meta">Unit ${data.unitnumber || 'N/A'} · ${date}</div>
+                                    <div style="font-weight:700;font-size:16px;color:#0D0D0D;">${data.ownername || 'Resident'}</div>
+                                    <div class="feed-meta">Unit ${data.ownerunit || 'N/A'} · ${date}</div>
                                 </div>
                                 ${postMenuHtml(data.id, 'communityshare', isOwner, userData.role === 'admin')}
                             </div>
@@ -6055,7 +6026,7 @@
                 if (!doc) { alert('Item not found'); return; }
                 const data = doc;
                 trackView('community_share', itemId); // non-blocking
-                const isOwner = data.posted_by === currentUser.id;
+                const isOwner = data.ownerid === currentUser.id;
                 const comments = data.comments || [];
                 const typeIcon = data.type === 'need' ? '🙏' : '🎁';
                 const typeLabel = data.type === 'need' ? 'Need to Borrow' : 'Available to Lend';
@@ -6063,7 +6034,7 @@
                 const typeColor = data.type === 'need' ? '#e65100' : '#2e7d32';
                 const delAction = "if(confirm('Delete?')){deleteCommunityShareItem('" + itemId + "');closeMarketplaceModal();}";
                 
-                let html = postHeaderHtml(data.postedbyname, data.unitnumber, data.createdat, isOwner, delAction, data.posted_by);
+                let html = postHeaderHtml(data.ownername, data.ownerunit, data.createdat, isOwner, delAction, data.ownerid);
                 if (data.mediaurls && data.mediaurls.length > 0) html += modalMediaHtml(data.mediaurls);
                 html += '<span style="background:' + typeBg + ';color:' + typeColor + ';padding:3px 10px;border-radius:10px;font-size:12px;font-weight:600;display:inline-block;margin-bottom:10px;">' + typeIcon + ' ' + typeLabel + '</span>';
                 html += '<div class="post-title">' + (data.title || 'Item') + '</div>';
@@ -6141,9 +6112,10 @@
                 
                 const { data: csRef, error: csRefErr } = await sb.from('community_share').insert([{
                     communityid: userCommunityId,
-                    posted_by: currentUser.id,
-                    postedbyname: userData.displayName || 'Unknown',
-                    unitnumber: userData.unitnumber || 'N/A',
+                    ownerid: currentUser.id,
+                    ownername: userData.displayName || 'Unknown',
+                    ownerunit: userData.unitnumber || 'N/A',
+                    contact: contact,
                     title: title,
                     type: type,
                     description: description,
@@ -6460,7 +6432,7 @@
                 
                 // Update in Firestore
                 sb.from('visitors').update({
-                    qrcode_data: newQRCode
+                    qrcode: newQRCode
                 }).eq('id', visitorId).then(() => {
                     console.log('QR code generated for visitor:', visitorId);
                     // Now show the QR code
@@ -6717,15 +6689,15 @@
                     const timeStr = eventDate ? eventDate.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'}) : '';
                     const rsvpCount = data.rsvps ? data.rsvps.length : 0;
                     const commentCount = data.comments ? data.comments.length : 0;
-                    const isOrganizer = data.organizer_id === currentUser.id;
+                    const isOrganizer = data.organizerid === currentUser.id;
                     const isAdm = userData.role === 'admin';
                     
                     html += '<div class="card" onclick="viewEvent(\'' + data.id + '\')" style="cursor:pointer;' + (isPast ? 'opacity:0.55;' : '') + '">' +
                       '<div style="display:flex;align-items:center;gap:12px;">' +
-                        avatarHtml(data.organizername, 52, data.organizer_id) +
+                        avatarHtml(data.organizername, 52, data.organizerid) +
                         '<div style="flex:1;min-width:0;">' +
                           '<div style="font-weight:700;font-size:16px;color:#0D0D0D;">' + (data.organizername || 'Resident') + '</div>' +
-                          '<div class="feed-meta">Unit ' + (data.unitnumber || 'N/A') + ' · ' + dateStr + (timeStr ? ' · ' + timeStr : '') + '</div>' +
+                          '<div class="feed-meta">Unit ' + (data.organizerunit || 'N/A') + ' · ' + dateStr + (timeStr ? ' · ' + timeStr : '') + '</div>' +
                         '</div>' +
                         postMenuHtml(data.id, 'event', isOrganizer, isAdm) +
                       '</div>' +
@@ -6796,13 +6768,13 @@
                 const eventDate = data.eventdate ? new Date(data.eventdate) : null;
                 const dateStr = eventDate ? eventDate.toLocaleDateString() : 'TBD';
                 const timeStr = eventDate ? eventDate.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'}) : '';
-                const isOrganizer = data.organizer_id === currentUser.id;
+                const isOrganizer = data.organizerid === currentUser.id;
                 const rsvps = data.rsvps || [];
                 const hasRSVPd = rsvps.some(r => r.userId === currentUser.id);
                 const comments = data.comments || [];
                 const delAction = "if(confirm('Delete?')){deleteEvent('" + eventId + "');closeMarketplaceModal();}";
                 
-                let html = postHeaderHtml(data.organizername, data.unitnumber, data.createdat, isOrganizer, delAction, data.organizer_id);
+                let html = postHeaderHtml(data.organizername, data.organizerunit, data.createdat, isOrganizer, delAction, data.organizerid);
                 if (data.mediaurls && data.mediaurls.length > 0) html += modalMediaHtml(data.mediaurls);
                 html += '<div class="post-title">' + (data.title || 'Event') + '</div>';
                 html += '<div style="padding:10px 14px;background:#e3f2fd;border-radius:8px;margin-bottom:10px;font-size:14px;"><span style="font-weight:600;color:#667eea;">📅 ' + dateStr + (timeStr ? ' • ⏰ ' + timeStr : '') + '</span>' + (data.location ? '<br>📍 ' + data.location : '') + '</div>';
@@ -6893,11 +6865,10 @@
                 
                 const eventData = {
                     communityid: userCommunityId,
-                    organizer_id: currentUser.id,
+                    organizerid: currentUser.id,
                     organizername: userData.displayName || 'Unknown',
-                    organizeremail: isEmail ? contactVal : (userData.email || ''),
-                    organizerphone: isEmail ? '' : contactVal,
-                    unitnumber: userData.unitnumber || 'N/A',
+                    organizerunit: userData.unitnumber || 'N/A',
+                    contact: contactVal,
                     title: titleVal,
                     description: descVal,
                     eventdate: (dateTime).toISOString(),
@@ -6968,8 +6939,8 @@
                     location: location,
                     incidentdatetime: (new Date(dateTime).toISOString()),
                     reportedby: currentUser.id,
-                    reportedby_name: userData.displayName || 'Unknown',
-                    unitnumber: userData.unitnumber || 'N/A',
+                    reportername: userData.displayName || 'Unknown',
+                    reporterunit: userData.unitnumber || 'N/A',
                     status: 'active',
                     mediaurls: getMediaUrls('sa-upload'),
                     createdat: new Date().toISOString()
@@ -7021,10 +6992,10 @@
                     const isAdm = userData.role === 'admin';
                     html += '<div class="card" onclick="viewSecurityAlert(\'' + data.id + '\')" style="cursor:pointer;">' +
                       '<div style="display:flex;align-items:center;gap:12px;">' +
-                        avatarHtml(data.reportedby_name, 52, data.reportedby) +
+                        avatarHtml(data.reportername, 52, data.reportedby) +
                         '<div style="flex:1;min-width:0;">' +
-                          '<div style="font-weight:700;font-size:16px;color:#0D0D0D;">' + (data.reportedby_name || 'Resident') + '</div>' +
-                          '<div class="feed-meta">Unit ' + data.unitnumber + ' · ' + posted + '</div>' +
+                          '<div style="font-weight:700;font-size:16px;color:#0D0D0D;">' + (data.reportername || 'Resident') + '</div>' +
+                          '<div class="feed-meta">Unit ' + (data.reporterunit || 'N/A') + ' · ' + posted + '</div>' +
                         '</div>' +
                         postMenuHtml(data.id, 'security', isOwner, isAdm) +
                       '</div>' +
@@ -7072,7 +7043,7 @@
                     location: location || 'Not specified',
                     date: date ? new Date(date).toISOString() : null,
                     contact: contact,
-                    posted_by: currentUser.id,
+                    postedby: currentUser.id,
                     postedbyname: userData.displayName || 'Unknown',
                     unitnumber: userData.unitnumber || 'N/A',
                     status: 'active',
@@ -7113,11 +7084,11 @@
                 items.forEach(data => {
                     const typeBadge = data.type === 'lost' ? '<span style="background:#dc3545;color:white;padding:4px 12px;border-radius:12px;font-size:12px;font-weight:600;">❌ LOST</span>' : '<span style="background:#28a745;color:white;padding:4px 12px;border-radius:12px;font-size:12px;font-weight:600;">✅ FOUND</span>';
                     const dateStr = data.date ? new Date(data.date).toLocaleDateString() : 'Date unknown';
-                    const isOwner = data.posted_by === currentUser.id;
+                    const isOwner = data.postedby === currentUser.id;
                     const isAdm = userData.role === 'admin';
                     html += '<div class="card" onclick="viewLostFoundItem(\'' + data.id + '\')" style="cursor:pointer;">' +
                       '<div style="display:flex;align-items:center;gap:12px;">' +
-                        avatarHtml(data.postedbyname, 52, data.posted_by) +
+                        avatarHtml(data.postedbyname, 52, data.postedby) +
                         '<div style="flex:1;min-width:0;">' +
                           '<div style="font-weight:700;font-size:16px;color:#0D0D0D;">' + (data.postedbyname || 'Resident') + '</div>' +
                           '<div class="feed-meta">Unit ' + (data.unitnumber || 'N/A') + '</div>' +
@@ -7631,7 +7602,7 @@
 
                 // Optionally delete file from R2 (best-effort)
                 try {
-                    const picKey = null; // profile_pic_key not stored in DB
+                    const picKey = null; // profilepickey not stored in DB
                     if (picKey) {
                         // Supabase Edge Function for R2 delete
                         await deleteFn({ key: picKey });
