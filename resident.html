@@ -4127,7 +4127,7 @@
         // ========== EDIT: COMMUNITY SHARE ==========
         async function editCommunityShareInline(itemId) {
             try {
-                const { data: doc, error: docErr } = await sb.from('community_share').select('*').eq('id', itemId).maybeSingle();
+                const { data: doc, error: docErr } = await sb.from('communityshare').select('*').eq('id', itemId).maybeSingle();
                 if (!doc) { alert('Item not found'); return; }
                 const data = doc;
                 window._editData = data; // store for preloadMediaState
@@ -4187,7 +4187,7 @@
             const contact = document.getElementById('editCsContact').value.trim();
             if (!title || !desc || !contact) { alert('Please fill in Title, Description and Contact.'); return; }
             try {
-                await sb.from('community_share').update({
+                await sb.from('communityshare').update({
                     type, title, description: desc,
                     contact: contact,
                     availableuntil: avail ? (new Date(avail).toISOString()) : null,
@@ -5948,7 +5948,7 @@
             const container = document.getElementById('communityshareContent');
             
             try {
-                const { data: snapshotData, error: snapshotError } = await sb.from('community_share').select('*').eq('communityid', userCommunityId).eq('status', 'active');
+                const { data: snapshotData, error: snapshotError } = await sb.from('communityshare').select('*').eq('communityid', userCommunityId).eq('status', 'active');
 
                 if ((!snapshotData || snapshotData.length === 0)) {
                     container.innerHTML = `
@@ -6022,7 +6022,7 @@
 
         async function viewCommunityShareItem(itemId) {
             try {
-                const { data: doc, error: docErr } = await sb.from('community_share').select('*').eq('id', itemId).maybeSingle();
+                const { data: doc, error: docErr } = await sb.from('communityshare').select('*').eq('id', itemId).maybeSingle();
                 if (!doc) { alert('Item not found'); return; }
                 const data = doc;
                 trackView('community_share', itemId); // non-blocking
@@ -6069,7 +6069,7 @@
             }
 
             try {
-                const { data: doc, error: docErr } = await sb.from('community_share').select('*').eq('id', itemId).maybeSingle();
+                const { data: doc, error: docErr } = await sb.from('communityshare').select('*').eq('id', itemId).maybeSingle();
                 const data = doc;
                 const comments = data.comments || [];
 
@@ -6083,7 +6083,7 @@
                 
                 comments.push(newComment);
 
-                await sb.from('community_share').update({
+                await sb.from('communityshare').update({
                     comments: comments
                 }).eq('id', itemId);
 
@@ -6110,7 +6110,7 @@
             try {
                 const isEmail = contact.includes('@');
                 
-                const { data: csRef, error: csRefErr } = await sb.from('community_share').insert([{
+                const { data: csRef, error: csRefErr } = await sb.from('communityshare').insert([{
                     communityid: userCommunityId,
                     ownerid: currentUser.id,
                     ownername: userData.displayName || 'Unknown',
@@ -6149,7 +6149,7 @@
             if (!confirm('Are you sure you want to delete this item?')) return;
 
             try {
-                await sb.from('community_share').delete().eq('id', itemId);
+                await sb.from('communityshare').delete().eq('id', itemId);
                 loadCommunityShare();
                 alert('✅ Item deleted successfully!');
             } catch (error) {
@@ -6277,7 +6277,7 @@
                 document.getElementById('profileMarketplace').textContent = (marketplaceSnapshotData || []).length;
                 
                 // Count community share posts
-                const { data: shareSnapshotData } = await sb.from('community_share').select('id').eq('communityid', userCommunityId).eq('postedby', currentUser.id).eq('status', 'active');
+                const { data: shareSnapshotData } = await sb.from('communityshare').select('id').eq('communityid', userCommunityId).eq('ownerid', currentUser.id).eq('status', 'active');
                 document.getElementById('profileCommunityShare').textContent = (shareSnapshotData || []).length;
                 
                 // Count events organized
