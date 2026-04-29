@@ -918,9 +918,32 @@ function saveAnnouncement() {
         authorid: currentUser.id,
         authorname: currentProfile.name || currentUser.email
     };
-    var promise = id ? sb.from('announcements').update(data).eq('id', id) : sb.from('announcements').insert([data]);
+    var promise = id ? sb.from('announcements').update(data).eq('id', id) : sb.from('announcements').insert([data]).select().single();
     promise.then(function(r) {
         if (r.error) { showToast('Error: ' + r.error.message, 'error'); return; }
+        
+        // Send push notification for NEW announcements only (not edits)
+        if (!id && r.data) {
+            sb.from('notifications').insert([{
+                communityid: communityId,
+                type: 'announcement',
+                title: '📢 New Announcement',
+                body: title,
+                postid: r.data.id,
+                posttype: 'announcement',
+                createdby: currentUser.id,
+                createdbyname: currentProfile.name || currentUser.email,
+                status: 'pending',
+                createdat: new Date().toISOString()
+            }]).then(function(notifResult) {
+                if (notifResult.error) {
+                    console.error('Notification error:', notifResult.error);
+                } else {
+                    console.log('✅ Push notification sent for announcement');
+                }
+            });
+        }
+        
         showToast(id ? 'Announcement updated!' : '📢 Announcement sent!', 'success');
         hideAnnouncementForm();
         loadAnnouncements().then(function() { renderAnnouncements(); });
