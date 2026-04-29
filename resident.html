@@ -2656,7 +2656,7 @@
                                 fcmtoken: token,
                                                             }).eq('id', currentUser.id);
                             
-                            console.log('✅ FCM token saved to Firestore');
+                            console.log('✅ FCM token saved to Supabase');
                         }
                         
                         return true;
@@ -2826,24 +2826,27 @@
                 }
                 console.log('✅ No duplicate found, proceeding...');
                 
-                // Save notification to Firestore
+                // Save notification to Supabase - webhook triggers Edge Function to send FCM push
                 console.log('💾 Creating notification document...');
                 const { data: docRef, error: docRefErr } = await sb.from('notifications').insert([{
-                    unique_id: uniqueId,
+                    uniqueid: uniqueId,
                     communityid: userCommunityId,
                     type: type,
                     title: title,
                     body: body,
                     data: data,
-                    // Flatten postId/postType to top-level so Cloud Function
-                    // can pass them as FCM data fields (FCM only sends strings)
-                    postid:   data.postid   || '',
+                    postid: data.postid || null,
                     posttype: data.posttype || type,
                     createdby: currentUser.id,
                     createdbyname: userData.displayName || userData.name,
                     createdat: new Date().toISOString(),
-                    sent: false
+                    status: 'pending'
                 }]).select().single();
+                
+                if (docRefErr) {
+                    console.error('❌ Insert error:', docRefErr.message);
+                    return;
+                }
                 
                 console.log('✅ Notification document created!');
                 if (docRef) console.log('Document ID:', docRef.id);
@@ -3044,7 +3047,7 @@
                                             const storedToken = userDoc?.fcmtoken;
                                             
                                             if (storedToken !== freshToken) {
-                                                console.log('🔄 Token changed - updating Firestore...');
+                                                console.log('🔄 Token changed - updating Supabase...');
                                                 await sb.from('users').update({
                                                     fcmtoken: freshToken,
                                                                                                     }).eq('id', currentUser.id);
@@ -6199,7 +6202,7 @@
                 // Show modal
                 document.getElementById('profileModal').classList.add('show');
                 
-                // Load user data from Firestore
+                // Load user data from Supabase
                 const { data: userDoc, error: userDocErr } = await sb.from('users').select('*').eq('id', currentUser.id).maybeSingle();
                 const { data: residentQueryData } = await sb.from('residents').select('*').eq('communityid', userCommunityId).eq('userid', currentUser.id);
                 
@@ -6350,7 +6353,7 @@
                 privacysettings[setting] = !privacysettings[setting];
                 console.log('💾 Updating privacy settings:', privacysettings);
                 
-                // Update in Firestore
+                // Update in Supabase
                 await sb.from('residents').update({
                     privacysettings: privacysettings
                 }).eq('id', residentDoc.id);
@@ -6430,7 +6433,7 @@
                 // Generate a new QR code for this visitor
                 const newQRCode = generateQRCode();
                 
-                // Update in Firestore
+                // Update in Supabase
                 sb.from('visitors').update({
                     qrcode: newQRCode
                 }).eq('id', visitorId).then(() => {
@@ -7573,7 +7576,7 @@
             if (!confirm('Remove your profile picture? Your initials will be shown instead.')) return;
 
             try {
-                // Remove from Firestore users doc
+                // Remove from Supabase users doc
                 await sb.from('users').update({
                     profilepicurl: null
                 }).eq('id', currentUser.id);
