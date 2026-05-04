@@ -15,20 +15,23 @@ firebase.initializeApp({
 
 const messaging = firebase.messaging();
 
-// Handle background messages
+// Handle background messages (data-only messages from Edge Function)
 messaging.onBackgroundMessage((payload) => {
     console.log('[SW] Background message received:', payload);
 
-    const title = payload.notification?.title || payload.data?.title || 'New notification';
-    const body  = payload.notification?.body  || payload.data?.body  || '';
-    const postId   = payload.data?.postId   || '';
-    const postType = payload.data?.postType || 'announcement';
+    // Data-only messages have everything in payload.data (all lowercase keys)
+    const title = payload.data?.title || 'New notification';
+    const body  = payload.data?.body  || '';
+    const postid   = payload.data?.postid   || '';
+    const posttype = payload.data?.posttype || payload.data?.type || 'announcement';
 
     const options = {
         body,
         icon:  '/Umbrella/logo-icon.png',
         badge: '/Umbrella/logo-icon.png',
-        data:  { postId, postType, url: '/Umbrella/resident.html' }
+        tag: postid || Date.now().toString(), // Prevent duplicate notifications
+        renotify: true,
+        data: { postid: postid, posttype: posttype, url: '/Umbrella/resident.html' }
     };
 
     self.registration.showNotification(title, options);
@@ -37,19 +40,28 @@ messaging.onBackgroundMessage((payload) => {
 // Handle notification click — open app and navigate to the post
 self.addEventListener('notificationclick', (event) => {
     event.notification.close();
-    const { postId, postType, url } = event.notification.data || {};
-    const target = postId
-        ? url + '?postId=' + postId + '&postType=' + postType
+    
+    const { postid, posttype, url } = event.notification.data || {};
+    
+    console.log('[SW] Notification clicked:', { postid, posttype });
+    
+    // Build target URL with lowercase params (matches resident.html)
+    const target = postid
+        ? (url || '/Umbrella/resident.html') + '?postid=' + postid + '&posttype=' + posttype
         : (url || '/Umbrella/resident.html');
 
     event.waitUntil(
         clients.matchAll({ type: 'window', includeUncontrolled: true }).then(list => {
+            // If app is already open, focus it and send message to open the post
             for (const client of list) {
                 if (client.url.includes('/Umbrella/') && 'focus' in client) {
-                    client.postMessage({ type: 'OPEN_POST', postId, postType });
+                    console.log('[SW] App already open, sending OPEN_POST message');
+                    client.postMessage({ type: 'OPEN_POST', postid, posttype });
                     return client.focus();
                 }
             }
+            // Otherwise open a new window with the deep link
+            console.log('[SW] Opening new window:', target);
             return clients.openWindow(target);
         })
     );

@@ -5612,7 +5612,7 @@
                     'ticket',
                     `🔧 New Support Ticket: ${title}`,
                     `${userData.displayName || 'Someone'} submitted a ticket`,
-                    { postId: tkRef.id, postType: 'ticket' }
+                    { postid: tkRef.id, posttype: 'ticket' }
                 );
                 clearMediaState('tk-upload');
                 closeModal();
@@ -5679,7 +5679,7 @@
                     'marketplace',
                     '🏪 New Marketplace Listing',
                     `${userData.displayName || 'Someone'} posted: ${title}`,
-                    { postId: mpRef.id, postType: 'marketplace', itemTitle: title, category: category }
+                    { postid: mpRef.id, posttype: 'marketplace', itemTitle: title, category: category }
                 );
 
                 clearMediaState('mp-upload');
@@ -6135,7 +6135,7 @@
                     'community_share',
                     `🤝 Community Share - ${type === 'offer' ? 'Offer' : 'Request'}`,
                     `${userData.displayName || 'Someone'} shared: ${title}`,
-                    { postId: csRef.id, postType: 'community_share' }
+                    { postid: csRef.id, posttype: 'community_share' }
                 );
 
                 clearMediaState('cs-upload');
@@ -6893,7 +6893,7 @@
                     'event',
                     '🎉 New Community Event',
                     `${userData.displayName || 'Someone'} created: ${titleVal}`,
-                    { postId: evRef.id, postType: 'event' }
+                    { postid: evRef.id, posttype: 'event' }
                 );
                 
                 console.log('Event created successfully!');
@@ -6954,7 +6954,7 @@
                     'security',
                     `🚨 Security Alert: ${title}`,
                     `${userData.displayName || 'Someone'} reported: ${description.substring(0, 80)}`,
-                    { postId: saRef.id, postType: 'security' }
+                    { postid: saRef.id, posttype: 'security' }
                 );
                 clearMediaState('sa-upload');
                 closeModal();
@@ -7059,7 +7059,7 @@
                     'lostfound',
                     `${type === 'lost' ? '😟 Item Lost' : '🎉 Item Found'}: ${title}`,
                     `${userData.displayName || 'Someone'} posted in Lost & Found`,
-                    { postId: lfRef.id, postType: 'lostfound' }
+                    { postid: lfRef.id, posttype: 'lostfound' }
                 );
                 clearMediaState('lf-upload');
                 closeModal();
